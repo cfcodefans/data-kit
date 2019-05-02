@@ -4,12 +4,16 @@ import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import java.io.Serializable
 import java.util.*
+import javax.persistence.Column
 import javax.persistence.Id
 
 open class BaseEn : Serializable {
 
     @Id
     var id: Long? = null
+
+    @Column(name = "name", nullable = false)
+    var name: String? = null
 
     @CreatedDate
     var createdAt: Date = Date()
@@ -20,11 +24,12 @@ open class BaseEn : Serializable {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is BaseEn) return false
+
         if (id != other.id) return false
+        if (name != other.name) return false
         return true
     }
 
-    override fun hashCode(): Int {
-        return id?.hashCode() ?: 0
-    }
+    override fun hashCode(): Int = Objects.hash(id, name)
+
 }

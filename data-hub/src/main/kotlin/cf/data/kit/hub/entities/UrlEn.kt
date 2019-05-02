@@ -27,7 +27,6 @@ open class UrlEn : BaseEn() {
 
     @Embedded
     var account: UrlAccount? = null
-
     var info: String? = null
     var optStr: String? = null
 }
