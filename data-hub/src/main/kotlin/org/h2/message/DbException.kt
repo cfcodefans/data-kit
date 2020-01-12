@@ -1,7 +1,10 @@
 package org.h2.message
 
 import org.h2.api.ErrorCode.OUT_OF_MEMORY
+import org.h2.engine.Constants
 import org.h2.jdbc.JdbcException
+import org.h2.jdbc.JdbcSQLException
+import org.h2.jdbc.JdbcSQLNonTransientException
 import org.h2.util.SortedProperties
 import org.h2.util.StringUtils
 import org.h2.util.Utils
@@ -111,9 +114,34 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         fun getJdbcSQLException(message: String?, sql: String?, state: String?, errorCode: Int, cause: Throwable, stackTrace: String?): SQLException {
             val _sql: String? = filterSQL(sql)
             when (errorCode / 1_000) {
-                2->
+                2 -> return JdbcSQLNonTransientException(
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+                else -> return JdbcSQLException(message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
             }
         }
+
+        /**
+         * Builds message for an exception.
+         *
+         * @param e exception
+         * @return message
+         */
+        @JvmStatic
+        fun buildMessageForException(e: JdbcException): String {
+            val sql: String = if (e.SQL != null) "; SQL statement:\n${e.SQL}" else ""
+            return "${e.originalMessage ?: "- "} $sql [${e.getErrorCode()}-${Constants.BUILD_ID}]"
+        }
+
     }
 
     private constructor(e: SQLException) : this(e.message, e)
@@ -142,10 +170,15 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
     fun addSQL(sql: String?): DbException {
         var e: SQLException? = getSQLException()
         if (e is JdbcException) {
-            if (e.getSQL() == null) e.setSQL(filterSQL(sql))
+            if (e.SQL == null) e.SQL = filterSQL(sql)
             return this
         }
-
+        return DbException(getJdbcSQLException(message = e!!.message,
+                sql = sql,
+                state = e.sqlState,
+                errorCode = e.errorCode,
+                cause = e,
+                stackTrace = null))
     }
 
 

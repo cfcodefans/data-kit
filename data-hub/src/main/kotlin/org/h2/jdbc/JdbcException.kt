@@ -1,5 +1,7 @@
 package org.h2.jdbc
 
+import org.h2.message.DbException
+
 /**
  * This interface contains additional methods for database exceptions.
  */
@@ -14,7 +16,8 @@ interface JdbcException {
     /**
      * INTERNAL
      */
-    fun getOriginalMessage(): String?
+//    fun getOriginalMessage(): String?
+    val originalMessage: String?
 
     /**
      * Returns the SQL statement.
@@ -24,18 +27,28 @@ interface JdbcException {
      *
      * @return the SQL statement
      */
-    fun getSQL(): String?
+//    fun getSQL(): String?
+    var SQL: String?
 
     /**
      * INTERNAL
      */
-    fun setSQL(sql: String?): Unit
+//    fun setSQL(sql: String?): Unit
 
-    /**
-     * Returns the class name, the message, and in the server mode, the stack
-     * trace of the server
-     *
-     * @return the string representation
-     */
-    override fun toString(): String
+    val stackTrace: String?
+
+    var message: String?
+}
+
+/**
+ * Returns the class name, the message, and in the server mode, the stack
+ * trace of the server
+ *
+ * @return the string representation
+ */
+fun JdbcException.toString(): String = stackTrace ?: this.toString()
+
+fun JdbcException.setSQL(sql: String?) {
+    this.SQL = sql
+    this.message = DbException.buildMessageForException(this)
 }

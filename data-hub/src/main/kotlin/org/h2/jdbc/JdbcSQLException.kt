@@ -3,10 +3,10 @@ package org.h2.jdbc
 import java.sql.SQLNonTransientException
 
 /**
- * Represents a database exception
+ * Represents a database exception.
  */
 /**
- * Creates a SQLNonTransientException.
+ * Creates a SQLException.
  *
  * @param message the reason
  * @param sql the SQL statement
@@ -15,22 +15,16 @@ import java.sql.SQLNonTransientException
  * @param cause the exception that was the reason for this exception
  * @param stackTrace the stack trace
  */
-class JdbcSQLNonTransientException(
-        state: String?,
-        cause: Throwable?,
-        errorCode: Int,
+class JdbcSQLException(
         override var message: String?,
-        override val originalMessage: String? = null,
         override var SQL: String?,
-        override val stackTrace: String?
-) : SQLNonTransientException(message, state, errorCode), JdbcException {
-
+        override val originalMessage: String? = null,
+        override val stackTrace: String?,
+        cause: Throwable?,
+        state: String?,
+        errorCode: Int) : SQLNonTransientException(message, state, errorCode), JdbcException {
     init {
         setSQL(SQL)
         initCause(cause)
-    }
-
-    companion object {
-        private const val serialVersionUID = 1L
     }
 }

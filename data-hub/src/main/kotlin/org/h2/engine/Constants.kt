@@ -26,4 +26,9 @@ object Constants {
      * The block size for I/O operations.
      */
     const val IO_BUFFER_SIZE: Int = 8 * 1024
+
+    /**
+     * The build id is incremented for each public release.
+     */
+    const val BUILD_ID: Int = 199
 }

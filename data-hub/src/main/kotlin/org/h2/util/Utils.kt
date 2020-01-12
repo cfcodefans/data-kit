@@ -1,14 +1,11 @@
 package org.h2.util
 
-import org.apache.commons.lang3.ArrayUtils
 import org.apache.commons.lang3.StringUtils
 import org.jetbrains.kotlin.utils.getOrPutNullable
 import java.io.IOException
 import java.io.InputStream
-import java.util.*
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
-import kotlin.collections.HashMap
 import kotlin.experimental.or
 import kotlin.experimental.xor
 
@@ -105,11 +102,13 @@ object Utils {
      * @param name the name of the resource
      * @return the resource data
      */
+    @JvmStatic
     @Throws(IOException::class)
     fun getResource(name: String): ByteArray? {
         return RESOURCES.getOrPutNullable(name) { loadResource(name) }
     }
 
+    @JvmStatic
     @Throws(IOException::class)
     private fun loadResource(name: String): ByteArray? {
         var _in: InputStream? = Utils.javaClass.getResourceAsStream("data.zip")
@@ -138,10 +137,40 @@ object Utils {
      * @param target the target array
      * @return the target array or a new one if the target array was too small
      */
+    @JvmStatic
     fun copy(source: ByteArray, target: ByteArray): ByteArray {
         val len: Int = source.size
         return source.copyInto(if (len > target.size) {
             ByteArray(len)
         } else target)
+    }
+
+    /**
+     * Parses the specified string to boolean value.
+     *
+     * @param value string to parse
+     * @param defaultValue value to return if value is null or on parsing error
+     * @param throwException throw exception on parsing error or return defalut value instead
+     * @return parsed or default value
+     * @throws IllegalArgumentException on parsing error if {@code throwException} is true
+     */
+    @JvmStatic
+    fun parseBoolean(value: String?, defaultValue: Boolean, throwException: Boolean): Boolean {
+        value ?: return defaultValue
+        return when (value.length) {
+            1 -> when (value) {
+                "1", "y", "Y", "t", "T" -> true
+                "0", "f", "F", "n", "N" -> false
+                else -> defaultValue
+            }
+            2 -> !"no".equals(value, false) || defaultValue
+            3 -> "yes".equals(value, false) || defaultValue
+            4 -> "true".equals(value, false) || defaultValue
+            5 -> !"false".equals(value, false) || defaultValue
+            else -> {
+                if (throwException) throw IllegalArgumentException(value)
+                defaultValue
+            }
+        }
     }
 }
