@@ -1,8 +1,6 @@
 package org.h2.security.auth.impl
 
 import com.google.common.hash.Hashing
-import com.google.common.io.BaseEncoding
-import com.google.common.primitives.Bytes
 import org.h2.api.CredentialsValidator
 import org.h2.security.auth.AuthenticationInfo
 import org.h2.security.auth.ConfigProperties
@@ -28,6 +26,10 @@ class StaticUserCredentialsValidator : CredentialsValidator {
     }
 
     override fun validateCredentials(authenticationInfo: AuthenticationInfo): Boolean {
+        if (userNamePattern?.matcher(authenticationInfo.getUserName())?.matches() == false) {
+            return false
+        }
+
     }
 
     override fun configure(configProperties: ConfigProperties) {
@@ -36,7 +38,6 @@ class StaticUserCredentialsValidator : CredentialsValidator {
         }
         password = configProperties.getStringValue("password", password)!!
         salt = configProperties.getStringValue("salt", null)?.let {
-
         }
     }
 

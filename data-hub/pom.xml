@@ -239,6 +239,9 @@
                 </executions>
                 <configuration>
                     <jvmTarget>1.8</jvmTarget>
+                    <javacOptions>
+                        <javacOption>-Xjvm-default</javacOption>
+                    </javacOptions>
                 </configuration>
             </plugin>
         </plugins>
