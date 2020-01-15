@@ -1,10 +1,9 @@
 package org.h2.message
 
 import org.h2.api.ErrorCode.OUT_OF_MEMORY
+import org.h2.api.ErrorCode.getState
 import org.h2.engine.Constants
-import org.h2.jdbc.JdbcException
-import org.h2.jdbc.JdbcSQLException
-import org.h2.jdbc.JdbcSQLNonTransientException
+import org.h2.jdbc.*
 import org.h2.util.SortedProperties
 import org.h2.util.StringUtils
 import org.h2.util.Utils
@@ -111,10 +110,59 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
          * @return the SQLException object
          */
         @JvmStatic
-        fun getJdbcSQLException(message: String?, sql: String?, state: String?, errorCode: Int, cause: Throwable, stackTrace: String?): SQLException {
+        fun getJdbcSQLException(message: String?, sql: String?, state: String?, errorCode: Int, cause: Throwable?, stackTrace: String?): SQLException {
             val _sql: String? = filterSQL(sql)
             when (errorCode / 1_000) {
                 2 -> return JdbcSQLNonTransientException(
+                        originalMessage = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+                7, 21, 42 -> return JdbcSQLSyntaxErrorException(
+                        originalMessage = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+                8 -> return JdbcSQLNonTransientConnectionException(
+                        originalMessage = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+                22 -> return JdbcSQLDataException(
+                        originalMessage = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+                23 -> return JdbcSQLIntegrityConstraintViolationException(
+                        originalMessage = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+                28 -> return JdbcSQLInvalidAuthorizationSpecException(
+                        originalMessage = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+                40 -> return JdbcSQLTransactionRollbackException(
+                        originalMessage = message,
                         message = message,
                         SQL = sql,
                         state = state,
@@ -122,11 +170,17 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                         cause = cause,
                         stackTrace = stackTrace)
                 else -> return JdbcSQLException(message = message,
+                        originalMessage = message,
                         SQL = sql,
                         state = state,
                         errorCode = errorCode,
                         cause = cause,
                         stackTrace = stackTrace)
+            }
+
+            // Check error code
+            when (errorCode) {
+
             }
         }
 
@@ -142,6 +196,22 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             return "${e.originalMessage ?: "- "} $sql [${e.getErrorCode()}-${Constants.BUILD_ID}]"
         }
 
+
+        /**
+         * Create a database exception for a specific error code.
+         */
+        @JvmStatic
+        fun get(errorCode: Int, vararg params: String): DbException = DbException(getJdbcSQLException(errorCode, null, *params))
+
+        /**
+         * Gets the SQL exception object for a specific error code.
+         * @param errorCode the error code
+         * @param cause the cause of the exception
+         * @param params the list of parameters of the message
+         * @return the SQLException object
+         */
+        @JvmStatic
+        fun getJdbcSQLException(errorCode: Int, cause: Throwable?, vararg params: String): SQLException = getState(errorCode).let { getJdbcSQLException(translate(it, *params), null, it, errorCode, cause, null) }
     }
 
     private constructor(e: SQLException) : this(e.message, e)
@@ -180,6 +250,4 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                 cause = e,
                 stackTrace = null))
     }
-
-
 }

@@ -2,7 +2,6 @@ package org.h2.util
 
 import org.h2.engine.Constants
 import org.h2.message.DbException
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -48,7 +47,10 @@ object IOUtils {
     fun readBytesAndClose(`in`: InputStream, length: Int): ByteArray {
         `in`.use {
             try {
-                return `in`.readNBytes(if (length <= 0) Int.MAX_VALUE else length)
+                if (length <= 0) return `in`.readAllBytes()
+                val buf: ByteArray = ByteArray(length)
+                `in`.readNBytes(buf, 0, length)
+                return buf
             } catch (e: Exception) {
                 throw DbException.convertToIOException(e)
             }

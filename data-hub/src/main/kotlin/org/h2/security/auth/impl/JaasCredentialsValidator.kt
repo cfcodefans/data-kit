@@ -34,7 +34,7 @@ class AuthenticationInfoCallbackHandler(private val authenticationInfo: Authenti
  * Create the validator with the given name of JAAS configuration
  * @param appName = name of JAAS configuration
  */
-class JaasCredentialsValidator(private var appName: String) : CredentialsValidator {
+class JaasCredentialsValidator(private var appName: String?) : CredentialsValidator {
     companion object {
         const val DEFAULT_APPNAME: String = "h2"
     }

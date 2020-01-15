@@ -1,5 +1,8 @@
 package org.h2.engine
 
+import org.h2.util.MathUtils
+import org.h2.util.Utils
+
 /**
  * The constants defined in this class are initialized from system properties.
  * Some system properties are per machine settings, and others are as a last
@@ -18,5 +21,14 @@ package org.h2.engine
  *     </pre>
  */
 object SysProperties {
-
+    /**
+     * System property <code>h2.objectCacheSize</code> (default: 1024). <br/>
+     * The maximum number of objects in the cache.
+     * This value must be a power of 2.
+     */
+    val OBJECT_CACHE_SIZE: Int = try {
+        MathUtils.nextPowerOf2(Utils.getProperty("h2.objectCacheSize", 1024))
+    } catch (e: IllegalArgumentException) {
+        throw IllegalStateException("Invalid h2.objectCacheSize", e)
+    }
 }

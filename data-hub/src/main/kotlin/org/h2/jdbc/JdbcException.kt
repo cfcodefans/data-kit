@@ -38,6 +38,7 @@ interface JdbcException {
     val stackTrace: String?
 
     var message: String?
+
 }
 
 /**

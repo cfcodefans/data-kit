@@ -12,12 +12,12 @@ import org.h2.security.auth.ConfigProperties
  *     </ul>
  */
 class StaticRolesMapper(private vararg var roles: String) : UserToRolesMapper {
-    override fun mapUserToRoles(authenticationInfo: AuthenticationInfo) = roles.toList()
+    override fun mapUserToRoles(authenticationInfo: AuthenticationInfo) = roles?.toList()
 
     override fun configure(configProperties: ConfigProperties) {
         roles = configProperties.getStringValue("roles", "")
-                .split(",")
-                .toHashSet()
-                .toTypedArray()
+                ?.split(",")
+                ?.toHashSet()
+                ?.toTypedArray() ?: emptyArray()
     }
 }

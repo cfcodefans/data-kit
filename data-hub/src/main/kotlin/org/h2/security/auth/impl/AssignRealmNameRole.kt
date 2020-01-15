@@ -13,7 +13,7 @@ import org.h2.security.auth.ConfigProperties
  *     <li>roleNameFormat, optional by default is @{realm{</li>
  *     </ul>
  */
-class AssignRealmNameRole(private var roleNameFormat: String) : UserToRolesMapper {
+class AssignRealmNameRole(private var roleNameFormat: String?) : UserToRolesMapper {
     constructor() : this("@%s")
 
     override fun configure(configProperties: ConfigProperties) {
@@ -21,6 +21,6 @@ class AssignRealmNameRole(private var roleNameFormat: String) : UserToRolesMappe
     }
 
     override fun mapUserToRoles(authenticationInfo: AuthenticationInfo): Collection<String> {
-        return listOf(roleNameFormat.format(authenticationInfo.realm))
+        return listOf(roleNameFormat!!.format(authenticationInfo.realm))
     }
 }

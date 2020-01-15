@@ -173,4 +173,37 @@ object Utils {
             }
         }
     }
+
+    /**
+     * Get the system property. If the system property is not set, or if a
+     * security exception occurs, the default value is returned.
+     *
+     * @param key the key
+     * @param defaultValue the default value
+     * @return the value
+     */
+    fun getProperty(key: String?, defaultValue: String?): String? {
+        return try {
+            System.getProperty(key, defaultValue)
+        } catch (se: SecurityException) {
+            defaultValue
+        }
+    }
+
+    /**
+     * Get the system property. If the system property is not set, or if a
+     * security exception occurs, the default value is returned.
+     * @param key the key
+     * @param default the default value
+     * @return the value
+     */
+    @JvmStatic
+    fun getProperty(key: String, defaultValue: Int): Int {
+        val s = getProperty(key, null)
+        if (s != null) try {
+            return Integer.decode(s)
+        } catch (e: NumberFormatException) { // ignore
+        }
+        return defaultValue
+    }
 }
