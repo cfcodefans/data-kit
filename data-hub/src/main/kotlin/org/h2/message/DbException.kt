@@ -1,6 +1,12 @@
 package org.h2.message
 
+import org.h2.api.ErrorCode.EXCEPTION_IN_FUNCTION_1
+import org.h2.api.ErrorCode.GENERAL_ERROR_1
+import org.h2.api.ErrorCode.IO_EXCEPTION_1
+import org.h2.api.ErrorCode.METHOD_NOT_ALLOWED_FOR_QUERY
+import org.h2.api.ErrorCode.METHOD_ONLY_ALLOWED_FOR_QUERY
 import org.h2.api.ErrorCode.OUT_OF_MEMORY
+import org.h2.api.ErrorCode.UNKNOWN_DATA_TYPE_1
 import org.h2.api.ErrorCode.getState
 import org.h2.engine.Constants
 import org.h2.jdbc.*
@@ -9,6 +15,7 @@ import org.h2.util.StringUtils
 import org.h2.util.Utils
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.lang.reflect.InvocationTargetException
 import java.nio.charset.StandardCharsets
 import java.sql.DriverManager
 import java.sql.SQLException
@@ -84,7 +91,7 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         }
 
         @JvmStatic
-        fun translate(key: String, vararg params: String): String {
+        fun translate(key: String, vararg params: String?): String {
             val message: String = MESSAGES.getProperty(key) ?: "(Message $key not found)"
             return MessageFormat.format(message,
                     params.map { p ->
@@ -180,6 +187,9 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
 
             // Check error code
             when (errorCode) {
+                GENERAL_ERROR_1,
+                UNKNOWN_DATA_TYPE_1,
+                METHOD_NOT_ALLOWED_FOR_QUERY, METHOD_ONLY_ALLOWED_FOR_QUERY,
 
             }
         }
@@ -199,9 +209,22 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
 
         /**
          * Create a database exception for a specific error code.
+         * @param errorCode the error code
+         * @param params the list of parameters of the message
+         * @return the exception
          */
         @JvmStatic
         fun get(errorCode: Int, vararg params: String): DbException = DbException(getJdbcSQLException(errorCode, null, *params))
+
+        /**
+         * Create a database exception for a specific error code.
+         * @param errorCode the error code
+         * @param params the list of parameters of the message
+         * @return the exception
+         */
+        @JvmStatic
+        fun get(errorCode: Int, cause: Throwable, vararg params: String?): DbException =
+                DbException(getJdbcSQLException(errorCode, cause, *params))
 
         /**
          * Gets the SQL exception object for a specific error code.
@@ -211,7 +234,52 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
          * @return the SQLException object
          */
         @JvmStatic
-        fun getJdbcSQLException(errorCode: Int, cause: Throwable?, vararg params: String): SQLException = getState(errorCode).let { getJdbcSQLException(translate(it, *params), null, it, errorCode, cause, null) }
+        fun getJdbcSQLException(errorCode: Int, cause: Throwable?, vararg params: String?): SQLException = getState(errorCode).let { getJdbcSQLException(translate(it, *params), null, it, errorCode, cause, null) }
+
+        /**
+         * Convert an InvocationTarget exception to a database exception.
+         * @param te the root cause
+         * @param message the added message or null
+         * @return the database exception object
+         */
+        @JvmStatic
+        fun convertInvocation(te: InvocationTargetException, message: String?): DbException {
+            val t: Throwable = te.targetException
+            if (t is SQLException || t is DbException)
+                return convert(t)
+            return get(EXCEPTION_IN_FUNCTION_1, t, message)
+        }
+
+        /**
+         * Convert a throwable to an SQL exception using the default mapping. All
+         * errors except the following are re-thrown: StackOverflowError, LinkageError.
+         * @param e the root cause
+         * @return the exception object
+         */
+        @JvmStatic
+        fun convert(e: Throwable): DbException = try {
+            when (e) {
+                is DbException -> e
+                is SQLException -> DbException(e)
+                is InvocationTargetException -> convertInvocation(e, null)
+                is IOException -> get(IO_EXCEPTION_1, e, e.toString())
+                is OutOfMemoryError -> get(OUT_OF_MEMORY, e)
+                is StackOverflowError, is LinkageError -> get(GENERAL_ERROR_1, e, e.toString())
+                is Error -> throw e
+                else -> get(GENERAL_ERROR_1, e, e.toString())
+            }
+        } catch (ignore: OutOfMemoryError) {
+            OOME
+        } catch (ex: Throwable) {
+            try {
+                DbException(SQLException("GeneralError", "HY000", GENERAL_ERROR_1, e)).let {
+                    it.addSuppressed(ex)
+                    it
+                }
+            } catch (ignore: OutOfMemoryError) {
+                OOME
+            }
+        }
     }
 
     private constructor(e: SQLException) : this(e.message, e)

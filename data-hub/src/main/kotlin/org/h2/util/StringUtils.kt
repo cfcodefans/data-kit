@@ -1,5 +1,6 @@
 package org.h2.util
 
+import org.apache.commons.lang3.StringUtils
 import org.h2.api.ErrorCode.HEX_STRING_ODD_1
 import org.h2.api.ErrorCode.HEX_STRING_WRONG_1
 import org.h2.api.ErrorCode.STRING_FORMAT_ERROR_1
@@ -7,6 +8,7 @@ import org.h2.engine.SysProperties
 import org.h2.message.DbException
 import java.lang.Math.min
 import java.lang.ref.SoftReference
+import java.net.URLEncoder
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -252,5 +254,54 @@ object StringUtils {
 
     private fun getFormatException(s: String, i: Int): DbException {
         return DbException.get(STRING_FORMAT_ERROR_1, addAsterisk(s, i))
+    }
+
+    /**
+     * Convert a string to the Java literal and enclose it with double quotes.
+     * Null will result in "null" (without double quotes).
+     * @param s the text to convert
+     * @return the Java representation
+     */
+    @JvmStatic
+    fun quoteJavaString(s: String?): String {
+        s ?: return "null"
+        val builder = java.lang.StringBuilder(s.length + 2).append('"')
+        javaEncode(s, builder, false)
+        return builder.append('"').toString()
+    }
+
+    /**
+     * Convert an int array to the Java source code that represents this array.
+     * Null will be converted to 'null'.
+     * @param array the int array
+     * @return the Java source code (including new int[]{})
+     */
+    @JvmStatic
+    fun quoteJavaIntArray(array: IntArray?): String {
+        array ?: return "null"
+        return "new int[]{${StringUtils.join(array, ", ")}}" //TODO preformance
+    }
+
+    /**
+     * Remove enclosing '(' and ')' if this text is enclosed.
+     * @param s the potentially enclosed string
+     * @return the string
+     */
+    @JvmStatic
+    fun unEnclose(s: String): String =
+            if (s.startsWith('(') && s.endsWith(')'))
+                s.substring(1, s.length - 1)
+            else s
+
+    /**
+     * Encode the string as a URL
+     * @param s the string to encode
+     * @return the encoded string
+     */
+    @JvmStatic
+    fun urlEncode(s: String): String = try {
+        URLEncoder.encode(s, "UTF-8")
+    } catch (e: Exception) {
+        throw  DbException.convert(e)
     }
 }

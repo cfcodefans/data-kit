@@ -203,12 +203,19 @@ object ErrorCode {
     const val LOCK_TIMEOUT_1: Int = 50200
 
     /**
-     * The error with code `90108` is thrown when not enough heap
-     * memory was available. A possible solutions is to increase the memory size
-     * using `java -Xmx128m ...`. Another solution is to reduce
-     * the cache size.
+     * The error with code <code>90000</code> is thrown when
+     * a function that does not return a result set was used in the FORM clause.
+     * Example:
+     * <pre>SELECT * FROM SIN(1);</pre>
      */
-    const val OUT_OF_MEMORY: Int = 90108
+    const val FUNCTION_MUST_RETURN_RESULT_SET_1: Int = 90000
+
+    /**
+     * The error with code <code>90001</code> is thrown when
+     * Statement.executeUpdate() was called for a SELECT statement.
+     * This is not allowed according to the JDBC specs.
+     */
+    const val METHOD_NOT_ALLOWED_FOR_QUERY: Int = 90001
 
     /**
      * The error with code <code>90002</code> is thrown when
@@ -245,6 +252,73 @@ object ErrorCode {
     const val HEX_STRING_WRONG_1: Int = 90004
 
     /**
+     * The error with code <code>90005</code> is thrown when
+     * trying to create a trigger and using the combination of SELECT
+     * and FOR EACH ROW, which we do not support.
+     */
+    const val TRIGGER_SELECT_AND_ROW_BASED_NOT_SUPPORTED: Int = 90005
+
+    /**
+     * The error with code <code>90006</code> is thrown when
+     * trying to get a value from a sequence that has run out of numbers
+     * and does not have cycling enabled.
+     */
+    const val SEQUENCE_EXHAUSTED: Int = 90006
+
+    /**
+     * The error with code <code>90007</code> is thrown when
+     * trying to call a JDBC method on an object that has been closed.
+     */
+    const val OBJECT_CLOSED: Int = 90007
+
+    /**
+     * The error with code <code>90008</code> is thrown when trying to use
+     * a value that is not valid for teh given operation.
+     * Example:
+     * <pre>CREATE SEQUENCE TEST INCREMENT 0;</pre>
+     */
+
+    /**
+     * The error with code <code>90026</code> is thrown when an object could not
+     * be serialized.
+     */
+    const val SERIALIZATION_FAILED_1: Int = 90026
+
+    /**
+     * The error with code <code>90027</code> is thrown when an object could not
+     * be de-serialized.
+     */
+    const val DESERIALIZATION_FAILED_1: Int = 90027
+
+    /**
+     * The error with code <code>90028</code> is thrown when
+     * an input / output error occurred. For more information, see the root
+     * cause of the exception.
+     */
+    const val IO_EXCEPTION_1: Int = 90028
+
+    /**
+     * The error with code <code>90029</code> is thrown when
+     * calling ResultSet.deleteRow(), insertRow(), or updateRow()
+     * when then current row is not updatable.
+     * Example:
+     * <pre>
+     *     ResultSet rs = stat.executeQuery("SELECT * FROM REST");
+     *     rs.next();
+     *     rs.insertRow();
+     *     </pre>
+     */
+    const val NOT_ON_UPDATABLE_ROW: Int = 90029
+
+    /**
+     * The error with code <code>90029</code> is thrown when
+     * the database engine has detected a checksum mismatch in the data
+     * or index. To solve this problem, restore a backup or use the
+     * Recovery tool (org.h2.tools.Recover).
+     */
+    const val FILE_CORRUPTED_1: Int = 90030
+
+    /**
      * The error with code <code>90095</code> is thrown when
      * calling the method STRINGDECODE with an invalid escape sequence.
      * Only Java style escape sequences and java properties file escape
@@ -253,6 +327,49 @@ object ErrorCode {
      * <pre>CALL STRINGDECODE('\i');</pre>
      */
     const val STRING_FORMAT_ERROR_1: Int = 90095
+
+    /**
+     * The error with code <code>90105</code> is thrown when
+     * an exception occurred in a user-defined method.
+     * Example:
+     * <pre>
+     *     CREATE ALIAS SYS_PROP FOR "java.lang.System.getProperty";
+     *     CALL SYS_PROP(NULL);
+     *     </pre>
+     */
+    const val EXCEPTION_IN_FUNCTION_1: Int = 90105
+
+    /**
+     * The error with code <code>90106</code> is thrown when
+     * trying to truncate a table that can not be truncated.
+     * Tables with referential integrity constraints can not be truncated.
+     * Also, system tables and view can not be truncated.
+     * Example:
+     * <pre>
+     *     TRUNCATE TABLE INFORMATION_SCHEMA.SETTINGS;
+     *     </pre>
+     */
+    const val CANNOT_TRUNCATE_1: Int = 90106
+
+    /**
+     * The error with code <code>90107</code> is thrown when
+     * trying to drop an object because another object would become invalid.
+     * Example:
+     * <pre>
+     * CREATE TABLE COUNT(X INT);
+     * CREATE TABLE ITEMS(ID INT DEFAULT SELECT MAX(X)+1 FROM COUNT);
+     * DROP TABLE COUNT;
+     * </pre>
+     */
+    const val CANNOT_DROP_2: Int = 90107
+
+    /**
+     * The error with code `90108` is thrown when not enough heap
+     * memory was available. A possible solutions is to increase the memory size
+     * using `java -Xmx128m ...`. Another solution is to reduce
+     * the cache size.
+     */
+    const val OUT_OF_MEMORY: Int = 90108
 
     /**
      * INTERNAL
