@@ -272,6 +272,72 @@ object ErrorCode {
     const val OBJECT_CLOSED: Int = 90007
 
     /**
+     * The error with code <code>90019</code> is thrown when
+     * trying to drop the current user, if there are no other admin users.
+     * Example:
+     * <pre>DROP USER SA;</pre>
+     */
+    const val CANNOT_DROP_CURRENT_USER: Int = 90019
+
+    /**
+     * The error with code <code>90020</code> is thrown when trying to open a
+     * database in embedded mode if this database is already in use in another
+     * process (or in a different class loader). Multiple connections to the
+     * same database are supported in the following cases:
+     * <ul>
+     *     <li>In embedded mode (URL of the form jdbc:h2:~/test) if all
+     * connections are opened within the same process and class loader.
+     * </li>
+     * <li>In server and cluster mode (URL of the form
+     * jdbc:h2:tcp://localhost/test) using remote connections.
+     * </li></ul>
+     * The mixed mode is also supported. This mode requires to start a server
+     * in the same process where the database is open in embedded mode.
+     */
+    const val DATABASE_ALREADY_OPEN_1: Int = 90020
+
+    /**
+     * The error with code <code>90021</code> is thrown when
+     * trying to change a specific database property that conflicts with other
+     * database properties.
+     */
+    const val UNSUPPORTED_SETTING_COMBINATION: Int = 90021
+
+    /**
+     * The error with code <code>90022</code> is thrown when
+     * trying to call a unknown function.
+     * Example:
+     * <pre>
+     *     CALL SPECIAL_SIN(10);
+     *     </pre>
+     */
+    const val FUNCTION_NOT_FOUND_1: Int = 90022
+
+    /**
+     * The error with code <code>90023</code> is thrown when
+     * trying to set a primary key on a nullable column.
+     * Example:
+     * <pre>
+     *     CREATE TABLE TEST(ID INT, NAME VARCHAR);
+     *     ALTER TABLE TEST ADD CONSTRAINT PK PRIMARY KEY(ID);
+     *     </pre>
+     */
+    const val COLUMN_MUST_NOT_BE_NULLABLE_1: Int = 90023
+
+    /**
+     * The error with code <code>90024</code> is thrown when
+     * a file could not be renamed.
+     */
+    const val FILE_RENAME_FAILED_2: Int = 90024
+
+    /**
+     * The error with code <code>90025</code> is thrown when a file
+     * could not be deleted, because it is still in use (only in Windows),
+     * or because an error occurred when deleting.
+     */
+    const val FILE_DELETE_FAILED_1: Int = 90025
+
+    /**
      * The error with code <code>90008</code> is thrown when trying to use
      * a value that is not valid for teh given operation.
      * Example:
@@ -317,6 +383,138 @@ object ErrorCode {
      * Recovery tool (org.h2.tools.Recover).
      */
     const val FILE_CORRUPTED_1: Int = 90030
+
+    /**
+     * The error with code <code>90031</code> is thrown when
+     * an input / output error occurred. For more information, see the root
+     * cause of the exception.
+     */
+    const val IO_EXCEPTION_2: Int = 90031
+
+    /**
+     * The error with code <code>90032</code> is thrown when
+     * trying to drop or alter a user that does not exist.
+     * Example:
+     * <pre>DROP USER TEST_USER;</pre>
+     */
+    const val USER_NOT_FOUND_1: Int = 90032
+
+    /**
+     * The error with code <code>90033</code> is thrown when
+     * trying to create a user or role if a user with this name already exists.
+     * Example:
+     * <pre>
+     *     CREATE USER TEST_USER;
+     *     CREATE USER TEST_USER;
+     * </pre>
+     */
+    const val USER_ALREADY_EXISTS_1: Int = 90033
+
+    /**
+     * The error with code <code>90034</code> is thrown when
+     * writing to the trace file failed, for example because there
+     * is an I/O exception. This message is printed to System.out,
+     * but only once.
+     */
+    const val TRACE_FILE_ERROR_2: Int = 90034
+
+    /**
+     * The error with code <code>90035</code> is thrown when
+     * trying to create a sequence if a sequence with this name already
+     * exists.
+     * Example:
+     * <pre>
+     *     CREATE SEQUENCE TEST_SEQ;
+     *     CREATE SEQUENCE TEST_SEQ;
+     *     </pre>
+     */
+    const val SEQUENCE_ALREADY_EXISTS_1: Int = 90035
+
+    /**
+     * The error with code <code>90036</code> is thrown when
+     * trying to access a sequence that does not exist.
+     * Example:
+     * <pre>SELECT NEXT VALUE FOR SEQUENCE XYZ;</pre>
+     */
+    const val SEQUENCE_NOT_FOUND_1: Int = 90036
+
+    /**
+     * The error with code <code>90037</code> is thrown when
+     * trying to drop or alter a view that does not exist.
+     * Example:
+     * <pre>DROP VIEW XYZ;</pre>
+     */
+    const val VIEW_NOT_FOUND_1: Int = 90037
+
+    /**
+     * The error with code <code>90037</code> is thrown when
+     * trying to create a view if a view with this name already
+     * exists.
+     * Example:
+     * <pre>
+     *     CREATE_VIEW DUMMY AS SELECT * FROM DUAL;
+     *     CREATE_VIEW DUMMY AS SELECT * FROM DUAL;
+     *     </pre>
+     */
+    const val VIEW_ALREADY_EXISTS_1: Int = 90038
+
+    /**
+     * The error with code <code>90039</code> is thrown when
+     * trying to access a CLOB or BLOB object that time out.
+     * See the database setting LOB_TIMEOUT.
+     */
+    const val LOB_CLOSED_NO_TIMEOUT_1: Int = 90039
+
+    /**
+     * The error with code <code>90040</code> is thrown when
+     * a user that is not administrator tries to execute a statement
+     * that requires admin privileges.
+     */
+    const val ADMIN_RIGHTS_REQUIRED: Int = 90040
+
+    /**
+     * The error with code <code>90041</code> is thrown when
+     * trying to create a trigger and there is already a trigger with that name.
+     * <pre>
+     *     CREATE TABLE TEST (ID INT);
+     *     CREATE TRIGGER TRIGGER_A AFTER INSERT ON TEST
+     *          CALL "org.h2.samples.TriggerSample$MyTrigger";
+     *     CREATE TRIGGER TRIGGER_A AFTER INSERT ON TEST
+     *          CALL "org.h2.samples.TriggerSample$MyTrigger";
+     * </pre>
+     */
+    const val TRIGGER_ALREADY_EXISTS_1: Int = 90041
+
+    /**
+     * The erro with code <code>90042</code> is thrown when
+     * trying to drop a trigger that does not exists.
+     * Example:
+     * <pre>
+     *     DROP TRIGGER TRIGGER_XYZ;
+     *     </pre>
+     */
+    const val TRIGGER_NOT_FOUND_1: Int = 90042
+
+    /**
+     * The error with code <code>90043</code> is thrown when
+     * there is an error initializing the trigger, for example because the
+     * class does not implement the Trigger interface.
+     * See the root cause for details.
+     * Example:
+     * <pre>
+     *     CREATE TABLE TEST (ID INT);
+     *     CREATE TRIGGER TRIGGER_A AFTER INSERT ON TEST
+     *          CALL "java.lang.String";
+     *          </pre>
+     */
+    const val ERROR_CREATING_TRIGGER_OBJECT_3: Int = 90043
+
+    /**
+     * The error with code <code>90044</code> is thrown when
+     * an exception or error occurred while calling the triggers fire method.
+     * See the root cause for details.
+     */
+    const val ERROR_EXECUTING_TRIGGER_3: Int = 90044
 
     /**
      * The error with code <code>90095</code> is thrown when
@@ -370,6 +568,15 @@ object ErrorCode {
      * the cache size.
      */
     const val OUT_OF_MEMORY: Int = 90108
+
+    /**
+     * The error with code <code>90140</code> is thrown when trying to update or
+     * delete a row in a result set if the statement was not created with
+     * updatable concurrency. Result sets are only updatable if the statement
+     * was created with updatable concurrency, and if the result set contains
+     * all columns of the primary key or of a unique index of a table.
+     */
+    const val RESULT_SET_READONLY: Int = 901040
 
     /**
      * INTERNAL

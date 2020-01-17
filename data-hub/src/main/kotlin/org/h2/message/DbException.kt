@@ -1,12 +1,24 @@
 package org.h2.message
 
+import org.h2.api.ErrorCode.ADMIN_RIGHTS_REQUIRED
+import org.h2.api.ErrorCode.CANNOT_DROP_CURRENT_USER
+import org.h2.api.ErrorCode.ERROR_EXECUTING_TRIGGER_3
 import org.h2.api.ErrorCode.EXCEPTION_IN_FUNCTION_1
+import org.h2.api.ErrorCode.FILE_DELETE_FAILED_1
+import org.h2.api.ErrorCode.FILE_RENAME_FAILED_2
 import org.h2.api.ErrorCode.GENERAL_ERROR_1
 import org.h2.api.ErrorCode.IO_EXCEPTION_1
+import org.h2.api.ErrorCode.IO_EXCEPTION_2
 import org.h2.api.ErrorCode.METHOD_NOT_ALLOWED_FOR_QUERY
 import org.h2.api.ErrorCode.METHOD_ONLY_ALLOWED_FOR_QUERY
+import org.h2.api.ErrorCode.NOT_ON_UPDATABLE_ROW
+import org.h2.api.ErrorCode.OBJECT_CLOSED
 import org.h2.api.ErrorCode.OUT_OF_MEMORY
+import org.h2.api.ErrorCode.RESULT_SET_READONLY
+import org.h2.api.ErrorCode.SEQUENCE_EXHAUSTED
+import org.h2.api.ErrorCode.TRACE_FILE_ERROR_2
 import org.h2.api.ErrorCode.UNKNOWN_DATA_TYPE_1
+import org.h2.api.ErrorCode.UNSUPPORTED_SETTING_COMBINATION
 import org.h2.api.ErrorCode.getState
 import org.h2.engine.Constants
 import org.h2.jdbc.*
@@ -176,13 +188,6 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                         errorCode = errorCode,
                         cause = cause,
                         stackTrace = stackTrace)
-                else -> return JdbcSQLException(message = message,
-                        originalMessage = message,
-                        SQL = sql,
-                        state = state,
-                        errorCode = errorCode,
-                        cause = cause,
-                        stackTrace = stackTrace)
             }
 
             // Check error code
@@ -190,8 +195,34 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                 GENERAL_ERROR_1,
                 UNKNOWN_DATA_TYPE_1,
                 METHOD_NOT_ALLOWED_FOR_QUERY, METHOD_ONLY_ALLOWED_FOR_QUERY,
-
+                SEQUENCE_EXHAUSTED,
+                OBJECT_CLOSED,
+                CANNOT_DROP_CURRENT_USER,
+                UNSUPPORTED_SETTING_COMBINATION,
+                FILE_RENAME_FAILED_2,
+                FILE_DELETE_FAILED_1,
+                IO_EXCEPTION_1, IO_EXCEPTION_2,
+                NOT_ON_UPDATABLE_ROW,
+                TRACE_FILE_ERROR_2,
+                ADMIN_RIGHTS_REQUIRED,
+                ERROR_EXECUTING_TRIGGER_3,
+                RESULT_SET_READONLY -> return JdbcSQLNonTransientException(
+                        originalMessage = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
             }
+
+            return JdbcSQLException(message = message,
+                    originalMessage = message,
+                    SQL = sql,
+                    state = state,
+                    errorCode = errorCode,
+                    cause = cause,
+                    stackTrace = stackTrace)
         }
 
         /**
