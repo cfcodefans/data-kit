@@ -206,4 +206,14 @@ object Utils {
         }
         return defaultValue
     }
+
+    /**
+     * Get the system property. If the system property is not set, or if a
+     * security exception occurs, the default value is returned.
+     * @param key the key
+     * @param defaultValue the default value
+     * @return the value
+     */
+    @JvmStatic
+    fun getProperty(key: String, defaultValue: Boolean): Boolean = parseBoolean(getProperty(key, null), defaultValue, false)
 }

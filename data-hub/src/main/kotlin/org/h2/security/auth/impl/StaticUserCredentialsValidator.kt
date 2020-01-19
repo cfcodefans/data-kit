@@ -46,6 +46,11 @@ class StaticUserCredentialsValidator : CredentialsValidator {
         configProperties.getStringValue("salt", null)?.let {
             salt = StringUtils.convertHexToBytes(it)
         }
+        configProperties.getStringValue("hash", null)?.let {
+            hashWithSalt = Hashing.sha256()
+                    .hashBytes(StringUtils.convertHexToBytes(it) + salt)
+                    .asBytes()
+        }
     }
 
 
