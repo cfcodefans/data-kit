@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils
 import org.jetbrains.kotlin.utils.getOrPutNullable
 import java.io.IOException
 import java.io.InputStream
+import java.lang.management.ManagementFactory
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import kotlin.experimental.or
@@ -216,4 +217,29 @@ object Utils {
      */
     @JvmStatic
     fun getProperty(key: String, defaultValue: Boolean): Boolean = parseBoolean(getProperty(key, null), defaultValue, false)
+
+    /**
+     * Scale the value with the available memory. If 1GB of RAM is available,
+     * the value is returned, if 2GB are available, then twice the value, and so on.
+     * @param value the value to scale
+     * @return the scaled value
+     */
+    @JvmStatic
+    fun scaleForAvailableMemory(value: Int): Int {
+        val maxMemory: Long = Runtime.getRuntime().maxMemory()
+        if (maxMemory != Long.MAX_VALUE) {
+            // we are limited by an -Xmx parameter
+            return (value * maxMemory / (1024 * 1024 * 1024)).toInt()
+        }
+        try {
+            return (Class.forName("com.sun.managment.OperatingSystemMXBean")
+                    .getMethod("getTotalPhysicalMemorySize")
+                    .invoke(ManagementFactory.getOperatingSystemMXBean()) as java.lang.Number)
+                    .longValue()
+                    .let { (value * it / (1024 * 1024 * 1024)).toInt() }
+        } catch (e: Exception) {
+            //ignore
+        }
+        return value
+    }
 }
