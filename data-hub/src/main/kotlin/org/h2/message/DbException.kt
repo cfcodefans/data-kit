@@ -7,6 +7,7 @@ import org.h2.api.ErrorCode.EXCEPTION_IN_FUNCTION_1
 import org.h2.api.ErrorCode.FILE_DELETE_FAILED_1
 import org.h2.api.ErrorCode.FILE_RENAME_FAILED_2
 import org.h2.api.ErrorCode.GENERAL_ERROR_1
+import org.h2.api.ErrorCode.INVALID_VALUE_2
 import org.h2.api.ErrorCode.IO_EXCEPTION_1
 import org.h2.api.ErrorCode.IO_EXCEPTION_2
 import org.h2.api.ErrorCode.METHOD_NOT_ALLOWED_FOR_QUERY
@@ -310,6 +311,16 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             } catch (ignore: OutOfMemoryError) {
                 OOME
             }
+        }
+
+        /**
+         * Gets a SQL exception meaning this value is invalid.
+         * @param param the name of the parameter
+         * @param value the value passed
+         * @return the IlleagalArgumentException object
+         */
+        fun getInvalidValueException(param: String, value: Any): Throwable {
+            return get(INVALID_VALUE_2, value.toString(), param)
         }
     }
 

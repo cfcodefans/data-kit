@@ -272,6 +272,16 @@ object ErrorCode {
     const val OBJECT_CLOSED: Int = 90007
 
     /**
+     * The error with code <code>90008</code> is thrown when
+     * trying to use a value that is not valid for the give operation.
+     * Example:
+     * <pre>
+     *     CREATE SEQUENCE TEST INCREMENT 0;
+     * </pre>
+     */
+    const val INVALID_VALUE_2: Int = 90008
+
+    /**
      * The error with code <code>90019</code> is thrown when
      * trying to drop the current user, if there are no other admin users.
      * Example:

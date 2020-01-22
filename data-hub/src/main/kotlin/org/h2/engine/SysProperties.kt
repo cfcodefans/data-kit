@@ -4,6 +4,7 @@ import org.h2.util.MathUtils
 import org.h2.util.Utils
 import org.h2.util.Utils.getProperty
 import org.jetbrains.kotlin.konan.file.File
+import org.jetbrains.kotlin.konan.util.suffixIfNot
 import kotlin.math.max
 
 /**
@@ -452,6 +453,31 @@ object SysProperties {
      * The JavaObjectSerializer class name for java objects being stored in column
      * of type OTHER. It must be the same on client and server to work correctly.
      */
+    val JAVA_OBJECT_SERIALIZER: String? = getProperty("h2.javaObjectSerializer", null)
+
+    /**
+     * System property <code>h2.customDataTypesHandler</code>
+     * (default: null).<br/>
+     * The customDataTypesHandler class name that is used to provide
+     * support for user defined custom data types.
+     * It must be the same on client and server to work correctly.
+     */
+    val CUSTOM_DATA_TYPES_HANDLER: String? = getProperty("h2.customDataTypesHandler", null)
+
+    /**
+     * System property <code>h2.authConfigFile</code>
+     * (default: null). <br/>
+     * authConfigFile define the URL of configuration file
+     * of {@link org.h2.security.auth.DefaultAuthenticator}
+     */
+    val AUTH_CONFIG_FILE: String? = getProperty("h2.authConfigFile", null)
+
+    private var H2_BASE_DIR: String = "h2.baseDir"
+    private var baseDir: String?
+        set(dir: String?) {
+            System.setProperty(H2_BASE_DIR, dir!!.suffixIfNot("/"))
+        }
+        get() = getProperty(H2_BASE_DIR, null)
 
 
     /**
