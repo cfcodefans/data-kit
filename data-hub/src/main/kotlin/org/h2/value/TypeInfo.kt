@@ -1,5 +1,6 @@
 package org.h2.value
 
+import org.h2.value.Value.Companion.NULL
 import org.h2.value.Value.Companion.UNKNOWN
 
 /**
@@ -23,5 +24,9 @@ class TypeInfo(
          * UNKNOWN type with parameters.
          */
         val TYPE_UNKNOWN: TypeInfo = TypeInfo(UNKNOWN, -1L, -1, -1, null)
+        /**
+         * NULL type with parameters.
+         */
+        val TYPE_NULL: TypeInfo = TypeInfo(NULL, -1L, -1, -1, null)
     }
 }
