@@ -294,7 +294,7 @@ abstract class Value : VersionedValue() {
             ARRAY -> 50_000
             ROW -> 51_000
             RESULT_SET -> 52_000
-            else -> JdbcUtil
+            else -> TODO()
         }
     }
 

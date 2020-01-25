@@ -5,7 +5,7 @@ import java.util.*
 
 /**
  * Sorted properties file.
- * This implementation requires that store() internally calls keys().
+ * This implementation requires that org.h2.store() internally calls keys().
  */
 class SortedProperties : Properties() {
     companion object {

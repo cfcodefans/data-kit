@@ -69,7 +69,7 @@ class Trace(val traceWriter: TraceWriter,
          */
         const val USER: Int = 13
         /**
-         * The trace module id for the page store.
+         * The trace module id for the page org.h2.store.
          */
         const val PAGE_STORE: Int = 14
         /**
