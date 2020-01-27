@@ -1,5 +1,6 @@
 package org.h2.api
 
+import java.sql.SQLException
 import java.util.*
 
 /**
@@ -45,4 +46,47 @@ interface DatabaseEventListener : EventListener {
          */
         const val STATE_STATEMENT_PROGRESS: Int = 7
     }
+
+    /**
+     * This method is called just after creating the object.
+     * This is done when opening the database if the listener is specified
+     * in the database URL, but may be later if the listener is set at
+     * runtime with the SET SQL statement.
+     * @param url - the database URL
+     */
+    fun init(url: String): Unit
+
+    /**
+     * This method is called after the database has been opened. It is save
+     * to connect to the database and execute statements at this point.
+     */
+    fun opened(): Unit
+
+    /**
+     * The method is called if an exception occurred.
+     * @param e the exception
+     * @param sql the SQL statement
+     */
+    fun exceptionThrown(e: SQLException, sql: String): Unit
+
+    /**
+     * This method is called for long running events, such as recovering,
+     * scanning a file or building an index.
+     * <p/>
+     * More state might be added in future versions, therefore implementations
+     * should silently ignore states that they don't understand.
+     * </p>
+     * @param state the state
+     * @param name the object name
+     * @param x the current position
+     * @param max the highest possible value (might be 0)
+     */
+    fun setProgress(state: Int, name: String, x: Int, max: Int): Unit
+
+    /**
+     * This method is called before the database is closed normally. It is save
+     * to connect to the database and execute statements at this point, however
+     * the connection must be closed before the method returns.
+     */
+    fun closingDatabase(): Unit
 }
