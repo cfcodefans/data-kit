@@ -4,6 +4,7 @@ import org.h2.api.ErrorCode.ADMIN_RIGHTS_REQUIRED
 import org.h2.api.ErrorCode.CANNOT_DROP_CURRENT_USER
 import org.h2.api.ErrorCode.ERROR_EXECUTING_TRIGGER_3
 import org.h2.api.ErrorCode.EXCEPTION_IN_FUNCTION_1
+import org.h2.api.ErrorCode.FEATURE_NOT_SUPPORTED_1
 import org.h2.api.ErrorCode.FILE_DELETE_FAILED_1
 import org.h2.api.ErrorCode.FILE_RENAME_FAILED_2
 import org.h2.api.ErrorCode.GENERAL_ERROR_1
@@ -322,6 +323,29 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         fun getInvalidValueException(param: String, value: Any): Throwable {
             return get(INVALID_VALUE_2, value.toString(), param)
         }
+
+        /**
+         * Get a SQL exception meaning this feature is not supported.
+         * @param message what exactly is not supported
+         * @return the exception
+         */
+        fun getUnsupportedException(message: String): DbException {
+            return get(FEATURE_NOT_SUPPORTED_1, message)
+        }
+
+        /**
+         * Throw an internal error. This method seems to return an exception object,
+         * so that it can be used instead of 'return', but in fact it always throws
+         * the exception.
+         * @param s the message
+         * @return the RuntimeException object
+         * @throws RuntimeException the exception
+         */
+        fun throwInternalError(s: String): java.lang.RuntimeException {
+            val e: java.lang.RuntimeException = java.lang.RuntimeException(s)
+            DbException.traceThrowable(e)
+            throw e
+        }
     }
 
     private constructor(e: SQLException) : this(e.message, e)
@@ -360,4 +384,6 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                 cause = e,
                 stackTrace = null))
     }
+
+
 }
