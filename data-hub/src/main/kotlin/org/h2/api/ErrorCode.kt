@@ -20,7 +20,8 @@ package org.h2.api
  *  meaning version 1.2.125.
  */
 object ErrorCode {
-    // 02: no data
+
+
     /**
      * The error with code <code>2000</code> is thrown when
      * the result set is positioned before the first or after the last row, or
@@ -525,6 +526,26 @@ object ErrorCode {
      * See the root cause for details.
      */
     const val ERROR_EXECUTING_TRIGGER_3: Int = 90044
+
+    /**
+     * The error with code <code>90061</code> is sthrown when
+     * trying to start a server if a server is already running at the same port.
+     * It could also be a firewall problem. To find out if another server is
+     * already running, run the following command on Windows:
+     * <pre> netstat -ano</pre>
+     * The column PID is the process id as listed in the Task Manager.
+     * For Linux, use:
+     * <pre>netstat -npl</pre>
+     */
+    const val EXCEPTION_OPENING_PORT_2: Int = 90061
+
+    /**
+     * The error with code <code>90062</code> is thrown when
+     * a directory or file could not be created. This can occur when
+     * trying to create a directory if a file with the same name already
+     * exists, or vice versa
+     */
+    const val FILE_CREATION_FAILED_1: Int = 90062
 
     /**
      * The error with code <code>90095</code> is thrown when

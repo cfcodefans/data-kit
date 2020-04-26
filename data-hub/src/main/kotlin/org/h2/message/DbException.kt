@@ -346,6 +346,23 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             DbException.traceThrowable(e)
             throw e
         }
+
+        /**
+         * Convert an IO Exception to a database exception.
+         * @param e the root cause
+         * @param message the message or null
+         * @return the database excetpion object
+         */
+        @JvmStatic
+        fun convertIOException(e: IOException, message: String?): DbException {
+            if (message != null)
+                return get(IO_EXCEPTION_2, e, e.toString(), message)
+
+            return when (e.cause) {
+                is DbException -> return e.cause as DbException
+                else -> get(IO_EXCEPTION_1, e, e.toString())
+            }
+        }
     }
 
     private constructor(e: SQLException) : this(e.message, e)
@@ -384,6 +401,5 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                 cause = e,
                 stackTrace = null))
     }
-
 
 }

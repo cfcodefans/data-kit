@@ -155,7 +155,7 @@ abstract class FilePath {
      * Get the parent directory of a file or directory
      * @return the parent directory name
      */
-    abstract fun getParent(): FilePath
+    abstract fun getParent(): FilePath?
 
     /**
      * Check if it is a file or a directory.
