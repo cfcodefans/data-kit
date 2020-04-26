@@ -154,7 +154,152 @@ object ParserUtil {
     /**
      * The token "JOIN"
      */
-    const val JSON: Int = IS + 1
+    const val JOIN: Int = IS + 1
+
+    /**
+     * The token "LEFT"
+     */
+    const val LEFT: Int = JOIN + 1
+
+    /**
+     * The token "LIKE"
+     */
+    const val LIKE: Int = LEFT + 1
+
+    /**
+     * The token "LIMIT"
+     */
+    const val LIMIT: Int = LIKE + 1
+
+    /**
+     * The token "LOCALTIME"
+     */
+    const val LOCALTIME: Int = LIMIT + 1
+
+    /**
+     * The token "LOCALTIMESTAMP"
+     */
+    const val LOCALTIMESTAMP: Int = LOCALTIME + 1
+
+    /**
+     * The token "MINUS"
+     */
+    const val MINUS: Int = LOCALTIMESTAMP + 1
+
+    /**
+     * The token "NATURAL".
+     */
+    const val NATURAL: Int = MINUS + 1
+
+    /**
+     * The token "NOT"
+     */
+    const val NOT: Int = NATURAL + 1
+
+    /**
+     * The token "NULL"
+     */
+    const val NULL: Int = NOT + 1
+
+    /**
+     * The token "OFFSET"
+     */
+    const val OFFSET: Int = NULL + 1
+
+    /**
+     * The token "ON"
+     */
+    const val ON: Int = OFFSET + 1
+
+    /**
+     * The token "ORDER"
+     */
+    const val ORDER: Int = ON + 1
+
+    /**
+     * The token "PRIMARY"
+     */
+    const val PRIMARY: Int = ORDER + 1
+
+    /**
+     * The token "QUALIFY"
+     */
+    const val QUALIFY: Int = PRIMARY + 1
+
+    /**
+     * The token "RIGHT"
+     */
+    const val RIGHT: Int = QUALIFY + 1
+
+    /**
+     * The token "ROW"
+     */
+    const val ROW: Int = RIGHT + 1
+
+    /**
+     * The token "_ROWID_"
+     */
+    const val _ROWID_: Int = ROW + 1
+
+    /**
+     * The tken "ROWNUM"
+     */
+    const val ROWNUM: Int = _ROWID_ + 1
+
+    /**
+     * The token "SELECT"
+     */
+    const val SELECT: Int = ROWNUM + 1
+
+    /**
+     * The token "TABLE".
+     */
+    const val TABLE: Int = SELECT + 1
+
+    /**
+     * The token "TRUE"
+     */
+    const val TRUE: Int = TABLE + 1
+
+    /**
+     * The token "UNION"
+     */
+    const val UNION: Int = TRUE + 1
+
+    /**
+     * The token "UNIQUE"
+     */
+    const val UNIQUE: Int = UNION + 1
+
+    /**
+     * The token "UNKNOWN"
+     */
+    const val UNKNOWN: Int = UNIQUE + 1
+
+    /**
+     * The token "USING"
+     */
+    const val USING: Int = UNKNOWN + 1
+
+    /**
+     * The token "VALUES"
+     */
+    const val VALUES: Int = USING + 1
+
+    /**
+     * The token "WHERE"
+     */
+    const val WHERE: Int = VALUES + 1
+
+    /**
+     * The token "WINDOW".
+     */
+    const val WINDOW: Int = WHERE + 1
+
+    /**
+     * The token "WITH"
+     */
+    const val WITH: Int = WINDOW + 1
 
     private const val UPPER_OR_OTHER_LETTER = 1 shl Character.UPPERCASE_LETTER.toInt() or
             (1 shl Character.MODIFIER_LETTER.toInt()) or
@@ -240,9 +385,165 @@ object ParserUtil {
             c = (c.toInt() and 0xffdf).toChar()
         }
         when (c) {
-            'A' -> {
-                if (eq("ALL", s, ignoreCase, start, end)) return ALL
+            'A' -> return when {
+                eq("ALL", s, ignoreCase, start, end) -> ALL
+                eq("ARRAY", s, ignoreCase, start, end) -> ARRAY
+                additionalKeywords
+                        && (eq("ARRAY", s, ignoreCase, start, end)
+                        || eq("AS", s, ignoreCase, start, end)) -> KEYWORD
+                else -> IDENTIFIER
             }
+            'B' -> return when {
+                additionalKeywords
+                        && (eq("BETWEEN", s, ignoreCase, start, end)
+                        || eq("BOTH", s, ignoreCase, start, end)) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'C' -> return when {
+                eq("CASE", s, ignoreCase, start, end) -> CASE
+                eq("CHECK", s, ignoreCase, start, end) -> CHECK
+                eq("CONSTRAINT", s, ignoreCase, start, end) -> CONSTRAINT
+                eq("CROSS", s, ignoreCase, start, end) -> CROSS
+                eq("CURRENT_DATE", s, ignoreCase, start, end) -> CURRENT_DATE
+                eq("CURRENT_SCHEMA", s, ignoreCase, start, end) -> CURRENT_SCHEMA
+                eq("CURRENT_TIME", s, ignoreCase, start, end) -> CURRENT_TIME
+                eq("CURRENT_TIMESTAMP", s, ignoreCase, start, end) -> CURRENT_TIMESTAMP
+                eq("CURRENT_USER", s, ignoreCase, start, end) -> CURRENT_USER
+                else -> IDENTIFIER
+            }
+            'D' -> return when {
+                eq("DISTINCT", s, ignoreCase, start, end) -> DISTINCT
+                else -> IDENTIFIER
+            }
+            'E' -> return when {
+                eq("EXCEPT", s, ignoreCase, start, end) -> EXCEPT
+                eq("EXISTS", s, ignoreCase, start, end) -> EXISTS
+                else -> IDENTIFIER
+            }
+            'F' -> return when {
+                eq("FETCH", s, ignoreCase, start, end) -> FETCH
+                eq("FROM", s, ignoreCase, start, end) -> FROM
+                eq("FOR", s, ignoreCase, start, end) -> FOR
+                eq("FOREIGN", s, ignoreCase, start, end) -> FOREIGN
+                eq("FULL", s, ignoreCase, start, end) -> FULL
+                eq("FALSE", s, ignoreCase, start, end) -> FALSE
+                additionalKeywords && eq("FILTER", s, ignoreCase, start, end) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'G' -> return when {
+                eq("GROUP", s, ignoreCase, start, end) -> GROUP
+                additionalKeywords && eq("GROUPS", s, ignoreCase, start, end) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'H' -> return when {
+                eq("HAVING", s, ignoreCase, start, end) -> HAVING
+                else -> IDENTIFIER
+            }
+            'I' -> return when {
+                eq("IF", s, ignoreCase, start, end) -> IF
+                eq("INNER", s, ignoreCase, start, end) -> INNER
+                eq("INTERSECT", s, ignoreCase, start, end) -> INTERSECT
+                eq("INTERSECTS", s, ignoreCase, start, end) -> INTERSECTS
+                eq("INTERVAL", s, ignoreCase, start, end) -> INTERVAL
+                eq("IS", s, ignoreCase, start, end) -> IS
+                additionalKeywords
+                        && (eq("ILIKE", s, ignoreCase, start, end)
+                        || eq("IN", s, ignoreCase, start, end)) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'J' -> return when {
+                eq("JOIN", s, ignoreCase, start, end) -> JOIN
+                else -> IDENTIFIER
+            }
+            'L' -> return when {
+                eq("LEFT", s, ignoreCase, start, end) -> LEFT
+                eq("LIMIT", s, ignoreCase, start, end) -> LIMIT
+                eq("LIKE", s, ignoreCase, start, end) -> LIKE
+                eq("LOCALTIME", s, ignoreCase, start, end) -> LOCALTIME
+                eq("LOCALTIMESTAMP", s, ignoreCase, start, end) -> LOCALTIMESTAMP
+                additionalKeywords && eq("LEADING", s, ignoreCase, start, end) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'M' -> return when {
+                eq("MINUS", s, ignoreCase, start, end) -> HAVING
+                else -> IDENTIFIER
+            }
+            'N' -> return when {
+                eq("NOT", s, ignoreCase, start, end) -> NOT
+                eq("NATURAL", s, ignoreCase, start, end) -> NATURAL
+                eq("NULL", s, ignoreCase, start, end) -> NULL
+                else -> IDENTIFIER
+            }
+            'O' -> return when {
+                eq("OFFSET", s, ignoreCase, start, end) -> OFFSET
+                eq("ON", s, ignoreCase, start, end) -> ON
+                eq("ORDER", s, ignoreCase, start, end) -> ORDER
+                additionalKeywords
+                        && (eq("OR", s, ignoreCase, start, end)
+                        || eq("OVER", s, ignoreCase, start, end)) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'P' -> return when {
+                eq("PRIMARY", s, ignoreCase, start, end) -> PRIMARY
+                additionalKeywords && eq("PARTITION", s, ignoreCase, start, end) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'Q' -> return when {
+                eq("QUALIFY", s, ignoreCase, start, end) -> QUALIFY
+                else -> IDENTIFIER
+            }
+            'R' -> return when {
+                eq("RIGHT", s, ignoreCase, start, end) -> RIGHT
+                eq("ROW", s, ignoreCase, start, end) -> ROW
+                eq("ROWNUM", s, ignoreCase, start, end) -> ROWNUM
+                additionalKeywords
+                        && (eq("RANGE", s, ignoreCase, start, end)
+                        || eq("REGEXP", s, ignoreCase, start, end)
+                        || eq("ROWS", s, ignoreCase, start, end)) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'S' -> return when {
+                eq("SELECT", s, ignoreCase, start, end) -> SELECT
+                additionalKeywords
+                        && (eq("SYSDATE", s, ignoreCase, start, end)
+                        || eq("SYSTIME", s, ignoreCase, start, end)
+                        || eq("SYSTIMESTAMP", s, ignoreCase, start, end)) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'T' -> return when {
+                eq("TABLE", s, ignoreCase, start, end) -> TABLE
+                eq("TRUE", s, ignoreCase, start, end) -> TRUE
+                additionalKeywords
+                        && (eq("TODAY", s, ignoreCase, start, end)
+                        || eq("TOP", s, ignoreCase, start, end)
+                        || eq("TRAILING", s, ignoreCase, start, end)) -> KEYWORD
+                else -> IDENTIFIER
+            }
+            'U' -> return when {
+                eq("UNION", s, ignoreCase, start, end) -> UNION
+                eq("UNIQUE", s, ignoreCase, start, end) -> UNIQUE
+                eq("UNKNOWN", s, ignoreCase, start, end) -> UNKNOWN
+                eq("USING", s, ignoreCase, start, end) -> USING
+                else -> IDENTIFIER
+            }
+            'V' -> return when {
+                eq("VALUES", s, ignoreCase, start, end) -> VALUES
+                else -> IDENTIFIER
+            }
+            'W' -> return when {
+                eq("WHERE", s, ignoreCase, start, end) -> WHERE
+                eq("WINDOW", s, ignoreCase, start, end) -> WINDOW
+                eq("WITH", s, ignoreCase, start, end) -> WITH
+                else -> IDENTIFIER
+            }
+            '_' -> return when {// Cannot use eq() because 0x7f can be converted to '_' (0x5f)
+                end - start == 7
+                        && "_ROWID_".regionMatches(0, s, start, 7, ignoreCase = ignoreCase) -> {
+                    _ROWID_
+                }
+                else -> IDENTIFIER
+            }
+            else -> return IDENTIFIER
         }
     }
 
