@@ -5,8 +5,10 @@ import org.jetbrains.kotlin.utils.getOrPutNullable
 import java.io.IOException
 import java.io.InputStream
 import java.lang.management.ManagementFactory
+import java.util.*
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import kotlin.collections.HashMap
 import kotlin.experimental.or
 import kotlin.experimental.xor
 
@@ -18,10 +20,12 @@ object Utils {
      * An 0-size byte array
      */
     val EMPTY_BYTES: ByteArray = ByteArray(0)
+
     /**
      * An 0-size int array.
      */
     val EMPTY_INT_ARRAY: IntArray = IntArray(0)
+
     /**
      * An 0-size long array
      */
@@ -242,4 +246,12 @@ object Utils {
         }
         return value
     }
+
+    /**
+     * Create a new ArrayList with an initial capacity of 4.
+     *
+     * @param <T> the type
+     * @return the object
+    </T> */
+    fun <T> newSmallArrayList(): ArrayList<T> = ArrayList(4)
 }

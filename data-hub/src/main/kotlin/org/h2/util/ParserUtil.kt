@@ -554,4 +554,16 @@ object ParserUtil {
         return end - start == len
                 && expected.regionMatches(1, s, start + 1, len, ignoreCase)
     }
+
+    /**
+     * Check if this string is a SQL keyword.
+     * @param s the token to check
+     * @param ignoreCase true if case should be ignored, false if only upper case tokens are detected as keywords
+     * @return true if it is a keyword
+     */
+    @JvmStatic
+    fun isKeyword(s: String, ignoreCase: Boolean): Boolean = if (s.isEmpty())
+        false
+    else
+        getSaveTokenType(s, ignoreCase, 0, s.length, false) != IDENTIFIER
 }

@@ -21,6 +21,7 @@ object StringUtils {
 
     private val HEX: CharArray = "0123456789abcdef".toCharArray()
     private val HEX_DECODE: kotlin.IntArray = IntArray('f'.toInt() + 1) { _ -> -1 }
+
     // memory used by this cache:
     // 4 * 1024 * 2 (strings per pair) * 64 * 2 (bytes per char) = 0.5 MB
     private val TO_UPPER_CACHE_LENGTH: Int = 2048
@@ -303,5 +304,39 @@ object StringUtils {
         URLEncoder.encode(s, "UTF-8")
     } catch (e: Exception) {
         throw  DbException.convert(e)
+    }
+
+    /**
+     * Split a string into an array of strings using the given separator. A null
+     * string will result in a null array, and an empty string in a zero element
+     * array.
+     *
+     * @param s the string to split
+     * @param separatorChar the separator character
+     * @param trim whether each element should be trimmed
+     * @return the array list
+     */
+    @JvmStatic
+    fun arraySplit(s: String?, separatorChar: Char, trim: Boolean): Array<String>? {
+        if (s == null) return null
+        val len: Int = s.length
+        if (len == 0) return emptyArray()
+        val list: ArrayList<String> = Utils.newSmallArrayList()
+        val sb: java.lang.StringBuilder = java.lang.StringBuilder(len)
+        for (i in 0..len) {
+            val c: Char = s[i]
+            if (c == separatorChar) {
+                val e: String = sb.toString()
+                list += if (trim) e.trim() else e
+                sb.setLength(0)
+            } else if (c == '\\' && i < len - 1) {
+                continue
+            } else {
+                sb.append(c)
+            }
+        }
+        val e: String = sb.toString()
+        list += if (trim) e.trim() else e
+        return list.toTypedArray()
     }
 }

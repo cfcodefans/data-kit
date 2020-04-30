@@ -25,8 +25,8 @@ class DbSchema(val contents: DbContents,
     val quotedName: String? = contents.quoteIdentifier(name)// The quoted schema name.
 
     //    val contents: DbContents // The database content container.
-    private lateinit var tables: Array<DbTableOrView> // The table list.
-    private lateinit var procedures: Array<DbProcedure> // The procedures list
+    lateinit var tables: Array<DbTableOrView> // The table list.
+    lateinit var procedures: Array<DbProcedure> // The procedures list
 
     /**
      * Read all tables for this schema from the database meta data.
@@ -36,9 +36,9 @@ class DbSchema(val contents: DbContents,
     @Throws(SQLException::class)
     fun readTables(meta: DatabaseMetaData, tableTypes: Array<String>) {
         val rs: ResultSet = meta.getTables(null, name, null, tableTypes)
-        rs.use { _ ->
+        rs.use { it ->
             tables = generateSequence {
-                if (rs.next()) DbTableOrView(this, rs) else null
+                if (it.next()) DbTableOrView(this, it) else null
             }.toList().toTypedArray()
         }
 
@@ -63,7 +63,17 @@ class DbSchema(val contents: DbContents,
      */
     @Throws(SQLException::class)
     fun readProcedures(meta: DatabaseMetaData) {
-
+        val rs: ResultSet = meta.getProcedures(null, name, null)
+        rs.use { it ->
+            procedures = generateSequence {
+                if (it.next()) DbProcedure(this, it) else null
+            }.toList().toTypedArray()
+        }
+        if (procedures.size < SysProperties.CONSOLE_MAX_PROCEDURES_LIST_COLUMNS) {
+            for (procedure in procedures) {
+                procedure.readParameters(meta)
+            }
+        }
     }
 
 }
