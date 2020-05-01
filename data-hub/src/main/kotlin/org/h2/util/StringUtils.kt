@@ -339,4 +339,28 @@ object StringUtils {
         list += if (trim) e.trim() else e
         return list.toTypedArray()
     }
+
+    /**
+     * Trim a character from a string.
+     * @param s the string
+     * @param leading if leading characters should be removed
+     * @param trailing if trailing characters should be removed
+     * @param sp what to remove (only the first character is used) or null for a space
+     * @return the trimmed string
+     */
+    @JvmStatic
+    fun trim(s: String, sp: String?, leading: Boolean = true, trailing: Boolean = true): String {
+        val space: Char = if (sp.isNullOrEmpty()) ' ' else sp[0]
+        var begin = 0
+        var end = s.length
+
+        if (leading) {
+            while (begin < end && s[begin] == space) begin++
+        }
+        if (trailing) {
+            while (end > begin && s[end - 1] == space) end--
+        }
+        return s.substring(begin, end)
+    }
+
 }

@@ -3,6 +3,8 @@ package org.h2.store.fs
 import org.h2.store.fs.FilePath.Companion.get
 import java.io.EOFException
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 
@@ -76,5 +78,28 @@ object FileUtils {
      */
     @JvmStatic
     fun getParent(fileName: String): String? = get(fileName).getParent()?.toString()
+
+    /**
+     * Create an input stream to read from the file.
+     * This method is similar to Java 7
+     * <code>java.nio.file.path.newInputStream</code>.
+     * @param fileName the file name
+     * @return the input stream
+     */
+    @Throws(IOException::class)
+    @JvmStatic
+    fun newInputStream(fileName: String): InputStream = get(fileName).newInputStream()
+
+    /**
+     * Create an output stream to write into the file.
+     * This method is similar to Java 7
+     * <code>java.nio.file.Path.newOutputStream</code>
+     * @param fileName the file name
+     * @param append if true, the file will grow, if false, the file will be truncated first
+     * @return the output stream
+     */
+    @Throws(IOException::class)
+    @JvmStatic
+    fun newOutputStream(fileName: String, append: Boolean): OutputStream = get(fileName).newOutputStream(append)
 }
 
