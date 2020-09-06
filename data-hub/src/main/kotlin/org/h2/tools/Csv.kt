@@ -155,7 +155,54 @@ class Csv : SimpleRowSource {
         endOfLine = false
         inputBufferStart = inputBufferPos
         while (true) {
-            val ch: Int = readChar()
+            var ch: Int = readChar()
+            when (ch.toChar()) {
+                fieldDelimiter -> {
+                    //delimited value
+                    var containsEscape: Boolean = false
+                    inputBufferStart = inputBufferPos
+                    var sep: Int = 0
+                    while (true) {
+                        ch = readChar()
+                        if (ch.toChar() == fieldDelimiter) {
+                            ch = readChar()
+                            if (ch.toChar() != fieldDelimiter) {
+                                sep = 2
+                                break
+                            }
+                            containsEscape = true
+                        } else if (ch.toChar() == escapeChar) {
+                            ch = readChar()
+                            if (ch < 0) {
+                                sep = 1
+                                break
+                            }
+                            containsEscape = true
+                        } else if (ch < 0) {
+                            sep = 1
+                            break
+                        }
+                    }
+                    var s = String(inputBuffer!!, inputBufferStart, inputBufferPos - inputBufferStart - sep)
+                    if (containsEscape) s = unEscape(s)
+                    inputBufferStart = -1
+                    while (true) {
+                        if (ch == fieldSeparatorRead.toInt()) {
+                            break
+                        } else if (ch == '\n'.toInt() || ch < 0 || ch == '\r'.toInt()) {
+                            endOfLine = true
+                            break
+                        } else if (ch == ' '.toInt() || ch == '\t'.toInt()) {
+                            // ignore
+                        } else {
+                            pushBack()
+                            break
+                        }
+                        ch = readChar()
+                    }
+                    return s
+                }
+            }
         }
     }
 
@@ -173,13 +220,27 @@ class Csv : SimpleRowSource {
         if (inputBufferStart >= 0) {
             keep = inputBufferPos - inputBufferStart
             if (keep > 0) {
-                val src = inputBuffer
+                val src = inputBuffer!!
                 if (keep + Constants.IO_BUFFER_SIZE > src.size) {
-                    inputBuffer = CharArray(src!!.size * 2)
+                    inputBuffer = CharArray(src.size * 2)
                 }
-                src!!.copyInto(inputBuffer!!, 0, inputBufferStart, inputBufferStart + keep)
+                src.copyInto(inputBuffer!!, 0, inputBufferStart, inputBufferStart + keep)
             }
+        } else keep = 0
+        inputBufferPos = keep
+        val len: Int = input!!.read(inputBuffer, keep, Constants.IO_BUFFER_SIZE)
+        if (len == -1) {
+            // ensure bufferPos > bufferEnd
+            // even after pushBack
+            inputBufferEnd = -1024
+            endOfFile = true
+            // ensure the right number of characters are read
+            // in case the input buffer is still used
+            inputBufferPos++
+            return -1
         }
+        inputBufferEnd = keep + len
+        return inputBuffer!![inputBufferPos++].toInt()
     }
 
 
@@ -249,5 +310,32 @@ class Csv : SimpleRowSource {
         return sb.toString()
     }
 
+    fun unEscape(s: String): String {
+        val sb: java.lang.StringBuilder = java.lang.StringBuilder(s.length)
+        var start: Int = 0
+        var chars: CharArray? = null
+        while (true) {
+            var idx: Int = s.indexOf(escapeChar, start)
+            if (idx < 0) {
+                idx = s.indexOf(fieldDelimiter, start)
+                if (idx < 0) break
+            }
+            if (chars == null) {
+                chars = s.toCharArray()
+            }
+            sb.append(chars, start, idx - start)
+            if (idx == s.length - 1) {
+                start = s.length
+                break
+            }
+            sb.append(chars[idx + 1])
+            start = idx + 2
+        }
+        sb.append(s, start, s.length)
+        return sb.toString()
+    }
 
+    private fun pushBack() {
+        inputBufferPos--
+    }
 }
