@@ -1,0 +1,22 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:component-scan base-package="cf.data.kit.hub"></context:component-scan>
+    <context:annotation-config/>
+
+    <!--
+    <lang:std scope="singleton"
+              name="webdav-community-map"
+              id="webdav-community-map"
+              script-source="classpath:WebdavCommunityMap.kts"
+              script-interfaces="kotlin.jvm.functions.Function0"
+              engine="kotlin"
+              autowire="default"
+              refresh-check-delay="1000"/>
+-->
+</beans>
