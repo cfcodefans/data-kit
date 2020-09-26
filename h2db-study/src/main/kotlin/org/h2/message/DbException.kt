@@ -239,7 +239,6 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             return "${e.originalMessage ?: "- "} $sql [${e.getErrorCode()}-${Constants.BUILD_ID}]"
         }
 
-
         /**
          * Create a database exception for a specific error code.
          * @param errorCode the error code
@@ -362,6 +361,17 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                 is DbException -> return e.cause as DbException
                 else -> get(IO_EXCEPTION_1, e, e.toString())
             }
+        }
+
+        /**
+         * Convert an exception to a SQL exception using the default mapping.
+         *
+         * @param e the root cause
+         * @return the SQL exception object
+         */
+        @JvmStatic
+        fun toSQLException(e: Throwable?): SQLException? {
+            return if (e is SQLException) e else convert(e!!).getSQLException()
         }
     }
 

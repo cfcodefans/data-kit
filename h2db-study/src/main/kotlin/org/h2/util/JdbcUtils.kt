@@ -6,8 +6,14 @@ import org.h2.api.JavaObjectSerializer
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
 import org.h2.store.DataHandler
+import java.io.*
+import java.sql.Connection
+import java.sql.Driver
+import java.sql.DriverManager
 import java.sql.SQLException
 import java.util.*
+import javax.naming.Context
+import javax.sql.DataSource
 
 /**
  * This is a utility class with JDBC helper functions.
@@ -40,15 +46,106 @@ object JdbcUtils {
         }
     }
 
+    private val DRIVERS = arrayOf(
+            "h2:", "org.h2.Driver",
+            "Cache:", "com.intersys.jdbc.CacheDriver",
+            "daffodilDB://", "in.co.daffodil.db.rmi.RmiDaffodilDBDriver",
+            "daffodil", "in.co.daffodil.db.jdbc.DaffodilDBDriver",
+            "db2:", "com.ibm.db2.jcc.DB2Driver",
+            "derby:net:", "org.apache.derby.jdbc.ClientDriver",
+            "derby://", "org.apache.derby.jdbc.ClientDriver",
+            "derby:", "org.apache.derby.jdbc.EmbeddedDriver",
+            "FrontBase:", "com.frontbase.jdbc.FBJDriver",
+            "firebirdsql:", "org.firebirdsql.jdbc.FBDriver",
+            "hsqldb:", "org.hsqldb.jdbcDriver",
+            "informix-sqli:", "com.informix.jdbc.IfxDriver",
+            "jtds:", "net.sourceforge.jtds.jdbc.Driver",
+            "microsoft:", "com.microsoft.jdbc.sqlserver.SQLServerDriver",
+            "mimer:", "com.mimer.jdbc.Driver",
+            "mysql:", "com.mysql.jdbc.Driver",
+            "odbc:", "sun.jdbc.odbc.JdbcOdbcDriver",
+            "oracle:", "oracle.jdbc.driver.OracleDriver",
+            "pervasive:", "com.pervasive.jdbc.v2.Driver",
+            "pointbase:micro:", "com.pointbase.me.jdbc.jdbcDriver",
+            "pointbase:", "com.pointbase.jdbc.jdbcUniversalDriver",
+            "postgresql:", "org.postgresql.Driver",
+            "sybase:", "com.sybase.jdbc3.jdbc.SybDriver",
+            "sqlserver:", "com.microsoft.sqlserver.jdbc.SQLServerDriver",
+            "teradata:", "com.ncr.teradata.TeraDriver")
+
     /**
+     * Get the driver class name for the given URL, or null if the URL is
+     * unknown.
      *
+     * @param url the database URL
+     * @return the driver class name
+     */
+    fun getDriver(url: String): String? {
+        if (!url.startsWith("jdbc:")) return null
+        var url = url.substring("jdbc:".length)
+        for (i in 0 until DRIVERS.size step 2) {
+            if (url.startsWith(DRIVERS[i])) return DRIVERS[i + 1]
+        }
+        return null
+    }
+
+    /**
+     * Load the driver class for the given URL, if the database URL is known.
+     *
+     * @param url the database URL
+     */
+    fun load(url: String) = getDriver(url)?.let { loadUserClass<Any>(it) }
+
+    /**
+     * Serialize the object to a byte array, using the serializer specified by
+     * the connection info if set, or the default serializer.
+     * @param obj the object to serialize
+     * @param dataHandler provides the object serialize (may be null)
+     * @return the byte array
      */
     @JvmStatic
     fun serialize(obj: Any, dataHandler: DataHandler?): ByteArray {
-        try {
-            dataHandler?.
+        return try {
+            (dataHandler?.getJavaObjectSerializer() ?: serializer)
+                    ?.serialize(obj)
+                    ?: kotlin.run {
+                        val out = ByteArrayOutputStream()
+                        ObjectOutputStream(out).writeObject(obj)
+                        out.toByteArray()
+                    }
         } catch (e: Throwable) {
             throw DbException.get(ErrorCode.SERIALIZATION_FAILED_1, e, e.toString())
+        }
+    }
+
+    /**
+     * De-serialize the byte array to an object, eventually using the serializer
+     * specified by the connection info.
+     * @param data the byte array
+     * @param dataHandler provides the object serializer (may be null)
+     * @return the object
+     * @throws DbException if serialization fails
+     */
+    @JvmStatic
+    fun deserialize(data: ByteArray, dataHandler: DataHandler?): Any? {
+        return try {
+            (dataHandler?.getJavaObjectSerializer() ?: serializer)
+                    ?.deserialize(data)
+                    ?: kotlin.run {
+                        val bain = ByteArrayInputStream(data)
+                        val ois = if (SysProperties.USE_THREAD_CONTEXT_CLASS_LOADER)
+                            object : ObjectInputStream(bain) {
+                                @Throws(IOException::class, ClassNotFoundException::class)
+                                override fun resolveClass(desc: ObjectStreamClass): Class<*>? = try {
+                                    Class.forName(desc.name, true, Thread.currentThread().contextClassLoader)
+                                } catch (e: ClassNotFoundException) {
+                                    super.resolveClass(desc)
+                                }
+                            }
+                        else ObjectInputStream(bain)
+                    }
+        } catch (e: Throwable) {
+            throw DbException.get(ErrorCode.DESERIALIZATION_FAILED_1, e, e.toString());
         }
     }
 
@@ -145,10 +242,82 @@ object JdbcUtils {
      * Close a statement without throwing an exception.
      * @param autoCloseable the statement or null
      */
+    @JvmStatic
     fun closeSilently(autoCloseable: AutoCloseable?) = autoCloseable?.let {
         try {
             autoCloseable.close()
         } catch (e: SQLException) {            /* ignored */
         }
+    }
+
+    /**
+     * Open a new database connection with the given settings.
+     *
+     * @param driver the driver class name
+     * @param url the database URL
+     * @param user the user name
+     * @param password the password
+     * @return the database connection
+     */
+    @Throws(SQLException::class)
+    fun getConnection(driver: String?, url: String?,
+                      user: String?, password: String?): Connection? {
+        val prop = Properties()
+        user?.let { prop.setProperty("user", it) }
+        password?.let { prop.setProperty("password", it) }
+        return getConnection(driver, url, prop, null)
+    }
+
+    /**
+     * Open a new database connection with the given settings.
+     *
+     * @param driver the driver class name
+     * @param url the database URL
+     * @param prop the properties containing at least the user name and password
+     * @param networkConnectionInfo the network connection information, or `null`
+     * @return the database connection
+     */
+    @Throws(SQLException::class)
+    fun getConnection(driver: String?, url: String?, prop: Properties?,
+                      networkConnectionInfo: NetworkConnectionInfo?): Connection? {
+        val connection = getConnection(driver, url!!, prop!!)
+        //TODO
+//        if (networkConnectionInfo != null && connection is JdbcConnection) {
+//            connection.session.setNetworkConnectionInfo(networkConnectionInfo)
+//        }
+        return connection
+    }
+
+    @JvmStatic
+    @Throws(SQLException::class)
+    fun getConnection(driver: String?, url: String, prop: Properties): Connection? {
+        if (driver.isNullOrBlank()) load(url)
+        else {
+            val d: Class<*> = loadUserClass<Any>(driver)
+            try {
+                if (Driver::class.java.isAssignableFrom(d)) {
+                    val driverInstance = d.getDeclaredConstructor().newInstance() as Driver
+                    /*
+                     * fix issue #695 with drivers with the same jdbc
+                     * subprotocol in classpath of jdbc drivers (as example
+                     * redshift and postgresql drivers)
+                     */
+                    return driverInstance.connect(url, prop)
+                            ?: throw SQLException("Driver $driver is not suitable for $url", "08001")
+                } else if (Context::class.java.isAssignableFrom(d)) {
+                    // JNDI context
+                    val context = d.getDeclaredConstructor().newInstance() as Context
+                    val ds = context.lookup(url) as DataSource
+                    val user = prop.getProperty("user")
+                    val password = prop.getProperty("password")
+                    return if (user.isNullOrBlank() && password.isNullOrBlank()) {
+                        ds.connection
+                    } else ds.getConnection(user, password)
+                }
+            } catch (e: Exception) {
+                throw DbException.toSQLException(e)!!
+            }
+        }
+        return DriverManager.getConnection(url, prop)
     }
 }

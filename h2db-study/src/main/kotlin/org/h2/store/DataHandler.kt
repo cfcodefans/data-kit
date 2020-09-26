@@ -1,5 +1,6 @@
 package org.h2.store
 
+import org.h2.api.JavaObjectSerializer
 import org.h2.message.DbException
 import org.h2.util.TempFileDeleter
 
@@ -55,4 +56,13 @@ interface DataHandler {
     fun getLogCompressionAlgorithm(type: Int): String
 
     fun getTempFileDeleter(): TempFileDeleter
+
+    /**
+     * Return the serializer to be used for java objects being stored in
+     * column of type OTHER.
+     *
+     * @return the serializer to be used for java objects being stored in
+     * column of type OTHER
+     */
+    fun getJavaObjectSerializer(): JavaObjectSerializer?
 }

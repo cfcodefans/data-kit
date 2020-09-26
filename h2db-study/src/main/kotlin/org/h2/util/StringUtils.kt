@@ -79,6 +79,37 @@ object StringUtils {
     }
 
     /**
+     * Replace all occurrences of the before string with the after string. Unlike
+     * [String.replaceAll] this method reads `before`
+     * and `after` arguments as plain strings and if `before` argument
+     * is an empty string this method returns original string `s`.
+     *
+     * @param s the string
+     * @param before the old text
+     * @param after the new text
+     * @return the string with the before string replaced
+     */
+    fun replaceAll(s: String?, before: String, after: String): String? {
+        if (s.isNullOrEmpty()) return s
+        var next = s.indexOf(before)
+        if (next < 0 || before.isEmpty()) {
+            return s
+        }
+        val buff = StringBuilder(s.length - before.length + after.length)
+        var index = 0
+        while (true) {
+            buff.append(s, index, next).append(after)
+            index = next + before.length
+            next = s.indexOf(before, index)
+            if (next < 0) {
+                buff.append(s, index, s.length)
+                break
+            }
+        }
+        return buff.toString()
+    }
+
+    /**
      * Convert a string to lowercase using the English locale.
      *
      * @param s the text to convert
@@ -109,12 +140,19 @@ object StringUtils {
     fun quoteIdentifier(builder: StringBuilder, s: String): StringBuilder {
         builder.append('"')
         for (c in s) {
-            if (c == '"')
-                builder.append(c)
+            if (c == '"') builder.append(c)
             builder.append(c)
         }
         return builder.append('"')
     }
+
+    /**
+     * In a string, replace block comment marks with /++ .. ++/.
+     *
+     * @param sql the string
+     * @return the resulting string
+     */
+    fun quoteRemarkSQL(sql: String?): String? = replaceAll(sql, "*/", "++/")?.let { replaceAll(it, "/*", "/++") }
 
     /**
      * Convert a hex encoded string to a byte array
@@ -157,7 +195,6 @@ object StringUtils {
         for (c in s) when (c) {
             '\t' -> buff.append("\\t")
             '\n' -> buff.append("\\n")
-//                '\f' -> buff.append("\\f")
             '\r' -> buff.append("\\r")
             '"' -> buff.append("\\\"")
             '\'' -> {
@@ -318,7 +355,7 @@ object StringUtils {
      */
     @JvmStatic
     fun arraySplit(s: String?, separatorChar: Char, trim: Boolean): Array<String> {
-        if (s == null) return null
+        if (s == null) return emptyArray()
         val len: Int = s.length
         if (len == 0) return emptyArray()
         val list: ArrayList<String> = Utils.newSmallArrayList()
@@ -363,4 +400,31 @@ object StringUtils {
         return s.substring(begin, end)
     }
 
+    /**
+     * Convert a byte array to a hex encoded string and appends it to a specified string builder.
+     *
+     * @param builder string builder to append to
+     * @param value the byte array
+     * @return the hex encoded string
+     */
+    fun convertBytesToHex(builder: StringBuilder?, value: ByteArray): java.lang.StringBuilder? {
+        return convertBytesToHex(builder!!, value, value.size)
+    }
+
+    /**
+     * Convert a byte array to a hex encoded string and appends it to a specified string builder.
+     *
+     * @param builder string builder to append to
+     * @param value the byte array
+     * @param len the number of bytes to encode
+     * @return the hex encoded string
+     */
+    fun convertBytesToHex(builder: java.lang.StringBuilder, value: ByteArray, len: Int): java.lang.StringBuilder? {
+        val hex = HEX
+        for (i in 0 until len) {
+            val c: Int = value[i].toInt() and 0xff
+            builder.append(hex[c ushr 4]).append(hex[c and 0xf])
+        }
+        return builder
+    }
 }

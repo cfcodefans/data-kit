@@ -25,7 +25,7 @@ open class DataType {
                 }
             }
             if (JdbcUtils.customDataTypesHandler != null) {
-                val dt: DataType = JdbcUtils.customDataTypesHandler.getDataTypeById(type)
+                val dt: DataType = JdbcUtils.customDataTypesHandler!!.getDataTypeById(type)
                 if (dt != null) {
                     return dt
                 }
