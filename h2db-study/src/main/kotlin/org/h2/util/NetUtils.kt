@@ -105,9 +105,7 @@ object NetUtils {
         if (host.isNullOrEmpty()) return null
 
         synchronized(NetUtils::class.java) {
-            if (cachedBindAddress == null) {
-                cachedBindAddress = InetAddress.getByName(host)
-            }
+            if (cachedBindAddress == null) cachedBindAddress = InetAddress.getByName(host)
         }
         return cachedBindAddress
     }
@@ -142,9 +140,7 @@ object NetUtils {
             }
         }
 
-        if (address == "127.0.0.1") {
-            address = "localhost"
-        }
+        if (address == "127.0.0.1") address = "localhost"
         cachedLocalAddress = address
         cachedLocalAddressTime = now
         return address
