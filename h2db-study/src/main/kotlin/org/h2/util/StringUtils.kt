@@ -427,4 +427,28 @@ object StringUtils {
         }
         return builder
     }
+
+    /**
+     * Parses an unsigned 31-bit integer. Neither - nor + signs are allowed.
+     *
+     * @param s string to parse
+     * @param start the beginning index, inclusive
+     * @param end the ending index, exclusive
+     * @return the unsigned `int` not greater than [Integer.MAX_VALUE].
+     */
+    fun parseUInt31(s: String, start: Int, end: Int): Int {
+        if (end > s.length || start < 0 || start > end) throw IndexOutOfBoundsException()
+        if (start == end) throw NumberFormatException("")
+        var result = 0
+        for (i in start until end) {
+            val ch = s[i]
+            // Ensure that character is valid and that multiplication by 10 will
+            // be performed without overflow
+            if (ch < '0' || ch > '9' || result > 214748364) throw NumberFormatException(s.substring(start, end))
+            result = result * 10 + ch.toInt() - '0'.toInt()
+            // Overflow
+            if (result < 0) throw NumberFormatException(s.substring(start, end))
+        }
+        return result
+    }
 }

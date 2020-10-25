@@ -65,4 +65,28 @@ object DateTimeUtils {
      */
     private val CONVERT_SCALE_TABLE = intArrayOf(1000000000, 100000000,
             10000000, 1000000, 100000, 10000, 1000, 100, 10)
+
+    /**
+     * Parse nanoseconds.
+     *
+     * @param s String to parse.
+     * @param start Begin position at the string to read.
+     * @param end End position at the string to read.
+     * @return Parsed nanoseconds.
+     */
+    fun parseNanos(s: String, start: Int, end: Int): Int {
+        var start = start
+        require(start < end) { s }
+        var nanos = 0
+        var mul = 100000000
+        do {
+            val c = s[start]
+            require(!(c < '0' || c > '9')) { s }
+            nanos += mul * (c - '0')
+            // mul can become 0, but continue loop anyway to ensure that all
+            // remaining digits are valid
+            mul /= 10
+        } while (++start < end)
+        return nanos
+    }
 }

@@ -87,6 +87,22 @@ object ErrorCode {
     const val VALUE_TOO_LONG_2: Int = 22001
 
     /**
+     * The error with code `22003` is thrown when a value is out of
+     * range when converting to another data type. Example:
+     * <pre>
+     * CALL CAST(1000000 AS TINYINT);
+     * SELECT CAST(124.34 AS DECIMAL(2, 2));
+    </pre> *
+     */
+    const val NUMERIC_VALUE_OUT_OF_RANGE_1 = 22003
+
+    /**
+     * The error with code `22004` is thrown when a value is out of
+     * range when converting to another column's data type.
+     */
+    const val NUMERIC_VALUE_OUT_OF_RANGE_2 = 22004
+
+    /**
      * The error with code <code>42101</code> is thrown when
      * trying to create a table or view if an object with the name already
      * exists. Example:

@@ -14,12 +14,12 @@ class ValueDecimal : Value() {
     private lateinit var _type: TypeInfo
 
     private constructor(_value: BigDecimal?) {
-        requireNotNull(value) { "null" }
-        if (value.javaClass != BigDecimal::class.java) {
+        requireNotNull(_value) { "null" }
+        if (_value.javaClass != BigDecimal::class.java) {
             throw DbException.get(ErrorCode.INVALID_CLASS_2,
-                    BigDecimal::class.java.name, value.javaClass.name)
+                    BigDecimal::class.java.name, _value.javaClass.name)
         }
-        value = value
+        value = _value
     }
 
 
@@ -98,6 +98,6 @@ class ValueDecimal : Value() {
 
     override fun getMemory(): Int = value.precision() + 120
 
-    override fun add(v: Value): Value? = ValueDecimal[value.add((v as ValueDecimal).value)]
-    override fun subtract(v: Value): Value? = ValueDecimal[value.subtract((v as ValueDecimal).value)]
+    override fun add(v: Value?): Value? = ValueDecimal[value.add((v as ValueDecimal).value)]
+    override fun subtract(v: Value?): Value? = ValueDecimal[value.subtract((v as ValueDecimal).value)]
 }
