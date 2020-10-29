@@ -5,10 +5,9 @@ import org.jetbrains.kotlin.utils.getOrPutNullable
 import java.io.IOException
 import java.io.InputStream
 import java.lang.management.ManagementFactory
-import java.util.*
+import java.util.ArrayList
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
-import kotlin.collections.HashMap
 import kotlin.experimental.or
 import kotlin.experimental.xor
 
@@ -124,11 +123,11 @@ object Utils {
 
         ZipInputStream(_in).use { zipIn ->
             val ze: ZipEntry? = generateSequence { zipIn.nextEntry }
-                    .takeWhile { it != null }
-                    .firstOrNull { ze ->
-                        val entryName: String = if (ze.name.startsWith("/")) ze.name else "/" + ze.name
-                        name == entryName
-                    }
+                .takeWhile { it != null }
+                .firstOrNull { ze ->
+                    val entryName: String = if (ze.name.startsWith("/")) ze.name else "/" + ze.name
+                    name == entryName
+                }
             if (ze != null) return zipIn.readBytes()
         }
         return null
@@ -237,10 +236,10 @@ object Utils {
         }
         try {
             return (Class.forName("com.sun.managment.OperatingSystemMXBean")
-                    .getMethod("getTotalPhysicalMemorySize")
-                    .invoke(ManagementFactory.getOperatingSystemMXBean()) as java.lang.Number)
-                    .longValue()
-                    .let { (value * it / (1024 * 1024 * 1024)).toInt() }
+                .getMethod("getTotalPhysicalMemorySize")
+                .invoke(ManagementFactory.getOperatingSystemMXBean()) as java.lang.Number)
+                .longValue()
+                .let { (value * it / (1024 * 1024 * 1024)).toInt() }
         } catch (e: Exception) {
             //ignore
         }
@@ -281,4 +280,6 @@ object Utils {
         @Throws(ClassNotFoundException::class)
         fun loadClass(name: String?): Class<*>?
     }
+
+    fun uncheckedSleep(millis: Long) = kotlin.runCatching { Thread.sleep(millis) }.getOrNull()
 }

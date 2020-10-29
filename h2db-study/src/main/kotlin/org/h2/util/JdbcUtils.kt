@@ -6,12 +6,19 @@ import org.h2.api.JavaObjectSerializer
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
 import org.h2.store.DataHandler
-import java.io.*
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
+import java.io.ObjectStreamClass
 import java.sql.Connection
 import java.sql.Driver
 import java.sql.DriverManager
 import java.sql.SQLException
-import java.util.*
+import java.util.ArrayList
+import java.util.HashSet
+import java.util.Properties
 import javax.naming.Context
 import javax.sql.DataSource
 
@@ -47,31 +54,31 @@ object JdbcUtils {
     }
 
     private val DRIVERS = arrayOf(
-            "h2:", "org.h2.Driver",
-            "Cache:", "com.intersys.jdbc.CacheDriver",
-            "daffodilDB://", "in.co.daffodil.db.rmi.RmiDaffodilDBDriver",
-            "daffodil", "in.co.daffodil.db.jdbc.DaffodilDBDriver",
-            "db2:", "com.ibm.db2.jcc.DB2Driver",
-            "derby:net:", "org.apache.derby.jdbc.ClientDriver",
-            "derby://", "org.apache.derby.jdbc.ClientDriver",
-            "derby:", "org.apache.derby.jdbc.EmbeddedDriver",
-            "FrontBase:", "com.frontbase.jdbc.FBJDriver",
-            "firebirdsql:", "org.firebirdsql.jdbc.FBDriver",
-            "hsqldb:", "org.hsqldb.jdbcDriver",
-            "informix-sqli:", "com.informix.jdbc.IfxDriver",
-            "jtds:", "net.sourceforge.jtds.jdbc.Driver",
-            "microsoft:", "com.microsoft.jdbc.sqlserver.SQLServerDriver",
-            "mimer:", "com.mimer.jdbc.Driver",
-            "mysql:", "com.mysql.jdbc.Driver",
-            "odbc:", "sun.jdbc.odbc.JdbcOdbcDriver",
-            "oracle:", "oracle.jdbc.driver.OracleDriver",
-            "pervasive:", "com.pervasive.jdbc.v2.Driver",
-            "pointbase:micro:", "com.pointbase.me.jdbc.jdbcDriver",
-            "pointbase:", "com.pointbase.jdbc.jdbcUniversalDriver",
-            "postgresql:", "org.postgresql.Driver",
-            "sybase:", "com.sybase.jdbc3.jdbc.SybDriver",
-            "sqlserver:", "com.microsoft.sqlserver.jdbc.SQLServerDriver",
-            "teradata:", "com.ncr.teradata.TeraDriver")
+        "h2:", "org.h2.Driver",
+        "Cache:", "com.intersys.jdbc.CacheDriver",
+        "daffodilDB://", "in.co.daffodil.db.rmi.RmiDaffodilDBDriver",
+        "daffodil", "in.co.daffodil.db.jdbc.DaffodilDBDriver",
+        "db2:", "com.ibm.db2.jcc.DB2Driver",
+        "derby:net:", "org.apache.derby.jdbc.ClientDriver",
+        "derby://", "org.apache.derby.jdbc.ClientDriver",
+        "derby:", "org.apache.derby.jdbc.EmbeddedDriver",
+        "FrontBase:", "com.frontbase.jdbc.FBJDriver",
+        "firebirdsql:", "org.firebirdsql.jdbc.FBDriver",
+        "hsqldb:", "org.hsqldb.jdbcDriver",
+        "informix-sqli:", "com.informix.jdbc.IfxDriver",
+        "jtds:", "net.sourceforge.jtds.jdbc.Driver",
+        "microsoft:", "com.microsoft.jdbc.sqlserver.SQLServerDriver",
+        "mimer:", "com.mimer.jdbc.Driver",
+        "mysql:", "com.mysql.jdbc.Driver",
+        "odbc:", "sun.jdbc.odbc.JdbcOdbcDriver",
+        "oracle:", "oracle.jdbc.driver.OracleDriver",
+        "pervasive:", "com.pervasive.jdbc.v2.Driver",
+        "pointbase:micro:", "com.pointbase.me.jdbc.jdbcDriver",
+        "pointbase:", "com.pointbase.jdbc.jdbcUniversalDriver",
+        "postgresql:", "org.postgresql.Driver",
+        "sybase:", "com.sybase.jdbc3.jdbc.SybDriver",
+        "sqlserver:", "com.microsoft.sqlserver.jdbc.SQLServerDriver",
+        "teradata:", "com.ncr.teradata.TeraDriver")
 
     /**
      * Get the driver class name for the given URL, or null if the URL is
@@ -107,12 +114,12 @@ object JdbcUtils {
     fun serialize(obj: Any, dataHandler: DataHandler?): ByteArray {
         return try {
             (dataHandler?.getJavaObjectSerializer() ?: serializer)
-                    ?.serialize(obj)
-                    ?: kotlin.run {
-                        val out = ByteArrayOutputStream()
-                        ObjectOutputStream(out).writeObject(obj)
-                        out.toByteArray()
-                    }
+                ?.serialize(obj)
+                ?: kotlin.run {
+                    val out = ByteArrayOutputStream()
+                    ObjectOutputStream(out).writeObject(obj)
+                    out.toByteArray()
+                }
         } catch (e: Throwable) {
             throw DbException.get(ErrorCode.SERIALIZATION_FAILED_1, e, e.toString())
         }
@@ -130,20 +137,20 @@ object JdbcUtils {
     fun deserialize(data: ByteArray, dataHandler: DataHandler?): Any? {
         return try {
             (dataHandler?.getJavaObjectSerializer() ?: serializer)
-                    ?.deserialize(data)
-                    ?: kotlin.run {
-                        val bain = ByteArrayInputStream(data)
-                        val ois = if (SysProperties.USE_THREAD_CONTEXT_CLASS_LOADER)
-                            object : ObjectInputStream(bain) {
-                                @Throws(IOException::class, ClassNotFoundException::class)
-                                override fun resolveClass(desc: ObjectStreamClass): Class<*>? = try {
-                                    Class.forName(desc.name, true, Thread.currentThread().contextClassLoader)
-                                } catch (e: ClassNotFoundException) {
-                                    super.resolveClass(desc)
-                                }
+                ?.deserialize(data)
+                ?: kotlin.run {
+                    val bain = ByteArrayInputStream(data)
+                    val ois = if (SysProperties.USE_THREAD_CONTEXT_CLASS_LOADER)
+                        object : ObjectInputStream(bain) {
+                            @Throws(IOException::class, ClassNotFoundException::class)
+                            override fun resolveClass(desc: ObjectStreamClass): Class<*>? = try {
+                                Class.forName(desc.name, true, Thread.currentThread().contextClassLoader)
+                            } catch (e: ClassNotFoundException) {
+                                super.resolveClass(desc)
                             }
-                        else ObjectInputStream(bain)
-                    }
+                        }
+                    else ObjectInputStream(bain)
+                }
         } catch (e: Throwable) {
             throw DbException.get(ErrorCode.DESERIALIZATION_FAILED_1, e, e.toString());
         }
@@ -207,8 +214,8 @@ object JdbcUtils {
         }
 
         if (!allowAllClasses
-                && !allowedClassNames!!.contains(className)
-                && !allowedClassNamePrefixes.any { className.startsWith(it) }) {
+            && allowedClassNames?.contains(className) == false
+            && !allowedClassNamePrefixes.any { className.startsWith(it) }) {
             throw DbException.get(ErrorCode.ACCESS_DENIED_TO_CLASS_1, className)
         }
 
@@ -303,7 +310,7 @@ object JdbcUtils {
                      * redshift and postgresql drivers)
                      */
                     return driverInstance.connect(url, prop)
-                            ?: throw SQLException("Driver $driver is not suitable for $url", "08001")
+                        ?: throw SQLException("Driver $driver is not suitable for $url", "08001")
                 } else if (Context::class.java.isAssignableFrom(d)) {
                     // JNDI context
                     val context = d.getDeclaredConstructor().newInstance() as Context

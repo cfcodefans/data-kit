@@ -6,28 +6,30 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.DriverPropertyInfo
 import java.sql.SQLException
-import java.util.*
+import java.util.Properties
 import java.util.logging.Logger
 
 class Driver : java.sql.Driver {
     companion object {
         @JvmStatic
         val DEFAULT_URL: String = "jdbc:default:connection"
+
         @JvmStatic
         val INSTANCE: Driver = Driver()
+
         @JvmStatic
         val DEFAULT_CONNECTION: ThreadLocal<Connection> = ThreadLocal()
+
         @JvmStatic
         var registered: Boolean = false
 
         @JvmStatic
         @Synchronized
         fun load(): Driver {
+            if (registered) return INSTANCE
             try {
-                if (!registered) {
-                    registered = true
-                    DriverManager.registerDriver(INSTANCE)
-                }
+                DriverManager.registerDriver(INSTANCE)
+                registered = true
             } catch (e: SQLException) {
                 DbException.traceThrowable(e)
             }
@@ -41,11 +43,10 @@ class Driver : java.sql.Driver {
         @JvmStatic
         @Synchronized
         fun unload(): Unit {
+            if (!registered) return
             try {
-                if (registered) {
-                    registered = false
-                    DriverManager.deregisterDriver(INSTANCE)
-                }
+                registered = false
+                DriverManager.deregisterDriver(INSTANCE)
             } catch (e: SQLException) {
                 DbException.traceThrowable(e)
             }
