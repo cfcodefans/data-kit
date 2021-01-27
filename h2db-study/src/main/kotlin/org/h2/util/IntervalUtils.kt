@@ -40,6 +40,10 @@ object IntervalUtils {
 
     private val LEADING_MAX = BigInteger.valueOf(999999999999999999L)
 
+    inline fun String.simpleMatches(offset: Int, other: String): Boolean {
+        return this.regionMatches(thisOffset = offset, other = other, otherOffset = 0, length = other.length, true)
+    }
+
     /**
      * Parses the specified string as {@code INTERVAL} value.
      *
@@ -50,16 +54,109 @@ object IntervalUtils {
      */
     fun parseFormattedInterval(qualifier: IntervalQualifier, s: String): ValueInterval {
         var i: Int = skipWS(s, 0)
-        if (!s.regionMatches(i, "INTERVAL", 0, 8, true)) {
-
+        if (!s.simpleMatches(i, "INTERVAL")) {
+            return parseInterval(qualifier, false, s)!!
         }
+        i = skipWS(s, i + 8)
+        var negative: Boolean = false
+        var ch = s[i]
+        if (ch == '-') {
+            negative = true
+            i = skipWS(s, i + 1)
+            ch = s[i]
+        } else if (ch == '+') {
+            i = skipWS(s, i + 1)
+            ch = s[i]
+        }
+        require(ch == '\'') { s }
+
+        val start = ++i
+        val l = s.length
+        while (true) {
+            require(i != l) { s }
+            if (s[i] == '\'') break
+            i++
+        }
+
+        val v: String = s.substring(start, i)
+        i = skipWS(s, i + 1)
+
+        when {
+            s.simpleMatches(i, "YEAR") -> {
+                i += 4
+                var j = skipWSEnd(s, i)
+                if (j == l) return parseInterval(YEAR, negative, v)!!
+                if (j > i && s.simpleMatches(j, "TO")) {
+                    j += 2
+                    i = skipWS(s, j)
+                    if (i > j && s.simpleMatches(i, "MONTH")) {
+                        if (skipWSEnd(s, i + 5) == l) return parseInterval(YEAR_TO_MONTH, negative, v)!!
+                    }
+                }
+            }
+            s.simpleMatches(i, "MONTH") -> {
+                if (skipWSEnd(s, i + 5) == l) return parseInterval(MONTH, negative, v)!!
+            }
+            s.simpleMatches(i, "DAY") -> {
+                i += 3
+                var j = skipWSEnd(s, i)
+                if (j == l) return parseInterval(DAY, negative, v)!!
+                if (j > i && s.simpleMatches(j, "TO")) {
+                    j += 2
+                    i = skipWS(s, j)
+                    if (i > j) {
+                        if (s.simpleMatches(i, "HOUR")) {
+                            if (skipWSEnd(s, i + 4) == l) return parseInterval(DAY_TO_HOUR, negative, v)!!
+                        } else if (s.simpleMatches(i, "MINUTE")) {
+                            if (skipWSEnd(s, i + 6) == l) return parseInterval(DAY_TO_MINUTE, negative, v)!!
+                        } else if (s.simpleMatches(i, "SECOND")) {
+                            if (skipWSEnd(s, i + 6) == l) return parseInterval(DAY_TO_SECOND, negative, v)!!
+                        }
+                    }
+                }
+            }
+            s.simpleMatches(i, "HOUR") -> {
+                i += 4
+                var j = skipWSEnd(s, i)
+                if (j == l) return parseInterval(HOUR, negative, v)!!
+                if (j > i && s.simpleMatches(j, "TO")) {
+                    j += 2
+                    i = skipWS(s, j)
+                    if (i > j) {
+                        if (s.simpleMatches(i, "MINUTE")) {
+                            if (skipWSEnd(s, i + 6) == l) return parseInterval(HOUR_TO_MINUTE, negative, v)!!
+                        } else if (s.simpleMatches(i, "SECOND")) {
+                            if (skipWSEnd(s, i + 6) == l) return parseInterval(HOUR_TO_SECOND, negative, v)!!
+                        }
+                    }
+                }
+            }
+            s.simpleMatches(i, "MINUTE") -> {
+                i += 6
+                var j = skipWSEnd(s, i)
+                if (j == l) return parseInterval(MINUTE, negative, v)!!
+                if (j > i && s.simpleMatches(j, "TO")) {
+                    j += 2
+                    i = skipWS(s, j)
+                    if (i > j && s.simpleMatches(i, "SECOND")) {
+                        if (skipWSEnd(s, i + 6) == l) return parseInterval(MINUTE_TO_SECOND, negative, v)!!
+                    }
+                }
+            }
+            s.simpleMatches(i, "SECOND") -> {
+                if (skipWSEnd(s, i + 6) == l) return parseInterval(SECOND, negative, v)!!
+            }
+        }
+        throw java.lang.IllegalArgumentException(s)
     }
 
-    private fun parseInterval2(qualifier: IntervalQualifier,
-                               s: String,
-                               ch: Char,
-                               max: Int,
-                               negative: Boolean): ValueInterval? {
+    private fun parseInterval2(
+        qualifier: IntervalQualifier,
+        s: String,
+        ch: Char,
+        max: Int,
+        negative: Boolean
+    ): ValueInterval? {
         var leading: Long
         val remaining: Long
         val dash = s.indexOf(ch, 1)
@@ -227,22 +324,28 @@ object IntervalUtils {
         }
     }
 
-    private fun intervalToAbsolute(interval: ValueInterval,
-                                   multiplier: BigInteger,
-                                   totalMultiplier: BigInteger): BigInteger? {
+    private fun intervalToAbsolute(
+        interval: ValueInterval,
+        multiplier: BigInteger,
+        totalMultiplier: BigInteger
+    ): BigInteger? {
         return intervalToAbsolute(interval, multiplier)!!.multiply(totalMultiplier)
     }
 
-    private fun intervalToAbsolute(interval: ValueInterval,
-                                   multiplier: BigInteger): BigInteger? {
+    private fun intervalToAbsolute(
+        interval: ValueInterval,
+        multiplier: BigInteger
+    ): BigInteger? {
         return BigInteger.valueOf(interval.leading)
-                .multiply(multiplier)
-                .add(BigInteger.valueOf(interval.remaining))
+            .multiply(multiplier)
+            .add(BigInteger.valueOf(interval.remaining))
     }
 
-    private fun intervalFromAbsolute(qualifier: IntervalQualifier,
-                                     absolute: BigInteger,
-                                     divisor: BigInteger): ValueInterval? {
+    private fun intervalFromAbsolute(
+        qualifier: IntervalQualifier,
+        absolute: BigInteger,
+        divisor: BigInteger
+    ): ValueInterval? {
         val dr = absolute.divideAndRemainder(divisor)
         return ValueInterval.from(qualifier, absolute.signum() < 0, leadingExact(dr[0]), Math.abs(dr[1].toLong()))
     }
