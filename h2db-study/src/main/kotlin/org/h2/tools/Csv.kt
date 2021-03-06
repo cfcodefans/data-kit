@@ -464,7 +464,7 @@ class Csv : SimpleRowSource {
     }
 
     @Throws(IOException::class)
-    private fun readResultSet(colNames: Array<String?>): ResultSet? {
+    private fun readResultSet(colNames: Array<String?>?): ResultSet? {
         columnNames = colNames
         initRead()
         val result = SimpleResultSet(this)

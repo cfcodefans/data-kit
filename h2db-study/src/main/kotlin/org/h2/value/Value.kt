@@ -221,6 +221,11 @@ abstract class Value : VersionedValue() {
         const val JSON: Int = 40
 
         /**
+         * The value type for TIME WITH TIME ZONE values.
+         */
+        const val TIME_TZ = 41
+
+        /**
          * The number of value types.
          */
         const val TYPE_COUNT: Int = JSON + 1

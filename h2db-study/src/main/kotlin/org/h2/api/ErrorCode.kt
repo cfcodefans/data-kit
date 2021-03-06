@@ -663,6 +663,17 @@ object ErrorCode {
     const val INVALID_CLASS_2: Int = 90125
 
     /**
+     * The error with code `90128` is thrown when
+     * trying to call a method of the ResultSet that is only supported
+     * for scrollable result sets, and the result set is not scrollable.
+     * Example:
+     * <pre>
+     * rs.first();
+    </pre> *
+     */
+    const val RESULT_SET_NOT_SCROLLABLE: Int = 90128
+
+    /**
      * The error with code `90134` is thrown when
      * trying to load a Java class that is not part of the allowed classes. By
      * default, all classes are allowed, but this can be changed using the

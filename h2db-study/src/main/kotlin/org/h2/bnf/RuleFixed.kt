@@ -28,6 +28,17 @@ open class RuleFixed(val type: Int) : Rule {
     }
 
     override fun autoComplete(sentence: Sentence): Boolean {
-        TODO("Not yet implemented")
+        sentence.stopIfRequired()
+        var s: String = sentence.query
+        val removeTrailingSpaces: Boolean = false
+
+        when (type) {
+            YMD -> {
+
+            }
+            else -> throw AssertionError("type=" + type)
+        }
+
+        return false
     }
 }
