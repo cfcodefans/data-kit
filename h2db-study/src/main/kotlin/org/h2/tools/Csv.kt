@@ -6,12 +6,15 @@ import org.h2.engine.SysProperties
 import org.h2.message.DbException
 import org.h2.store.fs.FileUtils
 import org.h2.util.IOUtils
+import org.h2.util.JdbcUtils
 import org.h2.util.StringUtils
 import org.h2.util.Utils
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.io.*
 import java.sql.ResultSet
+import java.sql.ResultSetMetaData
 import java.sql.SQLException
+import java.sql.Types
 
 /**
  * A facility to read from and write to CSV (comma separated values) files.
@@ -21,10 +24,11 @@ import java.sql.SQLException
 class Csv : SimpleRowSource {
     companion object {
         @JvmStatic
-        fun convertException(message: String, e: Exception): SQLException = DbException.getJdbcSQLException(ErrorCode.IO_EXCEPTION_1, e, message)
+        fun convertException(message: String, e: Exception): SQLException =
+            DbException.getJdbcSQLException(ErrorCode.IO_EXCEPTION_1, e, message)
 
         private fun isParam(key: String, vararg values: String): Boolean =
-                values.any { key.equals(it, ignoreCase = true) }
+            values.any { key.equals(it, ignoreCase = true) }
 
         @JvmStatic
         fun isSimpleColunName(columnName: String): Boolean {
@@ -54,7 +58,7 @@ class Csv : SimpleRowSource {
     var lineSeparator: String = SysProperties.LINE_SEPARATOR
     var nullString: String = ""
 
-    var fileName: String = ""
+    var fileName: String? = ""
     var input: Reader? = null
     var inputBuffer: CharArray? = null
     var inputBufferPos: Int = 0
@@ -84,7 +88,108 @@ class Csv : SimpleRowSource {
 
     @Throws(SQLException::class)
     fun writeResultSet(rs: ResultSet): Int {
+        try {
+            var rows: Int = 0
 
+            val meta: ResultSetMetaData = rs.metaData
+            val colCount: Int = meta.columnCount
+            val row: Array<String?> = Array(colCount) { null }
+            val sqlTypes: IntArray = IntArray(colCount)
+            for (i in 0 until colCount) {
+                row[i] = meta.getColumnLabel(i + 1)
+                sqlTypes[i] = meta.getColumnType(i)
+            }
+            if (writeColumnHeader) writeRow(row)
+            while (rs.next()) {
+                for (i in 0 until colCount) {
+                    row[i] = rs.getString(i + 1)
+                }
+                writeRow(row)
+                rows++
+            }
+            return rows
+        } catch (e: IOException) {
+            throw DbException.convertIOException(e, null)
+        } finally {
+            close()
+            JdbcUtils.closeSilently(rs)
+        }
+    }
+
+    /**
+     * Writes the result set to a file in the CSV format.
+     *
+     * @param writer the writer
+     * @param rs the result set
+     * @return the number of rows written
+     */
+    @Throws(SQLException::class)
+    fun write(writer: Writer?, rs: ResultSet?): Int {
+        output = writer
+        return writeResultSet(rs!!)
+    }
+
+    private fun init(newFileName: String?, charset: String?) {
+        fileName = newFileName
+        this.charSet = charset
+    }
+
+    @Throws(IOException::class)
+    private fun initWrite() {
+        if (output != null) return
+        try {
+            var out = FileUtils.newOutputStream(fileName, false)
+            out = BufferedOutputStream(out, Constants.IO_BUFFER_SIZE)
+            output = BufferedWriter(charSet?.let { OutputStreamWriter(out, charSet) } ?: OutputStreamWriter(out))
+        } catch (e: java.lang.Exception) {
+            close()
+            throw DbException.convertToIOException(e)
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun writeRow(values: Array<String?>): Unit {
+        for (i in values.indices) {
+            if (i > 0 && fieldSeparatorWrite != null) output!!.write(fieldSeparatorWrite)
+            val s = values[i]
+            if (s != null) {
+                if (escapeChar != null) {
+                    if (fieldDelimiter != null) output!!.write(fieldDelimiter.toInt())
+                    output!!.write(escape(s))
+                    if (fieldDelimiter != null) output!!.write(fieldDelimiter.toInt())
+                } else {
+                    output!!.write(s)
+                }
+            } else if (!nullString.isNullOrEmpty()) output!!.write(nullString)
+        }
+        output!!.write(lineSeparator)
+    }
+
+    /**
+     * Writes the result set to a file in the CSV format. The result set is read
+     * using the following loop:
+     *
+     * <pre>
+     * while (rs.next()) {
+     * writeRow(row);
+     * }
+    </pre> *
+     *
+     * @param outputFileName the name of the csv file
+     * @param rs the result set - the result set must be positioned before the
+     * first row.
+     * @param charset the charset or null to use the system default charset
+     * @return the number of rows written
+     */
+    @Throws(SQLException::class)
+    fun write(outputFileName: String, rs: ResultSet?, charset: String?): Int {
+        init(outputFileName, charset!!)
+        return try {
+            initWrite()
+            writeResultSet(rs!!)
+        } catch (e: IOException) {
+            throw convertException("IOException writing $outputFileName", e)
+        }
     }
 
     /**
@@ -117,7 +222,8 @@ class Csv : SimpleRowSource {
                 isParam(key, "charset", "characterSet") -> charset = value
                 isParam(key, "preserveWhitespace") -> preserveWhitespace = Utils.parseBoolean(value, false, false)
                 isParam(key, "writeColumnHeader") -> writeColumnHeader = Utils.parseBoolean(value, true, false)
-                isParam(key, "caseSenstitiveColumnNames") -> caseSensitiveColumnNames = Utils.parseBoolean(value, false, false)
+                isParam(key, "caseSenstitiveColumnNames") -> caseSensitiveColumnNames =
+                    Utils.parseBoolean(value, false, false)
                 else -> DbException.getUnsupportedException(key)
             }
         }
@@ -128,7 +234,8 @@ class Csv : SimpleRowSource {
     @Throws(SQLException::class)
     override fun readRow(): Array<Any> {
         input ?: return emptyArray()
-        val row: Array<String?> = Array(columnNames!!.size) { null }
+        val colSize = columnNames!!.size
+        val row: Array<String?> = Array(colSize) { null }
         try {
             var i = 0
             while (true) {
@@ -141,7 +248,7 @@ class Csv : SimpleRowSource {
                     }
                     break
                 }
-                if (i < row.size) row[i++] = v
+                if (i < colSize) row[i++] = v
                 if (endOfLine) break
             }
         } catch (e: IOException) {
@@ -337,5 +444,56 @@ class Csv : SimpleRowSource {
 
     private fun pushBack() {
         inputBufferPos--
+    }
+
+    /**
+     * Reads CSV data from a reader and returns a result set. The rows in the
+     * result set are created on demand, that means the reader is kept open
+     * until all rows are read or the result set is closed.
+     *
+     * @param reader the reader
+     * @param colNames or null if the column names should be read from the CSV
+     * file
+     * @return the result set
+     */
+    @Throws(IOException::class)
+    fun read(reader: Reader?, colNames: Array<String?>?): ResultSet? {
+        init(null, null)
+        input = reader
+        return readResultSet(colNames)
+    }
+
+    @Throws(IOException::class)
+    private fun readResultSet(colNames: Array<String?>): ResultSet? {
+        columnNames = colNames
+        initRead()
+        val result = SimpleResultSet(this)
+        makeColumnNamesUnique()
+        for (columnName in columnNames!!) {
+            result.addColumn(columnName, Types.VARCHAR, Int.MAX_VALUE, 0)
+        }
+        return result
+    }
+
+    private fun makeColumnNamesUnique() {
+        for (i in columnNames!!.indices) {
+            val buff = StringBuilder()
+            val n = columnNames!![i]
+            if (n.isNullOrEmpty()) {
+                buff.append('C').append(i + 1)
+            } else {
+                buff.append(n)
+            }
+            var j = 0
+            while (j < i) {
+                val y = columnNames!![j]!!
+                if (buff.toString() == y) {
+                    buff.append('1')
+                    j = -1
+                }
+                j++
+            }
+            columnNames!![i] = buff.toString()
+        }
     }
 }
