@@ -13,7 +13,7 @@ interface SimpleRowSource : AutoCloseable {
      * @return the row or null
      */
     @Throws(SQLException::class)
-    fun readRow(): Array<Any>
+    fun readRow(): Array<Any?>
 
     /**
      * Close the row source.

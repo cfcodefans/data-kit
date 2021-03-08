@@ -260,6 +260,15 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
 
         /**
          * Gets the SQL exception object for a specific error code.
+         *
+         * @param errorCode the error code
+         * @param p1 the first parameter of the message
+         * @return the SQLException object
+         */
+        fun getJdbcSQLException(errorCode: Int, p1: String?): SQLException = getJdbcSQLException(errorCode, null, p1)
+
+        /**
+         * Gets the SQL exception object for a specific error code.
          * @param errorCode the error code
          * @param cause the cause of the exception
          * @param params the list of parameters of the message
@@ -319,7 +328,7 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
          * @param value the value passed
          * @return the IlleagalArgumentException object
          */
-        fun getInvalidValueException(param: String, value: Any): Throwable {
+        fun getInvalidValueException(param: String, value: Any): DbException {
             return get(INVALID_VALUE_2, value.toString(), param)
         }
 
@@ -373,6 +382,9 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         fun toSQLException(e: Throwable?): SQLException? {
             return if (e is SQLException) e else convert(e!!).getSQLException()
         }
+
+        fun getJdbcSQLException(errorCode: Int): SQLException =
+            getJdbcSQLException(errorCode, null as Throwable?)
     }
 
     private constructor(e: SQLException) : this(e.message, e)

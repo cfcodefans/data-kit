@@ -39,7 +39,7 @@ class JaasCredentialsValidator(private var appName: String?) : CredentialsValida
         const val DEFAULT_APPNAME: String = "h2"
     }
 
-    constructor() : this(DEFAULT_APPNAME)
+    constructor() : this(appName = DEFAULT_APPNAME)
 
     @Throws(Exception::class)
     override fun validateCredentials(authenticationInfo: AuthenticationInfo): Boolean {
