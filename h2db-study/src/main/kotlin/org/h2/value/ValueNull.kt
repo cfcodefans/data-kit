@@ -3,7 +3,7 @@ package org.h2.value
 /**
  * Implementation of NULL. NULL is not a regular data type.
  */
-class ValueNull : Value {
+class ValueNull : Value() {
     companion object {
         /**
          * The main NULL instance.
@@ -18,5 +18,9 @@ class ValueNull : Value {
          * The display size of the textual representation of NULL.
          */
         const val DISPLAY_SIZE: Int = 4
+    }
+
+    override fun getSQL(builder: StringBuilder): StringBuilder {
+        TODO("Not yet implemented")
     }
 }

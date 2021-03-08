@@ -27,6 +27,6 @@ class NetworkConnectionInfo(var server: String? = null,
      * @return the client address and port
      */
     fun getClient(): String? {
-        return NetUtils.ipToShortForm(StringBuilder(), clientAddr, true).append(':').append(clientPort).toString()
+        return NetUtils.ipToShortForm(StringBuilder(), clientAddr!!, true).append(':').append(clientPort).toString()
     }
 }

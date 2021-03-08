@@ -347,11 +347,11 @@ abstract class Value : VersionedValue() {
 
             val index: Int = v.hashCode() and SysProperties.OBJECT_CACHE_SIZE - 1
             val cached = cache[index]
-            if (cached != null) {
-                if (cached.getValueType() == v.getValueType() && v == cached) {
-                    return cached
-                }
-            }
+            if (cached != null
+                    && cached.getValueType() == v.getValueType()
+                    && v == cached)
+                return cached
+
             cache[index] = v
             return v
         }
