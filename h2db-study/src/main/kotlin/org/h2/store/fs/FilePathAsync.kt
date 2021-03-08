@@ -92,12 +92,10 @@ class FileAsync(val name: String) : FileBase() {
     override fun read(dst: ByteBuffer?, position: Long): Int = complete(channel.read(dst, position))
 
     @Throws(IOException::class)
-    override fun write(src: ByteBuffer?, pos: Long): Int {
-        try {
-            return complete(channel.write(src, pos))
-        } catch (e: NonWritableChannelException) {
-            throw IOException("$name is read only")
-        }
+    override fun write(src: ByteBuffer?, pos: Long): Int = try {
+        complete(channel.write(src, pos))
+    } catch (e: NonWritableChannelException) {
+        throw IOException("$name is read only")
     }
 
     @Throws(IOException::class)
@@ -123,9 +121,7 @@ class FileAsync(val name: String) : FileBase() {
     }
 
     @Throws(IOException::class)
-    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock {
-        return channel.tryLock(position, size, shared)
-    }
+    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock = channel.tryLock(position, size, shared)
 
     override fun toString(): String = "async:$name"
 }

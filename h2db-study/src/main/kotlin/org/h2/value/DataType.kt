@@ -100,15 +100,11 @@ open class DataType(
             if (type == Value.UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?")
             if (type >= Value.NULL && type < Value.TYPE_COUNT) {
                 val dt = TYPES_BY_VALUE_TYPE[type]
-                if (dt != null) {
-                    return dt
-                }
+                if (dt != null) return dt
             }
             if (JdbcUtils.customDataTypesHandler != null) {
                 val dt: DataType = JdbcUtils.customDataTypesHandler!!.getDataTypeById(type)
-                if (dt != null) {
-                    return dt
-                }
+                if (dt != null) return dt
             }
             return TYPES_BY_VALUE_TYPE[Value.NULL]!!
         }

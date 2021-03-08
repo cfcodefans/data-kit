@@ -14,7 +14,7 @@ import org.h2.security.auth.ConfigProperties
  *     </ul>
  */
 class AssignRealmNameRole(private var roleNameFormat: String?) : UserToRolesMapper {
-    constructor() : this("@%s")
+    constructor() : this(roleNameFormat = "@%s")
 
     override fun configure(configProperties: ConfigProperties) {
         roleNameFormat = configProperties.getStringValue("roleNameFormat", roleNameFormat)

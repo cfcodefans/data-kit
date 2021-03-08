@@ -57,31 +57,17 @@ abstract class FileBase : FileChannel() {
     override fun implCloseChannel() {
     }
 
-    override fun lock(position: Long, size: Long, shared: Boolean): FileLock {
-        throw UnsupportedOperationException()
-    }
+    override fun lock(position: Long, size: Long, shared: Boolean): FileLock = throw UnsupportedOperationException()
 
-    override fun map(mode: MapMode?, position: Long, size: Long): MappedByteBuffer {
-        throw UnsupportedOperationException()
-    }
+    override fun map(mode: MapMode?, position: Long, size: Long): MappedByteBuffer = throw UnsupportedOperationException()
 
-    override fun read(dsts: Array<out ByteBuffer>?, offset: Int, length: Int): Long {
-        throw UnsupportedOperationException()
-    }
+    override fun read(dsts: Array<out ByteBuffer>?, offset: Int, length: Int): Long = throw UnsupportedOperationException()
 
-    override fun transferFrom(src: ReadableByteChannel?, position: Long, count: Long): Long {
-        throw UnsupportedOperationException()
-    }
+    override fun transferFrom(src: ReadableByteChannel?, position: Long, count: Long): Long = throw UnsupportedOperationException()
 
-    override fun transferTo(position: Long, count: Long, target: WritableByteChannel?): Long {
-        throw UnsupportedOperationException()
-    }
+    override fun transferTo(position: Long, count: Long, target: WritableByteChannel?): Long = throw UnsupportedOperationException()
 
-    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock {
-        throw UnsupportedOperationException()
-    }
+    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock = throw UnsupportedOperationException()
 
-    override fun write(srcs: Array<out ByteBuffer>?, offset: Int, length: Int): Long {
-        throw UnsupportedOperationException()
-    }
+    override fun write(srcs: Array<out ByteBuffer>?, offset: Int, length: Int): Long = throw UnsupportedOperationException()
 }
