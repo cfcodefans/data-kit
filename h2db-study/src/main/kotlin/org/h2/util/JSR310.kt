@@ -1,8 +1,6 @@
 package org.h2.util
 
 object JSR310 {
-
-
     /**
      * `Class<java.time.LocalDate>` or `null`.
      */

@@ -96,12 +96,12 @@ object NetUtils {
             try {
                 if (ssl) return CipherFactory.createSocket(address, port)
                 val socket = Socket()
-                socket.connect(InetSocketAddress(address, port),
-                    SysProperties.SOCKET_CONNECT_TIMEOUT)
+                socket.connect(InetSocketAddress(address, port), SysProperties.SOCKET_CONNECT_TIMEOUT)
                 return socket
             } catch (e: IOException) {
                 if (System.nanoTime() - start >=
-                    TimeUnit.MILLISECONDS.toNanos(SysProperties.SOCKET_CONNECT_TIMEOUT.toLong())) {
+                    TimeUnit.MILLISECONDS.toNanos(SysProperties.SOCKET_CONNECT_TIMEOUT.toLong())
+                ) {
                     // either it was a connect timeout,
                     // or list of different exceptions
                     throw e
@@ -179,6 +179,5 @@ object NetUtils {
         return builder
     }
 
-    
 
 }

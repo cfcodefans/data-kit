@@ -17,7 +17,7 @@ abstract class FilePathWrapper : FilePath() {
      * @param path the path including the scheme prefix
      * @return the base file path
      */
-    protected fun unwrap(path: String): FilePath = FilePath.get(path.substring(scheme.length + 1))
+    protected fun unwrap(path: String): FilePath = get(path.substring(scheme.length + 1))
 
     protected fun getPrefix(): String = scheme + ":"
 
@@ -26,11 +26,8 @@ abstract class FilePathWrapper : FilePath() {
      * @param base the base path
      * @return the wrapped path
      */
-    fun wrap(base: FilePath?): FilePathWrapper? {
-        return if (base == null)
-            null
-        else
-            create(getPrefix() + base.name, base)
+    open fun wrap(base: FilePath?): FilePathWrapper? {
+        return base?.let { _base -> create(getPrefix() + _base.name, _base) }
     }
 
     override fun getPath(path: String): FilePath {
@@ -53,7 +50,7 @@ abstract class FilePathWrapper : FilePath() {
     override fun createFile(): Boolean = base.createFile()
     override fun delete() = base.delete()
     override fun exists(): Boolean = base.exists()
-    override fun getParent(): FilePath = base.getParent()
+    override fun getParent(): FilePath? = wrap(base.getParent())
     override fun isAbsolute(): Boolean = base.isAbsolute()
     override fun isDirectory(): Boolean = base.isDirectory()
     override fun lastModified(): Long = base.lastModified()

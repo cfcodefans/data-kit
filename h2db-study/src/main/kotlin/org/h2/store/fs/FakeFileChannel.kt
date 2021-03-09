@@ -13,87 +13,53 @@ import java.nio.channels.WritableByteChannel
  */
 class FakeFileChannel : FileChannel() {
     @Throws(IOException::class)
-    override fun implCloseChannel() {
-        throw IOException()
-    }
+    override fun implCloseChannel(): Unit = throw IOException()
 
     @Throws(IOException::class)
-    override fun lock(position: Long, size: Long, shared: Boolean): FileLock? {
-        throw IOException()
-    }
+    override fun lock(position: Long, size: Long, shared: Boolean): FileLock? = throw IOException()
 
     @Throws(IOException::class)
-    override fun map(mode: MapMode?, position: Long, size: Long): MappedByteBuffer? {
-        throw IOException()
-    }
+    override fun map(mode: MapMode?, position: Long, size: Long): MappedByteBuffer? = throw IOException()
 
     @Throws(IOException::class)
-    override fun position(): Long {
-        throw IOException()
-    }
+    override fun position(): Long = throw IOException()
 
     @Throws(IOException::class)
-    override fun position(newPosition: Long): FileChannel? {
-        throw IOException()
-    }
+    override fun position(newPosition: Long): FileChannel? = throw IOException()
 
     @Throws(IOException::class)
-    override fun read(dst: ByteBuffer?): Int {
-        throw IOException()
-    }
+    override fun read(dst: ByteBuffer?): Int = throw IOException()
 
     @Throws(IOException::class)
-    override fun read(dst: ByteBuffer?, position: Long): Int {
-        throw IOException()
-    }
+    override fun read(dst: ByteBuffer?, position: Long): Int = throw IOException()
 
     @Throws(IOException::class)
-    override fun read(dsts: Array<ByteBuffer?>?, offset: Int, length: Int): Long {
-        throw IOException()
-    }
+    override fun read(dsts: Array<ByteBuffer?>?, offset: Int, length: Int): Long = throw IOException()
 
     @Throws(IOException::class)
-    override fun size(): Long {
-        throw IOException()
-    }
+    override fun size(): Long = throw IOException()
 
     @Throws(IOException::class)
-    override fun transferFrom(src: ReadableByteChannel?, position: Long, count: Long): Long {
-        throw IOException()
-    }
+    override fun transferFrom(src: ReadableByteChannel?, position: Long, count: Long): Long = throw IOException()
 
     @Throws(IOException::class)
-    override fun transferTo(position: Long, count: Long, target: WritableByteChannel?): Long {
-        throw IOException()
-    }
+    override fun transferTo(position: Long, count: Long, target: WritableByteChannel?): Long = throw IOException()
 
     @Throws(IOException::class)
-    override fun truncate(size: Long): FileChannel? {
-        throw IOException()
-    }
+    override fun truncate(size: Long): FileChannel? = throw IOException()
 
     @Throws(IOException::class)
-    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock? {
-        throw IOException()
-    }
+    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock? = throw IOException()
 
     @Throws(IOException::class)
-    override fun write(src: ByteBuffer?): Int {
-        throw IOException()
-    }
+    override fun write(src: ByteBuffer?): Int = throw IOException()
 
     @Throws(IOException::class)
-    override fun write(src: ByteBuffer?, position: Long): Int {
-        throw IOException()
-    }
+    override fun write(src: ByteBuffer?, position: Long): Int = throw IOException()
 
     @Throws(IOException::class)
-    override fun write(srcs: Array<ByteBuffer?>?, offset: Int, len: Int): Long {
-        throw IOException()
-    }
+    override fun write(srcs: Array<ByteBuffer?>?, offset: Int, len: Int): Long = throw IOException()
 
     @Throws(IOException::class)
-    override fun force(metaData: Boolean) {
-        throw IOException()
-    }
+    override fun force(metaData: Boolean): Unit = throw IOException()
 }

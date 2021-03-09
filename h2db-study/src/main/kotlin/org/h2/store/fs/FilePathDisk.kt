@@ -213,21 +213,21 @@ class FilePathDisk : FilePath() {
 
     @Throws(IOException::class)
     override fun newInputStream(): InputStream {
-        if (Pattern.matches("[a-zA-Z]{2,19}:.*", name)) {
-            // if the ':' is in the position 1, a windows file access is assumed:
-            // C:.. or D:, and if the ':' is not at the beginning, assume its a
-            // file name with a colon
-            if (name.startsWith(CLASSPATH_PREFIX)) {
-                val filename: String = StringUtils.prependIfMissing(name.substring(CLASSPATH_PREFIX.length), "/")
-                return this.javaClass.getResourceAsStream(fileName)
-                        ?: Thread.currentThread().contextClassLoader.getResourceAsStream(fileName.substring(1))
-                        ?: throw FileNotFoundException("resource $filename")
-            }
-            return URL(name).openStream()
+        if (!Pattern.matches("[a-zA-Z]{2,19}:.*", name)) {
+            val fin: FileInputStream = FileInputStream(name)
+            IOUtils.trace("newOutputStream", name, fin)
+            return fin
         }
-        val fin: FileInputStream = FileInputStream(name)
-        IOUtils.trace("newOutputStream", name, fin)
-        return fin
+        // if the ':' is in the position 1, a windows file access is assumed:
+        // C:.. or D:, and if the ':' is not at the beginning, assume its a
+        // file name with a colon
+        if (name.startsWith(CLASSPATH_PREFIX)) {
+            val filename: String = StringUtils.prependIfMissing(name.substring(CLASSPATH_PREFIX.length), "/")
+            return this.javaClass.getResourceAsStream(fileName)
+                    ?: Thread.currentThread().contextClassLoader.getResourceAsStream(fileName.substring(1))
+                    ?: throw FileNotFoundException("resource $filename")
+        }
+        return URL(name).openStream()
     }
 
     @Throws(IOException::class)
@@ -305,8 +305,8 @@ class FileDisk(private val name: String) : FileBase() {
     }
 
     @Throws(IOException::class)
-    override fun read(dst: ByteBuffer): Int {
-        val len: Int = file.read(dst.array(), dst.arrayOffset() + dst.position(), dst.remaining())
+    override fun read(dst: ByteBuffer?): Int {
+        val len: Int = file.read(dst!!.array(), dst.arrayOffset() + dst.position(), dst.remaining())
         if (len > 0) {
             dst.position(dst.position() + len)
         }
@@ -314,8 +314,8 @@ class FileDisk(private val name: String) : FileBase() {
     }
 
     @Throws(IOException::class)
-    override fun write(src: ByteBuffer): Int {
-        val len: Int = src.remaining()
+    override fun write(src: ByteBuffer?): Int {
+        val len: Int = src!!.remaining()
         file.write(src.array(), src.arrayOffset() + src.position(), len)
         src.position(src.position() + len)
         return len

@@ -20,16 +20,16 @@ class FileAsync(val name: String) : FileBase() {
     companion object {
         private val R = arrayOf<OpenOption>(StandardOpenOption.READ)
         private val W = arrayOf<OpenOption>(StandardOpenOption.READ,
-                StandardOpenOption.WRITE,
-                StandardOpenOption.CREATE)
+            StandardOpenOption.WRITE,
+            StandardOpenOption.CREATE)
         private val RWS = arrayOf<OpenOption>(StandardOpenOption.READ,
-                StandardOpenOption.WRITE,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.SYNC)
+            StandardOpenOption.WRITE,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.SYNC)
         private val RWD = arrayOf<OpenOption>(StandardOpenOption.READ,
-                StandardOpenOption.WRITE,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.DSYNC)
+            StandardOpenOption.WRITE,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.DSYNC)
 
         @JvmStatic
         @Throws(IOException::class)
@@ -55,14 +55,14 @@ class FileAsync(val name: String) : FileBase() {
 
     constructor(fileName: String, mode: String) : this(fileName) {
         channel = AsynchronousFileChannel.open(
-                Paths.get(fileName),
-                *when (mode) {
-                    "r" -> R
-                    "w" -> W
-                    "rws" -> RWS
-                    "rwd" -> RWD
-                    else -> throw IllegalArgumentException(mode)
-                })
+            Paths.get(fileName),
+            *when (mode) {
+                "r" -> R
+                "w" -> W
+                "rws" -> RWS
+                "rwd" -> RWD
+                else -> throw IllegalArgumentException(mode)
+            })
     }
 
     @Throws(IOException::class)

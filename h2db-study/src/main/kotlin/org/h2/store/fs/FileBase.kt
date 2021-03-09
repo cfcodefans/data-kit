@@ -23,14 +23,14 @@ abstract class FileBase : FileChannel() {
     abstract override fun position(newPosition: Long): FileChannel
 
     @Throws(IOException::class)
-    abstract override fun read(dst: ByteBuffer): Int
+    abstract override fun read(dst: ByteBuffer?): Int
 
     @Throws(IOException::class)
-    abstract override fun write(src: ByteBuffer): Int
+    abstract override fun write(src: ByteBuffer?): Int
 
     @Throws(IOException::class)
     @Synchronized
-    override fun read(dst: ByteBuffer, position: Long): Int {
+    override fun read(dst: ByteBuffer?, position: Long): Int {
         val oldPos: Long = position()
         position(position)
         val len: Int = read(dst)
@@ -40,7 +40,7 @@ abstract class FileBase : FileChannel() {
 
     @Throws(IOException::class)
     @Synchronized
-    override fun write(dst: ByteBuffer, position: Long): Int {
+    override fun write(dst: ByteBuffer?, position: Long): Int {
         val oldPos: Long = position()
         position(position)
         val len: Int = write(dst)
