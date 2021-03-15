@@ -239,4 +239,30 @@ object MathUtils {
      */
     @JvmStatic
     fun secureRandomInt(lowerThan: Int): Int = secureRandom!!.nextInt(lowerThan)
+
+    /**
+     * Round the value up to the next block size. The block size must be a power of two.
+     * As an example, using the block size of 8, the following rounding operations are done:
+     * 0 stays 0; values 1...8 results in 8, 9..16 results in 16, and so on.
+     * @param x the value to be rounded
+     * @param blockSizePowerOf2 the block size
+     * @return the rounded value
+     */
+    fun roundUpLong(x: Long, blockSizePowerOf2: Long): Long {
+        return (x + blockSizePowerOf2 - 1) and (-blockSizePowerOf2)
+    }
+
+    /**
+     * Round the value up to the next block size. The block size must be a power
+     * of two. As an example, using the block size of 8, the following rounding
+     * operations are done: 0 stays 0; values 1..8 results in 8, 9..16 results
+     * in 16, and so on.
+     *
+     * @param x the value to be rounded
+     * @param blockSizePowerOf2 the block size
+     * @return the rounded value
+     */
+    fun roundUpInt(x: Int, blockSizePowerOf2: Int): Int {
+        return x + blockSizePowerOf2 - 1 and -blockSizePowerOf2
+    }
 }
