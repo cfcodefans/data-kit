@@ -93,9 +93,7 @@ class FileMemData(val name: String, val compress: Boolean) {
          * Points to a block of bytes that needs to be compressed
          */
         class CompressItem(val file: FileMemData, val page: Int) {
-            override fun hashCode(): Int {
-                return page xor file.getId()
-            }
+            override fun hashCode(): Int = page xor file.getId()
 
             override fun equals(o: Any?): Boolean {
                 if (o is CompressItem) {
