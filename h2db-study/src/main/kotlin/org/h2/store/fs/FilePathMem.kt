@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference
  * This class contains the data of an in-memory random access file.
  * Data compression using the LZF algorithm is supported as well.
  */
-class FileMemData(val name: String, val compress: Boolean) {
+class FileMemData(var name: String, val compress: Boolean) {
 
     val id: Int = name.hashCode()
     var length: Long = 0
@@ -149,7 +149,7 @@ class FileMemData(val name: String, val compress: Boolean) {
         val end: Long = MathUtils.roundUpLong(newLength, BLOCK_SIZE.toLong())
         if (end == newLength) return
         val lastPage: Int = (newLength shr BLOCK_SIZE_SHIFT).toInt()
-        val d:ByteArray = expand(lastPage)
+        val d: ByteArray = expand(lastPage)
 
     }
 
@@ -227,14 +227,14 @@ open class FilePathMem : FilePath {
      */
     open fun compressed(): Boolean = false
 
-    private fun getMemoryFile(): FileMemData? {
+    private fun getMemoryFile(): FileMemData {
         synchronized(MEMORY_FILES) {
             var m: FileMemData? = MEMORY_FILES[name]
             return when (m) {
                 DIRECTORY -> throw DbException.get(ErrorCode.FILE_CREATION_FAILED_1, "$name (a directory with this name already exists)")
                 null -> {
                     m = FileMemData(name, compressed())
-                    MEMORY_FILES.put(name, m)
+                    MEMORY_FILES[name] = m
                     m
                 }
                 else -> m
@@ -242,5 +242,32 @@ open class FilePathMem : FilePath {
         }
     }
 
+    private fun isRoot(): Boolean = name == "$scheme:"
+
     override fun size(): Long = getMemoryFile()?.length ?: -1
+
+    override fun moveTo(newName: FilePath, atomicReplace: Boolean) {
+        synchronized(MEMORY_FILES) {
+            if (!atomicReplace && newName.name != name && MEMORY_FILES.containsKey(newName.name)) {
+                throw DbException.get(ErrorCode.FILE_RENAME_FAILED_2, name, newName + " (exists)")
+            }
+            val f: FileMemData = getMemoryFile()
+            f.name = newName.name
+            MEMORY_FILES.remove(name)
+            MEMORY_FILES.put(newName.name, f)
+        }
+    }
+
+    override fun createFile(): Boolean {
+        synchronized(MEMORY_FILES) {
+            if (exists()) return false
+            getMemoryFile()
+        }
+        return true
+    }
+
+    override fun exists(): Boolean {
+        if (isRoot()) return true
+    }
+
 }
