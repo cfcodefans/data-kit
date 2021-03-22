@@ -6,8 +6,16 @@ import org.h2.message.DbException
 import org.h2.util.MathUtils
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.nio.ByteBuffer
+import java.nio.channels.ClosedChannelException
+import java.nio.channels.FileChannel
+import java.nio.channels.NonWritableChannelException
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.collections.ArrayList
+import kotlin.math.min
 
 /**
  * This class contains the data of an in-memory random access file.
@@ -268,6 +276,111 @@ open class FilePathMem : FilePath {
 
     override fun exists(): Boolean {
         if (isRoot()) return true
+        synchronized(MEMORY_FILES) { return MEMORY_FILES[name] != null }
     }
 
+    override fun delete() {
+        if (isRoot()) return
+        synchronized(MEMORY_FILES) {
+            val old: FileMemData? = MEMORY_FILES.remove(name)
+            old?.truncate(0)
+        }
+    }
+
+    override fun newDirectoryStream(): List<FilePath?> {
+        synchronized(MEMORY_FILES) {
+            return MEMORY_FILES.tailMap(name)
+                .keys
+                .takeWhile { n -> n.startsWith(name, false) && n != name && n.indexOf('/', name.length + 1) < 0 }
+                .map { n -> getPath(n) }
+                .toList()
+        }
+    }
+
+    override fun setReadOnly(): Boolean {
+        getMemoryFile().isReadOnly = true
+        return true
+    }
+
+    override fun canWrite(): Boolean {
+        return !getMemoryFile().isReadOnly
+    }
+
+    override fun getParent(): FilePathMem? {
+        val idx = name.lastIndexOf('/')
+        return if (idx < 0) null else getPath(name.substring(0, idx))
+    }
+
+    override fun isDirectory(): Boolean {
+        if (isRoot()) return true
+        synchronized(MEMORY_FILES) {
+            val d = MEMORY_FILES[name]
+            return d === DIRECTORY
+        }
+    }
+
+    override fun isAbsolute(): Boolean {
+        // TODO relative files are not supported
+        return true
+    }
+
+    override fun toRealPath(): FilePathMem = this
+
+    override fun lastModified(): Long {
+        return getMemoryFile().lastModified
+    }
+
+    override fun createDirectory() {
+        if (exists()) {
+            throw DbException.get(ErrorCode.FILE_CREATION_FAILED_1,
+                "$name (a file with this name already exists)")
+        }
+        synchronized(MEMORY_FILES) { MEMORY_FILES.put(name, DIRECTORY) }
+    }
+
+    @Throws(IOException::class)
+    override fun newOutputStream(append: Boolean): OutputStream {
+        val obj = getMemoryFile()
+        val m = FileMem(obj, false)
+        return FileChannelOutputStream(m, append)
+    }
+
+    override fun newInputStream(): InputStream {
+        val obj = getMemoryFile()
+        val m = FileMem(obj, true)
+        return FileChannelInputStream(m, true)
+    }
+}
+
+/**
+ * This class represents an in-memory file.
+ */
+class FileMem(var data: FileMemData?, val readOnly: Boolean) : FileBase() {
+    var pos: Long = 0
+    override fun size(): Long = data.length
+    override fun truncate(newLength: Long): FileChannel {
+        //compatibility with JDK FileChannel#truncate
+        if (readOnly) throw NonWritableChannelException()
+        if (data == null) throw ClosedChannelException()
+        if (newLength < size()) {
+            data!!.touch(readOnly)
+            pos = min(pos, newLength)
+            data!!.truncate(newLength)
+        }
+        return this
+    }
+
+    override fun position(newPosition: Long): FileChannel = apply { pos = newPosition }
+
+    @Throws(IOException::class)
+    fun write(src: ByteBuffer, position: Long): Int {
+        if (data == null) throw ClosedChannelException()
+        val len = src.remaining()
+        if (len == 0) return 0
+        data!!.touch(readOnly)
+        data.readWrite(position, src.array(),
+            src.arrayOffset() + src.position(), len, true)
+        src.position(src.position() + len)
+        return len
+    }
 }
