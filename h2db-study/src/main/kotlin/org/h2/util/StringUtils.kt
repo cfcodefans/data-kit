@@ -451,4 +451,22 @@ object StringUtils {
         }
         return result
     }
+
+    /**
+     * Append a zero-padded number from 00 to 99 to a string builder.
+     *
+     * @param builder the string builder
+     * @param positiveValue the number to append
+     * @return the specified string builder
+     */
+//    fun appendTwoDigits(builder: java.lang.StringBuilder, positiveValue: Int): java.lang.StringBuilder {
+//        if (positiveValue < 10) {
+//            builder.append('0')
+//        }
+//        return builder.append(positiveValue)
+//    }
+    fun java.lang.StringBuilder.appendTwoDigits(positiveValue: Int): java.lang.StringBuilder = apply {
+        if (positiveValue < 10) this.append('0')
+        this.append(positiveValue)
+    }
 }

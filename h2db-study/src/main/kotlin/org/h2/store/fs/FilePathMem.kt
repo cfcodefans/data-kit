@@ -378,8 +378,7 @@ class FileMem(var data: FileMemData?, val readOnly: Boolean) : FileBase() {
         val len = src.remaining()
         if (len == 0) return 0
         data!!.touch(readOnly)
-        data.readWrite(position, src.array(),
-            src.arrayOffset() + src.position(), len, true)
+        data.readWrite(position, src.array(),  src.arrayOffset() + src.position(), len, true)
         src.position(src.position() + len)
         return len
     }
