@@ -36,8 +36,8 @@ class DbSchema(val contents: DbContents,
     @Throws(SQLException::class)
     fun readTables(meta: DatabaseMetaData, tableTypes: Array<String>) {
         val rs: ResultSet = meta.getTables(null, name, null, tableTypes)
-        rs.use { it ->
-            tables = generateSequence {
+        tables = rs.use { it ->
+             generateSequence {
                 if (it.next()) DbTableOrView(this, it) else null
             }.toList().toTypedArray()
         }
@@ -49,9 +49,7 @@ class DbSchema(val contents: DbContents,
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
             """.trimIndent()).use { ps ->
-                for (tbl in tables) {
-                    tbl.readColumns(meta, ps)
-                }
+                for (tbl in tables) tbl.readColumns(meta, ps)
             }
         }
     }
@@ -64,15 +62,13 @@ class DbSchema(val contents: DbContents,
     @Throws(SQLException::class)
     fun readProcedures(meta: DatabaseMetaData) {
         val rs: ResultSet = meta.getProcedures(null, name, null)
-        rs.use { it ->
-            procedures = generateSequence {
+        procedures = rs.use { it ->
+             generateSequence {
                 if (it.next()) DbProcedure(this, it) else null
             }.toList().toTypedArray()
         }
         if (procedures.size < SysProperties.CONSOLE_MAX_PROCEDURES_LIST_COLUMNS) {
-            for (procedure in procedures) {
-                procedure.readParameters(meta)
-            }
+            for (procedure in procedures) procedure.readParameters(meta)
         }
     }
 

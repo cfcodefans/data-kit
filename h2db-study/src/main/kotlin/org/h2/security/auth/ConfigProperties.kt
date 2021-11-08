@@ -6,14 +6,9 @@ import org.h2.util.Utils.parseBoolean
  * wrapper for configuration properties
  */
 class ConfigProperties {
-    private lateinit var properties: MutableMap<String?, String?>
-
-    constructor() {
-        properties = HashMap()
-    }
+    private var properties: MutableMap<String?, String?> = HashMap()
 
     constructor(configProperties: Collection<PropertyConfig>) {
-        properties = HashMap()
         for ((name, value) in configProperties) {
             if (properties.containsKey(name)) {
                 throw AuthConfigException("duplicate property $name")
@@ -41,7 +36,7 @@ class ConfigProperties {
      * @throws AuthConfigException if the property is missing.
      */
     fun getStringValue(name: String?): String = properties[name]
-            ?: throw AuthConfigException("missing config property $name")
+        ?: throw AuthConfigException("missing config property $name")
 
     /**
      * Returns the integer value of specified property.
@@ -60,8 +55,8 @@ class ConfigProperties {
      * @throws AuthConfigException if the property is missing.
      */
     fun getIntValue(name: String?): Int = properties[name]?.toInt()
-            ?: throw AuthConfigException("missing config property $name")
+        ?: throw AuthConfigException("missing config property $name")
 
     fun getBooleanValue(name: String?, defaultValue: Boolean): Boolean = properties[name]?.let { parseBoolean(it, defaultValue, true) }
-            ?: defaultValue
+        ?: defaultValue
 }

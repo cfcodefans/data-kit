@@ -47,7 +47,7 @@ object StringUtils {
         //create a new cache at most every 5 seconds
         //so that out of memory exceptions are not delayed
         if (softCacheCreatedNs != 0L
-                && System.nanoTime() - softCacheCreatedNs < TimeUnit.SECONDS.toNanos(5)) {
+            && System.nanoTime() - softCacheCreatedNs < TimeUnit.SECONDS.toNanos(5)) {
             return null
         }
         try {
@@ -60,6 +60,31 @@ object StringUtils {
     }
 
     /**
+     * Get the string from the cache if possible. If the string has not been
+     * found, it is added to the cache. If there is such a string in the cache,
+     * that one is returned.
+     *
+     * @param s the original string
+     * @return a string with the same content, if possible from the cache
+     */
+    fun cache(s: String?): String? {
+        if (!SysProperties.OBJECT_CACHE) return s
+        if (s.isNullOrEmpty()) return s
+
+        val cache = getCache() ?: return s
+
+        val hash = s.hashCode()
+        val index = hash and SysProperties.OBJECT_CACHE_SIZE - 1
+        val cached = cache[index]
+        if (s == cached) {
+            return cached
+        }
+        cache[index] = s
+
+        return s
+    }
+
+    /**
      * Convert a string to uppercase using the English locale.
      * @param s the test to convert
      * @return the uppercase text
@@ -67,12 +92,12 @@ object StringUtils {
     @JvmStatic
     fun toUpperEnglish(s: String): String {
         if (s.length > TO_UPPER_CACHE_MAX_ENTRY_LENGTH) {
-            return s.toUpperCase(Locale.ENGLISH)
+            return s.uppercase(Locale.ENGLISH)
         }
         val index: Int = s.hashCode() and (TO_UPPER_CACHE_LENGTH - 1)
         var e: Array<String>? = TO_UPPER_CACHE[index]
         if (e != null && s == e[0]) return e[1]
-        val s2 = s.toUpperCase(Locale.ENGLISH)
+        val s2 = s.uppercase(Locale.ENGLISH)
         e = arrayOf(s, s2)
         TO_UPPER_CACHE[index] = e
         return s2
@@ -207,10 +232,10 @@ object StringUtils {
                     buff.append(c)
                 } else {
                     buff.append("\\u")
-                            .append(HEX[c.toInt() shr 12])
-                            .append(HEX[c.toInt() shr 8 and 0xf])
-                            .append(HEX[c.toInt() shr 4 and 0xf])
-                            .append(HEX[c.toInt() and 0xf])
+                        .append(HEX[c.toInt() shr 12])
+                        .append(HEX[c.toInt() shr 8 and 0xf])
+                        .append(HEX[c.toInt() shr 4 and 0xf])
+                        .append(HEX[c.toInt() and 0xf])
                 }
             }
         }
@@ -229,10 +254,10 @@ object StringUtils {
             val len: Int = s.length
             val i: Int = min(index, len)
             StringBuilder(len + 3)
-                    .append(s, 0, index)
-                    .append("[*]")
-                    .append(s, i, len)
-                    .toString()
+                .append(s, 0, index)
+                .append("[*]")
+                .append(s, i, len)
+                .toString()
         }
     }
 
@@ -245,7 +270,7 @@ object StringUtils {
     @JvmStatic
     fun javaDecode(s: String): String {
         val buf: StringBuilder = StringBuilder(s.length)
-//        for ((i, c) in s.withIndex()) {
+        //        for ((i, c) in s.withIndex()) {
         var i: Int = 0
         while (i < s.length) {
             val c: Char = s[i]
@@ -259,7 +284,7 @@ object StringUtils {
                 'r' -> buf.append('\r')
                 'n' -> buf.append('\n')
                 'b' -> buf.append('\b')
-//                'f' -> buf.append('\f')
+                //                'f' -> buf.append('\f')
                 '#' -> buf.append('#') // for properties file
                 '=' -> buf.append('=') // for properties file
                 ':' -> buf.append(':') // for properties file
@@ -327,9 +352,9 @@ object StringUtils {
      */
     @JvmStatic
     fun unEnclose(s: String): String =
-            if (s.startsWith('(') && s.endsWith(')'))
-                s.substring(1, s.length - 1)
-            else s
+        if (s.startsWith('(') && s.endsWith(')'))
+            s.substring(1, s.length - 1)
+        else s
 
     /**
      * Encode the string as a URL

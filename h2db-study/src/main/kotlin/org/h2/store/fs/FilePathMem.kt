@@ -149,6 +149,46 @@ class FileMemData(var name: String, val compress: Boolean) {
     }
 
     /**
+     * Read or write
+     * @param pos the position
+     * @param b the byte array
+     * @param off the offset within the byte array
+     * @param len the number of bytes
+     * @param write true for writing
+     * @return the new position
+     */
+    fun readWrite(_pos: Long, b: ByteArray, _off: Int, _len: Int, write: Boolean): Long {
+        var pos: Long = _pos
+        var len: Int = _len
+        var off: Int = _off
+        var end: Long = pos + len
+        if (end > length) {
+            if (write) changeLength(end)
+            else len = (length - pos).toInt()
+        }
+        while (len > 0) {
+            val l: Int = min(len, BLOCK_SIZE - (pos.toInt() and BLOCK_SIZE_MASK))
+            val page: Int = (pos.shr(BLOCK_SIZE_SHIFT)).toInt()
+            val block: ByteArray = expand(page)
+            val blockOffset: Int = (pos.toInt() and BLOCK_SIZE_MASK)
+            if (write) {
+                val p2: ByteArray = block.copyOf()
+                System.arraycopy(b, off, p2, blockOffset, l)
+                setPage(page, block, p2, true)
+            } else {
+                System.arraycopy(block, blockOffset, b, off, l)
+            }
+            if (compress) {
+                compressLater(page)
+            }
+            off += l
+            pos += l
+            len -= l
+        }
+        return pos
+    }
+
+    /**
      * Truncate the file.
      * @param newLength the new length
      */
@@ -373,14 +413,32 @@ class FileMem(var data: FileMemData?, val readOnly: Boolean) : FileBase() {
     override fun position(newPosition: Long): FileChannel = apply { pos = newPosition }
 
     @Throws(IOException::class)
-    fun write(src: ByteBuffer, position: Long): Int {
+    override fun write(src: ByteBuffer?, position: Long): Int {
         if (data == null) throw ClosedChannelException()
-        val len = src.remaining()
+        val len = src!!.remaining()
         if (len == 0) return 0
         data!!.touch(readOnly)
-        data.readWrite(position, src.array(),
+        data!!.readWrite(position, src.array(),
             src.arrayOffset() + src.position(), len, true)
         src.position(src.position() + len)
         return len
     }
+
+    @Throws(IOException::class)
+    override fun write(src: ByteBuffer?): Int = this.write(src, this.pos)
+
+    @Throws(IOException::class)
+    override fun read(dst: ByteBuffer?, position: Long): Int {
+        if (data == null) throw ClosedChannelException()
+        var len: Int = dst!!.remaining()
+        if (len == 0) return 0
+        val newPos: Long = data!!.readWrite(position, dst.array(), dst.arrayOffset() + dst.position(), len, false)
+        len = (newPos - position).toInt()
+        if (len <= 0) return -1
+        dst.position(dst.position() + len)
+        return len
+    }
+
+    @Throws(IOException::class)
+    override fun read(dst: ByteBuffer?): Int = this.read(dst, pos)
 }

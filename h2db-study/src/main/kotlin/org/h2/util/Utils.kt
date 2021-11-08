@@ -30,7 +30,7 @@ object Utils {
      */
     val EMPTY_LONG_ARRAY: LongArray = LongArray(0)
 
-    val RESOURCES: HashMap<String, ByteArray?> = HashMap()
+    private val RESOURCES: HashMap<String, ByteArray?> = HashMap()
 
     /**
      * Calculate the index of the first occurrence of the pattern in the byte
@@ -154,7 +154,7 @@ object Utils {
      *
      * @param value string to parse
      * @param defaultValue value to return if value is null or on parsing error
-     * @param throwException throw exception on parsing error or return defalut value instead
+     * @param throwException throw exception on parsing error or return default value instead
      * @return parsed or default value
      * @throws IllegalArgumentException on parsing error if {@code throwException} is true
      */
@@ -186,12 +186,10 @@ object Utils {
      * @param defaultValue the default value
      * @return the value
      */
-    fun getProperty(key: String?, defaultValue: String?): String? {
-        return try {
-            System.getProperty(key, defaultValue)
-        } catch (se: SecurityException) {
-            defaultValue
-        }
+    fun getProperty(key: String?, defaultValue: String?): String? = try {
+        System.getProperty(key, defaultValue)
+    } catch (se: SecurityException) {
+        defaultValue
     }
 
     /**

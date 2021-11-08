@@ -31,7 +31,7 @@ class Csv : SimpleRowSource {
             values.any { key.equals(it, ignoreCase = true) }
 
         @JvmStatic
-        fun isSimpleColunName(columnName: String): Boolean {
+        fun isSimpleColumnName(columnName: String): Boolean {
             for (i in 0..columnName.length) {
                 val ch = columnName[i]
                 if (i == 0) {
@@ -82,9 +82,7 @@ class Csv : SimpleRowSource {
      * INTERNAL
      */
     @Throws(SQLException::class)
-    override fun reset() {
-        throw SQLException("Method is not supported", "CSV")
-    }
+    override fun reset(): Unit = throw SQLException("Method is not supported", "CSV")
 
     @Throws(SQLException::class)
     fun writeResultSet(rs: ResultSet): Int {
@@ -94,10 +92,10 @@ class Csv : SimpleRowSource {
             val meta: ResultSetMetaData = rs.metaData
             val colCount: Int = meta.columnCount
             val row: Array<String?> = Array(colCount) { null }
-            val sqlTypes: IntArray = IntArray(colCount)
+//            val sqlTypes: IntArray = IntArray(colCount)
             for (i in 0 until colCount) {
                 row[i] = meta.getColumnLabel(i + 1)
-                sqlTypes[i] = meta.getColumnType(i)
+//                sqlTypes[i] = meta.getColumnType(i)
             }
             if (writeColumnHeader) writeRow(row)
             while (rs.next()) {
@@ -138,7 +136,7 @@ class Csv : SimpleRowSource {
     private fun initWrite() {
         if (output != null) return
         try {
-            var out = FileUtils.newOutputStream(fileName, false)
+            var out = FileUtils.newOutputStream(fileName!!, false)
             out = BufferedOutputStream(out, Constants.IO_BUFFER_SIZE)
             output = BufferedWriter(charSet?.let { OutputStreamWriter(out, charSet) } ?: OutputStreamWriter(out))
         } catch (e: java.lang.Exception) {
@@ -154,9 +152,9 @@ class Csv : SimpleRowSource {
             val s = values[i]
             if (s != null) {
                 if (escapeChar != null) {
-                    if (fieldDelimiter != null) output!!.write(fieldDelimiter.toInt())
+                    if (fieldDelimiter != null) output!!.write(fieldDelimiter.code)
                     output!!.write(escape(s))
-                    if (fieldDelimiter != null) output!!.write(fieldDelimiter.toInt())
+                    if (fieldDelimiter != null) output!!.write(fieldDelimiter.code)
                 } else {
                     output!!.write(s)
                 }
@@ -200,7 +198,7 @@ class Csv : SimpleRowSource {
      */
     fun setOption(options: String): String {
         var charset: String? = null
-        val keyValuePairs: Array<String> = StringUtils.arraySplit(options, ' ', false)!!
+        val keyValuePairs: Array<String> = StringUtils.arraySplit(options, ' ', false)
         for (pair in keyValuePairs) {
             if (pair.isEmpty()) continue
 
@@ -220,9 +218,9 @@ class Csv : SimpleRowSource {
                 isParam(key, "lineSeparator", "linSep") -> lineSeparator = value
                 isParam(key, "null", "nullString") -> nullString = value
                 isParam(key, "charset", "characterSet") -> charset = value
-                isParam(key, "preserveWhitespace") -> preserveWhitespace = Utils.parseBoolean(value, false, false)
-                isParam(key, "writeColumnHeader") -> writeColumnHeader = Utils.parseBoolean(value, true, false)
-                isParam(key, "caseSenstitiveColumnNames") -> caseSensitiveColumnNames =
+                isParam(key, "preserveWhitespace") -> preserveWhitespace = Utils.parseBoolean(value, defaultValue = false, throwException = false)
+                isParam(key, "writeColumnHeader") -> writeColumnHeader = Utils.parseBoolean(value, defaultValue = true, throwException = false)
+                isParam(key, "caseSensitiveColumnNames") -> caseSensitiveColumnNames =
                     Utils.parseBoolean(value, false, false)
                 else -> DbException.getUnsupportedException(key)
             }
@@ -232,7 +230,7 @@ class Csv : SimpleRowSource {
     }
 
     @Throws(SQLException::class)
-    override fun readRow(): Array<Any> {
+    override fun readRow(): Array<Any?> {
         input ?: return emptyArray()
         val colSize = columnNames!!.size
         val row: Array<String?> = Array(colSize) { null }
@@ -294,12 +292,12 @@ class Csv : SimpleRowSource {
                     if (containsEscape) s = unEscape(s)
                     inputBufferStart = -1
                     while (true) {
-                        if (ch == fieldSeparatorRead.toInt()) {
+                        if (ch == fieldSeparatorRead.code) {
                             break
-                        } else if (ch == '\n'.toInt() || ch < 0 || ch == '\r'.toInt()) {
+                        } else if (ch == '\n'.code || ch < 0 || ch == '\r'.code) {
                             endOfLine = true
                             break
-                        } else if (ch == ' '.toInt() || ch == '\t'.toInt()) {
+                        } else if (ch == ' '.code || ch == '\t'.code) {
                             // ignore
                         } else {
                             pushBack()
@@ -355,7 +353,7 @@ class Csv : SimpleRowSource {
     private fun initRead() {
         if (input == null) {
             try {
-                val ins: InputStream = BufferedInputStream(FileUtils.newInputStream(fileName), Constants.IO_BUFFER_SIZE)
+                val ins: InputStream = BufferedInputStream(FileUtils.newInputStream(fileName!!), Constants.IO_BUFFER_SIZE)
                 input = if (charSet != null)
                     InputStreamReader(ins, charSet)
                 else
@@ -392,7 +390,7 @@ class Csv : SimpleRowSource {
             } else {
                 if (v.isEmpty()) {
                     v = "COLUMN" + list.size
-                } else if (!caseSensitiveColumnNames && isSimpleColunName(v)) {
+                } else if (!caseSensitiveColumnNames && isSimpleColumnName(v)) {
                     v = StringUtils.toUpperEnglish(v)
                 }
                 list.add(v)
