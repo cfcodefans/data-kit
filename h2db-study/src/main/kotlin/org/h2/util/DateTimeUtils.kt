@@ -1,5 +1,6 @@
 package org.h2.util
 
+import org.h2.util.StringUtils.appendTwoDigits
 import java.util.*
 
 /**
@@ -67,6 +68,13 @@ object DateTimeUtils {
             10000000, 1000000, 100000, 10000, 1000, 100, 10)
 
     /**
+     * Multipliers for [.convertScale] and
+     * [.appendNanos].
+     */
+    private val FRACTIONAL_SECONDS_TABLE = intArrayOf(1000000000, 100000000,
+            10000000, 1000000, 100000, 10000, 1000, 100, 10, 1)
+
+    /**
      * Parse nanoseconds.
      *
      * @param s String to parse.
@@ -88,5 +96,67 @@ object DateTimeUtils {
             mul /= 10
         } while (++start < end)
         return nanos
+    }
+
+    /**
+     * Append nanoseconds of time, if any.
+     *
+     * @param builder string builder to append to
+     * @param nanos nanoseconds of second
+     * @return the specified string builder
+     */
+    fun appendNanos(builder: StringBuilder, nanos: Int): StringBuilder? {
+        if (nanos <= 0) return builder
+
+        var nanos = nanos
+        builder.append('.')
+        var i = 1
+        while (nanos < FRACTIONAL_SECONDS_TABLE[i]) {
+            builder.append('0')
+            i++
+        }
+        if (nanos % 1000 == 0) {
+            nanos /= 1000
+            if (nanos % 1000 == 0) {
+                nanos /= 1000
+            }
+        }
+        if (nanos % 10 == 0) {
+            nanos /= 10
+            if (nanos % 10 == 0) {
+                nanos /= 10
+            }
+        }
+        builder.append(nanos)
+        return builder
+    }
+
+    /**
+     * Append a time zone to the string builder.
+     *
+     * @param builder the target string builder
+     * @param tz the time zone offset in seconds
+     * @return the specified string builder
+     */
+    fun appendTimeZone(builder: java.lang.StringBuilder, tz: Int): java.lang.StringBuilder? {
+        var tz = tz
+        if (tz < 0) {
+            builder.append('-')
+            tz = -tz
+        } else {
+            builder.append('+')
+        }
+        var rem = tz / 3600
+        appendTwoDigits(builder, rem)
+        tz -= rem * 3600
+        if (tz != 0) {
+            rem = tz / 60
+            appendTwoDigits(builder.append(':'), rem)
+            tz -= rem * 60
+            if (tz != 0) {
+                appendTwoDigits(builder.append(':'), tz)
+            }
+        }
+        return builder
     }
 }

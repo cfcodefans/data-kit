@@ -8,6 +8,7 @@ import org.h2.util.DateTimeUtils.NANOS_PER_DAY
 import org.h2.util.DateTimeUtils.NANOS_PER_MINUTE
 import org.h2.util.DateTimeUtils.NANOS_PER_SECOND
 import org.h2.util.DateTimeUtils.parseNanos
+import org.h2.util.StringUtils.appendTwoDigits
 import org.h2.util.StringUtils.parseUInt31
 import org.h2.value.ValueInterval
 import java.math.BigInteger
@@ -151,12 +152,11 @@ object IntervalUtils {
     }
 
     private fun parseInterval2(
-        qualifier: IntervalQualifier,
-        s: String,
-        ch: Char,
-        max: Int,
-        negative: Boolean
-    ): ValueInterval? {
+            qualifier: IntervalQualifier,
+            s: String,
+            ch: Char,
+            max: Int,
+            negative: Boolean): ValueInterval? {
         var leading: Long
         val remaining: Long
         val dash = s.indexOf(ch, 1)
@@ -324,28 +324,17 @@ object IntervalUtils {
         }
     }
 
-    private fun intervalToAbsolute(
-        interval: ValueInterval,
-        multiplier: BigInteger,
-        totalMultiplier: BigInteger
-    ): BigInteger? {
+    private fun intervalToAbsolute(interval: ValueInterval, multiplier: BigInteger, totalMultiplier: BigInteger): BigInteger? {
         return intervalToAbsolute(interval, multiplier)!!.multiply(totalMultiplier)
     }
 
-    private fun intervalToAbsolute(
-        interval: ValueInterval,
-        multiplier: BigInteger
-    ): BigInteger? {
+    private fun intervalToAbsolute(interval: ValueInterval, multiplier: BigInteger): BigInteger? {
         return BigInteger.valueOf(interval.leading)
-            .multiply(multiplier)
-            .add(BigInteger.valueOf(interval.remaining))
+                .multiply(multiplier)
+                .add(BigInteger.valueOf(interval.remaining))
     }
 
-    private fun intervalFromAbsolute(
-        qualifier: IntervalQualifier,
-        absolute: BigInteger,
-        divisor: BigInteger
-    ): ValueInterval? {
+    private fun intervalFromAbsolute(qualifier: IntervalQualifier, absolute: BigInteger, divisor: BigInteger): ValueInterval? {
         val dr = absolute.divideAndRemainder(divisor)
         return ValueInterval.from(qualifier, absolute.signum() < 0, leadingExact(dr[0]), Math.abs(dr[1].toLong()))
     }
@@ -389,4 +378,191 @@ object IntervalUtils {
         }
         return negative
     }
+
+    /**
+     * Formats interval as a string and appends it to a specified string
+     * builder.
+     *
+     * @param buff
+     * string builder to append to
+     * @param qualifier
+     * qualifier of the interval
+     * @param negative
+     * whether interval is negative
+     * @param leading
+     * the value of leading field
+     * @param remaining
+     * the value of all remaining fields
+     * @return the specified string builder
+     */
+    fun appendInterval(buff: StringBuilder, qualifier: IntervalQualifier?, negative: Boolean,
+                       leading: Long, remaining: Long): StringBuilder {
+        buff.append("INTERVAL '")
+        if (negative) {
+            buff.append('-')
+        }
+        when (qualifier) {
+            YEAR, MONTH, DAY, HOUR, MINUTE -> buff.append(leading)
+            SECOND -> DateTimeUtils.appendNanos(buff.append(leading), remaining.toInt())
+            YEAR_TO_MONTH -> buff.append(leading).append('-').append(remaining)
+            DAY_TO_HOUR -> {
+                buff.append(leading).append(' ')
+                buff.appendTwoDigits(remaining.toInt())
+            }
+            DAY_TO_MINUTE -> {
+                buff.append(leading).append(' ')
+                val r = remaining.toInt()
+                buff.appendTwoDigits(r / 60).append(':')
+                buff.appendTwoDigits(r % 60)
+            }
+            DAY_TO_SECOND -> {
+                val nanos = remaining % NANOS_PER_MINUTE
+                val r = (remaining / NANOS_PER_MINUTE).toInt()
+                buff.append(leading).append(' ')
+                buff.appendTwoDigits(r / 60).append(':')
+                buff.appendTwoDigits(r % 60).append(':')
+                buff.appendTwoDigits((nanos / NANOS_PER_SECOND).toInt())
+                DateTimeUtils.appendNanos(buff, (nanos % NANOS_PER_SECOND).toInt())
+            }
+            HOUR_TO_MINUTE -> {
+                buff.append(leading).append(':')
+                buff.appendTwoDigits(remaining.toInt())
+            }
+            HOUR_TO_SECOND -> {
+                buff.append(leading).append(':')
+                buff.appendTwoDigits((remaining / NANOS_PER_MINUTE).toInt()).append(':')
+                val s = remaining % NANOS_PER_MINUTE
+                buff.appendTwoDigits((s / NANOS_PER_SECOND).toInt())
+                DateTimeUtils.appendNanos(buff, (s % NANOS_PER_SECOND).toInt())
+            }
+            MINUTE_TO_SECOND -> {
+                buff.append(leading).append(':')
+                buff.appendTwoDigits((remaining / NANOS_PER_SECOND).toInt())
+                DateTimeUtils.appendNanos(buff, (remaining % NANOS_PER_SECOND).toInt())
+            }
+        }
+        return buff.append("' ").append(qualifier)
+    }
+
+
+    /**
+     * Returns years value of interval, if any.
+     *
+     * @param qualifier
+     * qualifier
+     * @param negative
+     * whether interval is negative
+     * @param leading
+     * value of leading field
+     * @param remaining
+     * values of all remaining fields
+     * @return years, or 0
+     */
+    fun yearsFromInterval(qualifier: IntervalQualifier, negative: Boolean, leading: Long, remaining: Long): Long {
+        return if (qualifier == YEAR || qualifier == YEAR_TO_MONTH) {
+            if (negative) -leading else leading
+        } else 0
+    }
+
+    /**
+     * Returns months value of interval, if any.
+     *
+     * @param qualifier
+     * qualifier
+     * @param negative
+     * whether interval is negative
+     * @param leading
+     * value of leading field
+     * @param remaining
+     * values of all remaining fields
+     * @return months, or 0
+     */
+    fun monthsFromInterval(qualifier: IntervalQualifier, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
+        MONTH -> leading
+        YEAR_TO_MONTH -> remaining
+        else -> 0
+    }.let { if (negative) -it else it }
+
+    /**
+     * Returns days value of interval, if any.
+     *
+     * @param qualifier
+     * qualifier
+     * @param negative
+     * whether interval is negative
+     * @param leading
+     * value of leading field
+     * @param remaining
+     * values of all remaining fields
+     * @return days, or 0
+     */
+    fun daysFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long =
+            when (qualifier) {
+                DAY, DAY_TO_HOUR, DAY_TO_MINUTE, DAY_TO_SECOND -> if (negative) -leading else leading
+                else -> 0
+            }
+
+    /**
+     * Returns hours value of interval, if any.
+     *
+     * @param qualifier
+     * qualifier
+     * @param negative
+     * whether interval is negative
+     * @param leading
+     * value of leading field
+     * @param remaining
+     * values of all remaining fields
+     * @return hours, or 0
+     */
+    fun hoursFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
+        HOUR, HOUR_TO_MINUTE, HOUR_TO_SECOND -> leading
+        DAY_TO_HOUR -> remaining
+        DAY_TO_MINUTE -> remaining / 60
+        DAY_TO_SECOND -> remaining / DateTimeUtils.NANOS_PER_HOUR
+        else -> 0
+    }.let { if (negative) -it else it }
+
+    /**
+     * Returns minutes value of interval, if any.
+     *
+     * @param qualifier
+     * qualifier
+     * @param negative
+     * whether interval is negative
+     * @param leading
+     * value of leading field
+     * @param remaining
+     * values of all remaining fields
+     * @return minutes, or 0
+     */
+    fun minutesFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
+        MINUTE, MINUTE_TO_SECOND -> leading
+        DAY_TO_MINUTE -> remaining % 60
+        DAY_TO_SECOND -> remaining / NANOS_PER_MINUTE % 60
+        HOUR_TO_MINUTE -> remaining
+        HOUR_TO_SECOND -> remaining / NANOS_PER_MINUTE
+        else -> 0
+    }.let { if (negative) -it else it }
+
+    /**
+     * Returns nanoseconds value of interval, if any.
+     *
+     * @param qualifier
+     * qualifier
+     * @param negative
+     * whether interval is negative
+     * @param leading
+     * value of leading field
+     * @param remaining
+     * values of all remaining fields
+     * @return nanoseconds, or 0
+     */
+    fun nanosFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
+        SECOND -> leading * NANOS_PER_SECOND + remaining
+        DAY_TO_SECOND, HOUR_TO_SECOND -> remaining % NANOS_PER_MINUTE
+        MINUTE_TO_SECOND -> remaining
+        else -> 0
+    }.let { if (negative) -it else it }
+
 }
