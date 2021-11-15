@@ -15,7 +15,7 @@ class FileChannelOutputStream() : OutputStream() {
     private lateinit var channel: FileChannel
 
     @Throws(IOException::class)
-    constructor(channel: FileChannel, append: Boolean) {
+    constructor(channel: FileChannel, append: Boolean) : this() {
         this.channel = channel
         if (append) {
             channel.position(channel.size())

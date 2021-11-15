@@ -1,7 +1,5 @@
 package org.h2.bnf
 
-import java.util.HashMap
-
 open class RuleFixed(val type: Int) : Rule {
     companion object {
         const val YMD = 0
@@ -30,10 +28,25 @@ open class RuleFixed(val type: Int) : Rule {
     override fun autoComplete(sentence: Sentence): Boolean {
         sentence.stopIfRequired()
         var s: String = sentence.query
-        val removeTrailingSpaces: Boolean = false
+        var removeTrailingSpaces: Boolean = false
 
         when (type) {
             YMD -> {
+                s = s.trimStart { "0123456789-".contains(it) }
+                if (s.isEmpty()) sentence.add("2006-01-01", "1", Sentence.KEYWORD)
+                // needed for timestamps
+                removeTrailingSpaces = true
+            }
+            HMS -> {
+                s = s.trimStart { "0123456789:".contains(it) }
+                if (s.isEmpty()) sentence.add("12:00:00", "1", Sentence.KEYWORD)
+            }
+            NANOS -> {
+                s = s.trimStart { it.isDigit() }
+                if (s.isEmpty()) sentence.add("nanoseconds", "0", Sentence.KEYWORD)
+                removeTrailingSpaces = true
+            }
+            ANY_EXCEPT_SINGLE_QUOTE -> {
 
             }
             else -> throw AssertionError("type=" + type)
