@@ -18,10 +18,9 @@ import java.util.*
  * @param remaining combined value of all remaining fields
  */
 class Interval(val qualifier: IntervalQualifier,
-               negative: Boolean,
+               var negative: Boolean = false,
                val leading: Long,
                val remaining: Long) {
-    var negative: Boolean = false
 
     init {
         this.negative = try {
@@ -196,11 +195,7 @@ class Interval(val qualifier: IntervalQualifier,
 
         /**
          * Creates a new INTERVAL DAY TO MINUTE.
-         *
-         *
-         *
          * Non-zero arguments should have the same sign.
-         *
          *
          * @param days
          * days, |days|&lt;10<sup>18</sup>
@@ -432,36 +427,28 @@ class Interval(val qualifier: IntervalQualifier,
      *
      * @return months, or 0
      */
-    fun getMonths(): Long {
-        return IntervalUtils.monthsFromInterval(qualifier, negative, leading, remaining)
-    }
+    fun getMonths(): Long = IntervalUtils.monthsFromInterval(qualifier, negative, leading, remaining)
 
     /**
      * Returns days value, if any.
      *
      * @return days, or 0
      */
-    fun getDays(): Long {
-        return IntervalUtils.daysFromInterval(qualifier, negative, leading, remaining)
-    }
+    fun getDays(): Long = IntervalUtils.daysFromInterval(qualifier, negative, leading, remaining)
 
     /**
      * Returns hours value, if any.
      *
      * @return hours, or 0
      */
-    fun getHours(): Long {
-        return IntervalUtils.hoursFromInterval(qualifier, negative, leading, remaining)
-    }
+    fun getHours(): Long = IntervalUtils.hoursFromInterval(qualifier, negative, leading, remaining)
 
     /**
      * Returns minutes value, if any.
      *
      * @return minutes, or 0
      */
-    fun getMinutes(): Long {
-        return IntervalUtils.minutesFromInterval(qualifier, negative, leading, remaining)
-    }
+    fun getMinutes(): Long = IntervalUtils.minutesFromInterval(qualifier, negative, leading, remaining)
 
     /**
      * Returns value of integer part of seconds, if any.

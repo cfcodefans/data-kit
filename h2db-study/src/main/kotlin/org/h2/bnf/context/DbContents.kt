@@ -65,13 +65,13 @@ class DbContents {
         var defaultSchemaName: String = ""
         try {
             return when {
+                isH2 -> if (meta.storesLowerCaseIdentifiers()) "public" else "PUBLIC"
                 isOracle -> meta.userName
-                isPostgreSQL -> "publice"
+                isPostgreSQL -> "public"
                 isMySQL -> ""
                 isDerby -> StringUtils.toUpperEnglish(meta.userName)
                 isFirebird -> null
                 else -> meta.schemas.let { rs ->
-
                     val index: Int = rs.findColumn("IS_DEFAULT")
                     while (rs.next()) {
                         if (rs.getBoolean(index)) {
@@ -137,30 +137,18 @@ class DbContents {
         val defaultSchemaName: String? = getDefaultSchemaName(meta)
         val schemaNames: Array<String?> = getSchemaNames(meta)
         schemas = schemaNames.map { schemaName ->
-            val isDefault: Boolean = defaultSchemaName == null
-                    || schemaName == defaultSchemaName
+            val isDefault: Boolean = defaultSchemaName == null || schemaName == defaultSchemaName
+
             val schema: DbSchema = DbSchema(this, schemaName, isDefault)
-            if (isDefault)
-                defaultSchema = schema
+            if (isDefault) defaultSchema = schema
             schema.readTables(meta, TABLE_TYPES)
-            if (!isPostgreSQL && !isDB2)
-                schema.readProcedures(meta)
+            if (!isPostgreSQL && !isDB2) schema.readProcedures(meta)
             schema
         }.toTypedArray()
 
         if (defaultSchema != null) return
 
-        var best: String? = null
-        for (schema in schemas!!) {
-            if ("dbo" == schema.name) {
-                // MS SQL Server
-                defaultSchema = schema
-                break
-            }
-            if (defaultSchema == null || best == null || schema.name!!.length < best.length) {
-                best = schema.name
-                defaultSchema = schema
-            }
-        }
+        defaultSchema = schemas?.find { schema -> schema.name == "dbo" }
+                ?: schemas?.minByOrNull { schema -> schema.name!!.length }
     }
 }
