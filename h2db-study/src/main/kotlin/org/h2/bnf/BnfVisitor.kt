@@ -37,4 +37,17 @@ interface BnfVisitor {
      * @param rule the rule
      */
     fun visitRuleOptional(rule: Rule?)
+
+    /**
+     * Visit an OR list of optional rules
+     * Parameter: list - the optional rules
+     */
+    fun visitRuleOptional(list: ArrayList<Rule>)
+
+    /**
+     * Visit a rule with non-standard extension.
+     * @param: rule - the rule
+     * @param: compatibility - whether this rule exists for compatibility only
+     */
+    fun visitRuleExtension(rule: Rule?, compatibility: Boolean)
 }

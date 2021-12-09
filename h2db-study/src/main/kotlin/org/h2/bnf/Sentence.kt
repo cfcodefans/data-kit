@@ -64,7 +64,7 @@ class Sentence {
     /**
      * Start the timer to make sure processing doesn't take too long.
      */
-    fun start() {
+    fun start(): Sentence = apply {
         stopAtNs = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(MAX_PROCESSING_TIME)
     }
 
@@ -73,7 +73,7 @@ class Sentence {
      * Processing auto-complete shouldn't take more than a few milliseconds.
      * If processing is stopped, this method throws an IllegalStateException
      */
-    fun stopIfRequired() {
+    fun stopIfRequired(): Sentence = apply {
         if (System.nanoTime() > stopAtNs) throw  IllegalStateException()
     }
 
@@ -96,7 +96,7 @@ class Sentence {
      * Add a table.
      * @param table the table
      */
-    fun addTable(table: DbTableOrView) {
+    fun addTable(table: DbTableOrView): Sentence = apply {
         lastTable = table
         tables.add(table)
     }
