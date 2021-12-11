@@ -1,5 +1,7 @@
 package org.h2.value
 
+import java.sql.PreparedStatement
+
 /**
  * Implementation of NULL. NULL is not a regular data type.
  */
@@ -21,6 +23,28 @@ class ValueNull : Value() {
     }
 
     override fun getSQL(builder: StringBuilder): StringBuilder {
+        TODO("Not yet implemented")
+    }
+
+    override fun getType(): TypeInfo = TypeInfo.TYPE_NULL
+
+    override fun getValueType(): Int = NULL
+
+    override fun getString(): String? = null
+
+    override fun getObject(): Any? {
+        TODO("Not yet implemented")
+    }
+
+    override fun set(prep: PreparedStatement, parameterIndex: Int) {
+        TODO("Not yet implemented")
+    }
+
+    override fun hashCode(): Int {
+        TODO("Not yet implemented")
+    }
+
+    override fun equals(other: Any?): Boolean {
         TODO("Not yet implemented")
     }
 }

@@ -398,13 +398,7 @@ abstract class Value : VersionedValue() {
      * Get the value as a string.
      * @return the string
      */
-    abstract fun getString(): String
-
-    /**
-     * Get the value as an object.
-     * @return the object
-     */
-    abstract fun getObject(): Any
+    abstract fun getString(): String?
 
     /**
      * Set the value as a parameter in a prepared statement.
@@ -490,5 +484,5 @@ abstract class Value : VersionedValue() {
      */
     @Throws(DbException::class)
     protected fun getUnsupportedExceptionForOperation(op: String): DbException =
-            DbException.getUnsupportedException(DataType.getDataType(getValueType()).name.toString() + " " + op)
+            DbException.getUnsupportedException("${DataType.getDataType(getValueType()).name.toString()} $op")
 }
