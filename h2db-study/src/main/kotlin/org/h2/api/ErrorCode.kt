@@ -103,6 +103,47 @@ object ErrorCode {
     const val NUMERIC_VALUE_OUT_OF_RANGE_2 = 22004
 
     /**
+     * The error with code `22007` is thrown when
+     * a text can not be converted to a date, time, or timestamp constant.
+     * Examples:
+     * <pre>
+     * CALL DATE '2007-January-01';
+     * CALL TIME '14:61:00';
+     * CALL TIMESTAMP '2001-02-30 12:00:00';
+    </pre> *
+     */
+    const val INVALID_DATETIME_CONSTANT_2 = 22007
+
+    /**
+     * The error with code `22012` is thrown when trying to divide
+     * a value by zero. Example:
+     * <pre>
+     * CALL 1/0;
+    </pre> *
+     */
+    const val DIVISION_BY_ZERO_1 = 22012
+
+    /**
+     * The error with code `22013` is thrown when preceding or
+     * following size in a window function is null or negative. Example:
+     * <pre>
+     * FIRST_VALUE(N) OVER(ORDER BY N ROWS -1 PRECEDING)
+    </pre> *
+     */
+    const val INVALID_PRECEDING_OR_FOLLOWING_1 = 22013
+
+    /**
+     * The error with code `22018` is thrown when
+     * trying to convert a value to a data type where the conversion is
+     * undefined, or when an error occurred trying to convert. Example:
+     * <pre>
+     * CALL CAST(DATE '2001-01-01' AS BOOLEAN);
+     * CALL CAST('CHF 99.95' AS INT);
+    </pre> *
+     */
+    const val DATA_CONVERSION_ERROR_1 = 22018
+
+    /**
      * The error with code <code>42101</code> is thrown when
      * trying to create a table or view if an object with the name already
      * exists. Example:

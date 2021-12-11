@@ -1,5 +1,6 @@
 package org.h2.message
 
+import org.h2.api.ErrorCode
 import org.h2.api.ErrorCode.ADMIN_RIGHTS_REQUIRED
 import org.h2.api.ErrorCode.CANNOT_DROP_CURRENT_USER
 import org.h2.api.ErrorCode.ERROR_EXECUTING_TRIGGER_3
@@ -23,18 +24,28 @@ import org.h2.api.ErrorCode.UNKNOWN_DATA_TYPE_1
 import org.h2.api.ErrorCode.UNSUPPORTED_SETTING_COMBINATION
 import org.h2.api.ErrorCode.getState
 import org.h2.engine.Constants
-import org.h2.jdbc.*
+import org.h2.jdbc.JdbcException
+import org.h2.jdbc.JdbcSQLDataException
+import org.h2.jdbc.JdbcSQLException
+import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException
+import org.h2.jdbc.JdbcSQLInvalidAuthorizationSpecException
+import org.h2.jdbc.JdbcSQLNonTransientConnectionException
+import org.h2.jdbc.JdbcSQLNonTransientException
+import org.h2.jdbc.JdbcSQLSyntaxErrorException
+import org.h2.jdbc.JdbcSQLTransactionRollbackException
 import org.h2.util.SortedProperties
 import org.h2.util.StringUtils
 import org.h2.util.Utils
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.lang.Math.min
 import java.lang.reflect.InvocationTargetException
 import java.nio.charset.StandardCharsets
 import java.sql.DriverManager
 import java.sql.SQLException
 import java.text.MessageFormat
-import java.util.*
+import java.util.Locale
+import java.util.Properties
 
 /**
  * This exception wraps a checked exception.
@@ -77,13 +88,13 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                 if ("en" != lang) {
                     Utils.getResource("/org/h2/res/_messages_$lang.prop")?.let { translations ->
                         SortedProperties.fromLines(String(translations, StandardCharsets.UTF_8))
-                            .entries
-                            .filter { translation -> translation.value != null && !(translation.value as String).startsWith('#') }
-                            .forEach { translation ->
-                                MESSAGES.compute(translation.key) { k, v ->
-                                    "$translation.value\n$v"
+                                .entries
+                                .filter { translation -> translation.value != null && !(translation.value as String).startsWith('#') }
+                                .forEach { translation ->
+                                    MESSAGES.compute(translation.key) { k, v ->
+                                        "$translation.value\n$v"
+                                    }
                                 }
-                            }
                     }
                 }
 
@@ -108,10 +119,10 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         fun translate(key: String, vararg params: String?): String {
             val message: String = MESSAGES.getProperty(key) ?: "(Message $key not found)"
             return MessageFormat.format(message,
-                params.map { p ->
-                    if (!p.isNullOrEmpty()) StringUtils.quotedIdentifier(p)
-                    else p
-                })
+                    params.map { p ->
+                        if (!p.isNullOrEmpty()) StringUtils.quotedIdentifier(p)
+                        else p
+                    })
         }
 
         @JvmStatic
@@ -135,54 +146,54 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             val _sql: String? = filterSQL(sql)
             when (errorCode / 1_000) {
                 2 -> return JdbcSQLNonTransientException(originalMessage = message,
-                    message = message,
-                    SQL = sql,
-                    state = state,
-                    errorCode = errorCode,
-                    cause = cause,
-                    stackTrace = stackTrace)
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
                 7, 21, 42 -> return JdbcSQLSyntaxErrorException(originalMessage = message,
-                    message = message,
-                    SQL = sql,
-                    state = state,
-                    errorCode = errorCode,
-                    cause = cause,
-                    stackTrace = stackTrace)
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
                 8 -> return JdbcSQLNonTransientConnectionException(originalMessage = message,
-                    message = message,
-                    SQL = sql,
-                    state = state,
-                    errorCode = errorCode,
-                    cause = cause,
-                    stackTrace = stackTrace)
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
                 22 -> return JdbcSQLDataException(originalMessage = message,
-                    message = message,
-                    SQL = sql,
-                    state = state,
-                    errorCode = errorCode,
-                    cause = cause,
-                    stackTrace = stackTrace)
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
                 23 -> return JdbcSQLIntegrityConstraintViolationException(originalMessage = message,
-                    message = message,
-                    SQL = sql,
-                    state = state,
-                    errorCode = errorCode,
-                    cause = cause,
-                    stackTrace = stackTrace)
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
                 28 -> return JdbcSQLInvalidAuthorizationSpecException(originalMessage = message,
-                    message = message,
-                    SQL = sql,
-                    state = state,
-                    errorCode = errorCode,
-                    cause = cause,
-                    stackTrace = stackTrace)
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
                 40 -> return JdbcSQLTransactionRollbackException(originalMessage = message,
-                    message = message,
-                    SQL = sql,
-                    state = state,
-                    errorCode = errorCode,
-                    cause = cause,
-                    stackTrace = stackTrace)
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
             }
 
             // Check error code
@@ -203,21 +214,21 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
                 ERROR_EXECUTING_TRIGGER_3,
                 RESULT_SET_READONLY,
                 -> return JdbcSQLNonTransientException(originalMessage = message,
-                    message = message,
+                        message = message,
+                        SQL = sql,
+                        state = state,
+                        errorCode = errorCode,
+                        cause = cause,
+                        stackTrace = stackTrace)
+            }
+
+            return JdbcSQLException(message = message,
+                    originalMessage = message,
                     SQL = sql,
                     state = state,
                     errorCode = errorCode,
                     cause = cause,
                     stackTrace = stackTrace)
-            }
-
-            return JdbcSQLException(message = message,
-                originalMessage = message,
-                SQL = sql,
-                state = state,
-                errorCode = errorCode,
-                cause = cause,
-                stackTrace = stackTrace)
         }
 
         /**
@@ -249,7 +260,7 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
          */
         @JvmStatic
         fun get(errorCode: Int, cause: Throwable, vararg params: String?): DbException =
-            DbException(getJdbcSQLException(errorCode, cause, *params))
+                DbException(getJdbcSQLException(errorCode, cause, *params))
 
         /**
          * Gets the SQL exception object for a specific error code.
@@ -377,6 +388,21 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         }
 
         fun getJdbcSQLException(errorCode: Int): SQLException = getJdbcSQLException(errorCode, null as Throwable?)
+
+        /**
+         * Gets an internal error.
+         *
+         * @param s the message
+         * @return the RuntimeException object
+         */
+        fun getInternalError(s: String?): RuntimeException = RuntimeException(s).apply { traceThrowable(this) }
+
+        /**
+         * Gets an internal error.
+         *
+         * @return the RuntimeException object
+         */
+        fun getInternalError(): RuntimeException = getInternalError("Unexpected code path")
     }
 
     private constructor(e: SQLException) : this(e.message, e)
@@ -409,11 +435,34 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             return this
         }
         return DbException(getJdbcSQLException(message = e!!.message,
-            sql = sql,
-            state = e.sqlState,
-            errorCode = e.errorCode,
-            cause = e,
-            stackTrace = null))
+                sql = sql,
+                state = e.sqlState,
+                errorCode = e.errorCode,
+                cause = e,
+                stackTrace = null))
+    }
+
+    /**
+     * Gets a SQL exception meaning this value is too long.
+     *
+     * @param columnOrType
+     * column with data type or data type name
+     * @param value
+     * string representation of value, will be truncated to 80
+     * characters
+     * @param valueLength
+     * the actual length of value, `-1L` if unknown
+     * @return the exception
+     */
+    fun getValueTooLongException(columnOrType: String?, value: String, valueLength: Long): DbException? {
+        val m = if (valueLength >= 0) 22 else 0
+        val length = value.length
+        val builder = if (length > 80) StringBuilder(83 + m).append(value, 0, 80).append("...")
+            else StringBuilder(length + m).append(value)
+        if (valueLength >= 0) {
+            builder.append(" (").append(valueLength).append(')')
+        }
+        return get(ErrorCode.VALUE_TOO_LONG_2, columnOrType!!, builder.toString())
     }
 
 }

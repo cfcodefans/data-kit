@@ -6,6 +6,7 @@ import org.h2.api.ErrorCode.HEX_STRING_WRONG_1
 import org.h2.api.ErrorCode.STRING_FORMAT_ERROR_1
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
+import java.lang.Math.max
 import java.lang.Math.min
 import java.lang.ref.SoftReference
 import java.net.URLEncoder
@@ -47,7 +48,7 @@ object StringUtils {
         //create a new cache at most every 5 seconds
         //so that out of memory exceptions are not delayed
         if (softCacheCreatedNs != 0L
-            && System.nanoTime() - softCacheCreatedNs < TimeUnit.SECONDS.toNanos(5)) {
+                && System.nanoTime() - softCacheCreatedNs < TimeUnit.SECONDS.toNanos(5)) {
             return null
         }
         try {
@@ -232,10 +233,10 @@ object StringUtils {
                     buff.append(c)
                 } else {
                     buff.append("\\u")
-                        .append(HEX[c.toInt() shr 12])
-                        .append(HEX[c.toInt() shr 8 and 0xf])
-                        .append(HEX[c.toInt() shr 4 and 0xf])
-                        .append(HEX[c.toInt() and 0xf])
+                            .append(HEX[c.toInt() shr 12])
+                            .append(HEX[c.toInt() shr 8 and 0xf])
+                            .append(HEX[c.toInt() shr 4 and 0xf])
+                            .append(HEX[c.toInt() and 0xf])
                 }
             }
         }
@@ -249,16 +250,14 @@ object StringUtils {
      * @return the text with asterisk.
      */
     @JvmStatic
-    fun addAsterisk(s: String, index: Int): String {
-        return s?.let {
-            val len: Int = s.length
-            val i: Int = min(index, len)
-            StringBuilder(len + 3)
+    fun addAsterisk(s: String, index: Int): String = s?.let {
+        val len: Int = s.length
+        val i: Int = min(index, len)
+        StringBuilder(len + 3)
                 .append(s, 0, index)
                 .append("[*]")
                 .append(s, i, len)
                 .toString()
-        }
     }
 
     /**
@@ -352,9 +351,9 @@ object StringUtils {
      */
     @JvmStatic
     fun unEnclose(s: String): String =
-        if (s.startsWith('(') && s.endsWith(')'))
-            s.substring(1, s.length - 1)
-        else s
+            if (s.startsWith('(') && s.endsWith(')'))
+                s.substring(1, s.length - 1)
+            else s
 
     /**
      * Encode the string as a URL
@@ -493,5 +492,19 @@ object StringUtils {
     fun java.lang.StringBuilder.appendTwoDigits(positiveValue: Int): java.lang.StringBuilder = apply {
         if (positiveValue < 10) this.append('0')
         this.append(positiveValue)
+    }
+
+    /**
+     * Pad a string. This method is used for the SQL function RPAD and LPAD.
+     *
+     * @param string the original string
+     * @param n the target length
+     * @param padding the padding string
+     * @param right true if the padding should be appended at the end
+     * @return the padded string
+     */
+    fun pad(string: String, n: Int, padding: String?, right: Boolean): String? {
+        val paddingChar: Char = (if (padding.isNullOrEmpty()) ' ' else padding[0])
+        return if (right) string.padEnd(n, paddingChar) else string.padStart(n, paddingChar)
     }
 }

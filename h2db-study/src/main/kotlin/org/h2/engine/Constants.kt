@@ -519,12 +519,8 @@ object Constants {
 
     init {
         var version = "$VERSION_MAJOR.$VERSION_MINOR.$BUILD_ID"
-        if (BUILD_VENDOR_AND_VERSION != null) {
-            version += "_$BUILD_VENDOR_AND_VERSION"
-        }
-        if (BUILD_SNAPSHOT) {
-            version += "-SNAPSHOT"
-        }
+        if (BUILD_VENDOR_AND_VERSION != null) version += "_$BUILD_VENDOR_AND_VERSION"
+        if (BUILD_SNAPSHOT) version += "-SNAPSHOT"
         VERSION = version
         FULL_VERSION = "$version ($BUILD_DATE)"
     }

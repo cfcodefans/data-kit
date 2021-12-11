@@ -1,12 +1,26 @@
 package org.h2.value
 
 import org.h2.api.ErrorCode
+import org.h2.engine.CastDataProvider
+import org.h2.engine.Mode.CharPadding
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
+import org.h2.util.Bits
+import org.h2.util.HasSQL
+import org.h2.util.MathUtils
+import org.h2.util.StringUtils
+import org.h2.value.TypeInfo.Companion.getTypeInfo
+import java.io.ByteArrayInputStream
+import java.io.InputStream
+import java.io.Reader
+import java.io.StringReader
 import java.lang.ref.SoftReference
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.sql.PreparedStatement
 import java.sql.SQLException
+import kotlin.experimental.and
+import kotlin.math.roundToLong
 
 /**
  * This is the base class for all value classes.
@@ -17,218 +31,312 @@ abstract class Value : VersionedValue() {
         /**
          * The data type is unknown at this time.
          */
-        const val UNKNOWN: Int = -1
+        const val UNKNOWN = -1
 
         /**
-         * The value type of NULL.
+         * The value type for NULL.
          */
-        const val NULL: Int = 0
+        const val NULL = UNKNOWN + 1
+
+        /**
+         * The value type for CHARACTER values.
+         */
+        const val CHAR = NULL + 1
+
+        /**
+         * The value type for CHARACTER VARYING values.
+         */
+        const val VARCHAR = CHAR + 1
+
+        /**
+         * The value type for CHARACTER LARGE OBJECT values.
+         */
+        const val CLOB = VARCHAR + 1
+
+        /**
+         * The value type for VARCHAR_IGNORECASE values.
+         */
+        const val VARCHAR_IGNORECASE = CLOB + 1
+
+        /**
+         * The value type for BINARY values.
+         */
+        const val BINARY = VARCHAR_IGNORECASE + 1
+
+        /**
+         * The value type for BINARY VARYING values.
+         */
+        const val VARBINARY = BINARY + 1
+
+        /**
+         * The value type for BINARY LARGE OBJECT values.
+         */
+        const val BLOB = VARBINARY + 1
 
         /**
          * The value type for BOOLEAN values.
          */
-        const val BOOLEAN: Int = 1
+        const val BOOLEAN = BLOB + 1
 
         /**
-         * The value type for BYTE values.
+         * The value type for TINYINT values.
          */
-        const val BYTE: Int = 2
+        const val TINYINT = BOOLEAN + 1
 
         /**
-         * The value type for SHORT values.
+         * The value type for SMALLINT values.
          */
-        const val SHORT: Int = 3
+        const val SMALLINT = TINYINT + 1
 
         /**
-         * The value type for INT values.
+         * The value type for INTEGER values.
          */
-        const val INT: Int = 4
+        const val INTEGER = SMALLINT + 1
 
         /**
-         * The value type for LONG values.
+         * The value type for BIGINT values.
          */
-        const val LONG: Int = 5
+        const val BIGINT = INTEGER + 1
 
         /**
-         * The value type for DECIMAL values.
+         * The value type for NUMERIC values.
          */
-        const val DECIMAL: Int = 6
+        const val NUMERIC = BIGINT + 1
 
         /**
-         * The value type for DOUBLE values.
+         * The value type for REAL values.
          */
-        const val DOUBLE: Int = 7
+        const val REAL = NUMERIC + 1
 
         /**
-         * The value type for FLOAT values.
+         * The value type for DOUBLE PRECISION values.
          */
-        const val FLOAT: Int = 8
+        const val DOUBLE = REAL + 1
 
         /**
-         * The value type for TIME values.
+         * The value type for DECFLOAT values.
          */
-        const val TIME: Int = 9
+        const val DECFLOAT = DOUBLE + 1
 
         /**
          * The value type for DATE values.
          */
-        const val DATE: Int = 10
+        const val DATE = DECFLOAT + 1
 
         /**
-         * The value type for TIMESTAMP values.
+         * The value type for TIME values.
          */
-        const val TIMESTAMP: Int = 11
-
-        /**
-         * The value type for BYTES values.
-         */
-        const val BYTES: Int = 12
-
-        /**
-         * The value type for STRING values.
-         */
-        const val STRING: Int = 13
-
-        /**
-         * The value type for case insensitive STRING values.
-         */
-        const val STRING_IGNORECASE: Int = 14
-
-        /**
-         * The value type for BLOB values.
-         */
-        const val BLOB: Int = 15
-
-        /**
-         * The value type for CLOB values.
-         */
-        const val CLOB: Int = 16
-
-        /**
-         * The value type for ARRAY values.
-         */
-        const val ARRAY: Int = 17
-
-        /**
-         * The value type for RESULT_SET values.
-         */
-        const val RESULT_SET: Int = 18
-
-        /**
-         * The value type for JAVA_OBJECT values.
-         */
-        const val JAVA_OBJECT: Int = 19
-
-        /**
-         * The value type for UUID values.
-         */
-        const val UUID: Int = 20
-
-        /**
-         * The value type for string values with a fixed size.
-         */
-        const val STRING_FIXED: Int = 21
-
-        const val GEOMETRY: Int = 22
-
-        /**
-         * 23 was a short-lived experiment "TIMESTAMP UTC" which has been removed.
-         */
-
-        /**
-         * The value type for TIMESTAMP WITH TIME ZONE values.
-         */
-        const val TIMESTAMP_TZ: Int = 24
-
-        /**
-         * The value type for ENUM values.
-         */
-        const val ENUM: Int = 25
-
-        /**
-         * The value type for {@code INTERVAL YEAR} values.
-         */
-        const val INTERVAL_YEAR: Int = 26
-
-        /**
-         * The value type for {@code INTERVAL SECOND} values.
-         */
-        const val INTERVAL_MONTH: Int = 27
-
-        /**
-         * The value type for {@code INTERVAL DAY} values.
-         */
-        const val INTERVAL_DAY: Int = 28
-
-        /**
-         * The value type for {@code INTERVAL HOUR} values.
-         */
-        const val INTERVAL_HOUR: Int = 29
-
-        /**
-         * The value type for {@code INTERVAL MINUTE} values.
-         */
-        const val INTERVAL_MINUTE: Int = 30
-
-        /**
-         * The value type for {@code INTERVAL SECOND} values.
-         */
-        const val INTERVAL_SECOND: Int = 31
-
-        /**
-         * The value type for {@code INTERVAL_YEAR_TO_MONTH} values.
-         */
-        const val INTERVAL_YEAR_TO_MONTH: Int = 32
-
-        /**
-         * The value type for {@code INTERVAL_DAY_TO_HOUR} values.
-         */
-        const val INTERVAL_DAY_TO_HOUR: Int = 33
-
-        /**
-         * The value type for {@code INTERVAL_DAY_TO_MINUTE} values.
-         */
-        const val INTERVAL_DAY_TO_MINUTE: Int = 34
-
-        /**
-         * The value type for {@code INTERVAL_DAY_TO_SECOND} values.
-         */
-        const val INTERVAL_DAY_TO_SECOND: Int = 35
-
-        /**
-         * The value type for {@code INTERVAL_HOUR_TO_MINUTE} values.
-         */
-        const val INTERVAL_HOUR_TO_MINUTE: Int = 36
-
-        /**
-         * The value type for {@code INTERVAL_HOUR_TO_SECONDE} values.
-         */
-        const val INTERVAL_HOUR_TO_SECOND: Int = 37
-
-        /**
-         * The value type for {@code INTERVAL MINUTE TO SECOND} values.
-         */
-        const val INTERVAL_MINUTE_TO_SECOND: Int = 38
-
-        /**
-         * The value type for ROW values.
-         */
-        const val ROW: Int = 39
-
-        /**
-         * The value type for JSON values.
-         */
-        const val JSON: Int = 40
+        const val TIME = DATE + 1
 
         /**
          * The value type for TIME WITH TIME ZONE values.
          */
-        const val TIME_TZ = 41
+        const val TIME_TZ = TIME + 1
+
+        /**
+         * The value type for TIMESTAMP values.
+         */
+        const val TIMESTAMP = TIME_TZ + 1
+
+        /**
+         * The value type for TIMESTAMP WITH TIME ZONE values.
+         */
+        const val TIMESTAMP_TZ = TIMESTAMP + 1
+
+        /**
+         * The value type for `INTERVAL YEAR` values.
+         */
+        const val INTERVAL_YEAR = TIMESTAMP_TZ + 1
+
+        /**
+         * The value type for `INTERVAL MONTH` values.
+         */
+        const val INTERVAL_MONTH = INTERVAL_YEAR + 1
+
+        /**
+         * The value type for `INTERVAL DAY` values.
+         */
+        const val INTERVAL_DAY = INTERVAL_MONTH + 1
+
+        /**
+         * The value type for `INTERVAL HOUR` values.
+         */
+        const val INTERVAL_HOUR = INTERVAL_DAY + 1
+
+        /**
+         * The value type for `INTERVAL MINUTE` values.
+         */
+        const val INTERVAL_MINUTE = INTERVAL_HOUR + 1
+
+        /**
+         * The value type for `INTERVAL SECOND` values.
+         */
+        const val INTERVAL_SECOND = INTERVAL_MINUTE + 1
+
+        /**
+         * The value type for `INTERVAL YEAR TO MONTH` values.
+         */
+        const val INTERVAL_YEAR_TO_MONTH = INTERVAL_SECOND + 1
+
+        /**
+         * The value type for `INTERVAL DAY TO HOUR` values.
+         */
+        const val INTERVAL_DAY_TO_HOUR = INTERVAL_YEAR_TO_MONTH + 1
+
+        /**
+         * The value type for `INTERVAL DAY TO MINUTE` values.
+         */
+        const val INTERVAL_DAY_TO_MINUTE = INTERVAL_DAY_TO_HOUR + 1
+
+        /**
+         * The value type for `INTERVAL DAY TO SECOND` values.
+         */
+        const val INTERVAL_DAY_TO_SECOND = INTERVAL_DAY_TO_MINUTE + 1
+
+        /**
+         * The value type for `INTERVAL HOUR TO MINUTE` values.
+         */
+        const val INTERVAL_HOUR_TO_MINUTE = INTERVAL_DAY_TO_SECOND + 1
+
+        /**
+         * The value type for `INTERVAL HOUR TO SECOND` values.
+         */
+        const val INTERVAL_HOUR_TO_SECOND = INTERVAL_HOUR_TO_MINUTE + 1
+
+        /**
+         * The value type for `INTERVAL MINUTE TO SECOND` values.
+         */
+        const val INTERVAL_MINUTE_TO_SECOND = INTERVAL_HOUR_TO_SECOND + 1
+
+        /**
+         * The value type for JAVA_OBJECT values.
+         */
+        const val JAVA_OBJECT = INTERVAL_MINUTE_TO_SECOND + 1
+
+        /**
+         * The value type for ENUM values.
+         */
+        const val ENUM = JAVA_OBJECT + 1
+
+        /**
+         * The value type for string values with a fixed size.
+         */
+        const val GEOMETRY = ENUM + 1
+
+        /**
+         * The value type for JSON values.
+         */
+        const val JSON = GEOMETRY + 1
+
+        /**
+         * The value type for UUID values.
+         */
+        const val UUID = JSON + 1
+
+        /**
+         * The value type for ARRAY values.
+         */
+        const val ARRAY = UUID + 1
+
+        /**
+         * The value type for ROW values.
+         */
+        const val ROW = ARRAY + 1
 
         /**
          * The number of value types.
          */
-        const val TYPE_COUNT: Int = JSON + 1
+        const val TYPE_COUNT = ROW + 1
+
+        /**
+         * Group for untyped NULL data type.
+         */
+        const val GROUP_NULL = 0
+
+        /**
+         * Group for character string data types.
+         */
+        const val GROUP_CHARACTER_STRING = GROUP_NULL + 1
+
+        /**
+         * Group for binary string data types.
+         */
+        const val GROUP_BINARY_STRING = GROUP_CHARACTER_STRING + 1
+
+        /**
+         * Group for BINARY data type.
+         */
+        const val GROUP_BOOLEAN = GROUP_BINARY_STRING + 1
+
+        /**
+         * Group for numeric data types.
+         */
+        const val GROUP_NUMERIC = GROUP_BOOLEAN + 1
+
+        /**
+         * Group for datetime data types.
+         */
+        const val GROUP_DATETIME = GROUP_NUMERIC + 1
+
+        /**
+         * Group for year-month interval data types.
+         */
+        const val GROUP_INTERVAL_YM = GROUP_DATETIME + 1
+
+        /**
+         * Group for day-time interval data types.
+         */
+        const val GROUP_INTERVAL_DT = GROUP_INTERVAL_YM + 1
+
+        /**
+         * Group for other data types (JAVA_OBJECT, UUID, GEOMETRY, ENUM, JSON).
+         */
+        const val GROUP_OTHER = GROUP_INTERVAL_DT + 1
+
+        /**
+         * Group for collection data types (ARRAY, ROW).
+         */
+        const val GROUP_COLLECTION = GROUP_OTHER + 1
+
+
+        val GROUPS = byteArrayOf( // NULL
+                GROUP_NULL.toByte(),  // CHAR, VARCHAR, CLOB, VARCHAR_IGNORECASE
+                GROUP_CHARACTER_STRING.toByte(), GROUP_CHARACTER_STRING.toByte(), GROUP_CHARACTER_STRING.toByte(), GROUP_CHARACTER_STRING.toByte(),  // BINARY, VARBINARY, BLOB
+                GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(),  // BOOLEAN
+                GROUP_BOOLEAN.toByte(),  // TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, REAL, DOUBLE, DECFLOAT
+                GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),  // DATE, TIME, TIME_TZ, TIMESTAMP, TIMESTAMP_TZ
+                GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(),  // INTERVAL_YEAR, INTERVAL_MONTH
+                GROUP_INTERVAL_YM.toByte(), GROUP_INTERVAL_YM.toByte(),  // INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND
+                GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),  // INTERVAL_YEAR_TO_MONTH
+                GROUP_INTERVAL_YM.toByte(),  // INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
+                // INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE,
+                // INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND
+                GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),
+                GROUP_INTERVAL_DT.toByte(),  // JAVA_OBJECT, ENUM, GEOMETRY, JSON, UUID
+                GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(),  // ARRAY, ROW
+                GROUP_COLLECTION.toByte(), GROUP_COLLECTION.toByte())
+
+        private val NAMES = arrayOf(
+                "NULL",  //
+                "CHARACTER", "CHARACTER VARYING", "CHARACTER LARGE OBJECT", "VARCHAR_IGNORECASE",  //
+                "BINARY", "BINARY VARYING", "BINARY LARGE OBJECT",  //
+                "BOOLEAN",  //
+                "TINYINT", "SMALLINT", "INTEGER", "BIGINT",  //
+                "NUMERIC", "REAL", "DOUBLE PRECISION", "DECFLOAT",  //
+                "DATE", "TIME", "TIME WITH TIME ZONE", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE",  //
+                "INTERVAL YEAR", "INTERVAL MONTH",  //
+                "INTERVAL DAY", "INTERVAL HOUR", "INTERVAL MINUTE", "INTERVAL SECOND",  //
+                "INTERVAL YEAR TO MONTH",  //
+                "INTERVAL DAY TO HOUR", "INTERVAL DAY TO MINUTE", "INTERVAL DAY TO SECOND",  //
+                "INTERVAL HOUR TO MINUTE", "INTERVAL HOUR TO SECOND", "INTERVAL MINUTE TO SECOND",  //
+                "JAVA_OBJECT", "ENUM", "GEOMETRY", "JSON", "UUID",  //
+                "ARRAY", "ROW")
+
+        /**
+         * Empty array of values.
+         */
+        val EMPTY_VALUES = arrayOfNulls<Value>(0)
 
         @JvmStatic
         val softCache: SoftReference<Array<Value?>> by lazy { SoftReference<Array<Value?>>(arrayOfNulls(SysProperties.OBJECT_CACHE_SIZE)) }
@@ -238,6 +346,33 @@ abstract class Value : VersionedValue() {
 
         @JvmField
         val MIN_LONG_DECIMAL: BigDecimal = BigDecimal.valueOf(Long.MIN_VALUE)
+
+        /**
+         * Convert a value to the specified type without taking scale and precision
+         * into account.
+         */
+        const val CONVERT_TO = 0
+
+        /**
+         * Cast a value to the specified type. The scale is set if applicable. The
+         * value is truncated to a required precision.
+         */
+        const val CAST_TO = 1
+
+        /**
+         * Cast a value to the specified type for assignment. The scale is set if
+         * applicable. If precision is too large an exception is thrown.
+         */
+        const val ASSIGN_TO = 2
+
+        /**
+         * Returns name of the specified data type.
+         *
+         * @param valueType
+         * the value type
+         * @return the name
+         */
+        fun getTypeName(valueType: Int): String? = NAMES[valueType]
 
         /**
          * Check the range of the parameters.
@@ -256,85 +391,159 @@ abstract class Value : VersionedValue() {
         }
 
         /**
-         * Get the order of this value type.
-         * @param type the value type
-         * @return the order number
-         */
-        @JvmStatic
-        fun getOrder(type: Int): Int = when (type) {
-            UNKNOWN -> 1_000
-            NULL -> 2_000
-            STRING -> 10_000
-            CLOB -> 11_000
-            STRING_FIXED -> 12_000
-            STRING_IGNORECASE -> 13_000
-            BOOLEAN -> 20_000
-            BYTE -> 21_000
-            SHORT -> 22_000
-            INT -> 23_000
-            LONG -> 24_000
-            DECIMAL -> 25_000
-            FLOAT -> 26_000
-            DOUBLE -> 27_000
-            INTERVAL_YEAR -> 28_000
-            INTERVAL_MONTH -> 28_100
-            INTERVAL_YEAR_TO_MONTH -> 28_200
-            INTERVAL_DAY -> 29_000
-            INTERVAL_HOUR -> 29_100
-            INTERVAL_DAY_TO_HOUR -> 29_200
-            INTERVAL_MINUTE -> 29_300
-            INTERVAL_HOUR_TO_MINUTE -> 29_400
-            INTERVAL_DAY_TO_MINUTE -> 29_500
-            INTERVAL_SECOND -> 29_600
-            INTERVAL_MINUTE_TO_SECOND -> 29_700
-            INTERVAL_HOUR_TO_SECOND -> 29_800
-            INTERVAL_DAY_TO_SECOND -> 29_900
-            TIME -> 30_000
-            DATE -> 30_100
-            TIMESTAMP -> 32_000
-            TIMESTAMP_TZ -> 34_000
-            BYTES -> 40_000
-            BLOB -> 41_000
-            JAVA_OBJECT -> 42_000
-            UUID -> 43_000
-            GEOMETRY -> 44_000
-            ENUM -> 45_000
-            JSON -> 46_000
-            ARRAY -> 50_000
-            ROW -> 51_000
-            RESULT_SET -> 52_000
-            else -> TODO()
-        }
-
-        /**
          * Get the higher value order type of two value types. If values need to be
-         * converted to match the other operands value type, the value with the lower
-         * order is converted to the value with higher order.
+         * converted to match the other operands value type, the value with the
+         * lower order is converted to the value with the higher order.
+         *
          * @param t1 the first value type
          * @param t2 the second value type
          * @return the higher value type of the two
          */
         @JvmStatic
-        fun getHigherOrder(t1: Int, t2: Int): Int {
-            if (t1 == Value.UNKNOWN || t2 == Value.UNKNOWN) {
-                throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1,
-                        "${if (t1 == Value.NULL) "NULL" else "?"}, ${if (t2 == Value.NULL) "NULL" else "?"}")
+        fun getHigherOrder(pt1: Int, pt2: Int): Int {
+            var t1 = pt1
+            var t2 = pt2
+
+            if (t1 == t2) {
+                if (t1 == UNKNOWN)
+                    throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, ?")
+                return t1
             }
-            if (t1 == t2) return t1
-            return if (getOrder(t1) > getOrder(t2)) t1 else t2
+
+            if (t1 < t2) t1 = t2.also { t2 = t1 }
+
+            if (t1 == UNKNOWN) {
+                if (t2 == NULL) {
+                    throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, NULL")
+                }
+                return t2
+            } else if (t2 == UNKNOWN) {
+                if (t1 == NULL) {
+                    throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "NULL, ?")
+                }
+                return t1
+            }
+            if (t2 == NULL) return t1
+            return getHigherOrderKnown(t1, t2)
         }
 
-        /**
-         * Get the higher data type of two data types. If values need to be
-         * converted to match the other operands data type, the value with the
-         * lower order is converted to the value with the higher order.
-         * @param type1 the first data type
-         * @param type2 the second data type
-         * @return the higher data type of the two
-         */
-        @JvmStatic
-        fun getHigherType(t1: TypeInfo, t2: TypeInfo): TypeInfo {
-            return TypeInfo.getTypeInfo()
+        private fun getDataTypeCombinationException(t1: Int, t2: Int): DbException {
+            return DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, getTypeName(t1) + ", " + getTypeName(t2))
+        }
+
+        private fun getHigherNumeric(t1: Int, t2: Int, g2: Int): Int {
+            if (g2 == GROUP_NUMERIC) {
+                when (t1) {
+                    REAL -> when (t2) {
+                        INTEGER -> return DOUBLE
+                        BIGINT, NUMERIC -> return DECFLOAT
+                    }
+                    DOUBLE -> when (t2) {
+                        BIGINT, NUMERIC -> return DECFLOAT
+                    }
+                }
+            } else if (g2 == GROUP_BINARY_STRING) {
+                throw getDataTypeCombinationException(t1, t2)
+            }
+            return t1
+        }
+
+        private fun getHigherDateTime(t1: Int, t2: Int, g2: Int): Int {
+            if (g2 == GROUP_CHARACTER_STRING) return t1
+            if (g2 != GROUP_DATETIME) throw getDataTypeCombinationException(t1, t2)
+            when (t1) {
+                TIME -> if (t2 == DATE) return TIMESTAMP
+                TIME_TZ -> if (t2 == DATE) return TIMESTAMP_TZ
+                TIMESTAMP -> if (t2 == TIME_TZ) return TIMESTAMP_TZ
+            }
+            return t1
+        }
+
+        private fun getHigherIntervalYearMonth(t1: Int, t2: Int, g2: Int): Int {
+            return when (g2) {
+                GROUP_INTERVAL_YM -> {
+                    if (t1 == INTERVAL_MONTH && t2 == INTERVAL_YEAR) {
+                        INTERVAL_YEAR_TO_MONTH
+                    } else t1
+                }
+                GROUP_CHARACTER_STRING, GROUP_NUMERIC -> t1
+                else -> throw getDataTypeCombinationException(t1, t2)
+            }
+        }
+
+        private fun getHigherIntervalDayTime(t1: Int, t2: Int, g2: Int): Int {
+            when (g2) {
+                GROUP_INTERVAL_DT -> {}
+                GROUP_CHARACTER_STRING, GROUP_NUMERIC -> return t1
+                else -> throw getDataTypeCombinationException(t1, t2)
+            }
+
+            when (t1) {
+                INTERVAL_HOUR -> return INTERVAL_DAY_TO_HOUR
+                INTERVAL_MINUTE -> {
+                    return if (t2 == INTERVAL_DAY) INTERVAL_DAY_TO_MINUTE else INTERVAL_HOUR_TO_MINUTE
+                }
+                INTERVAL_SECOND -> return when (t2) {
+                    INTERVAL_DAY -> INTERVAL_DAY_TO_SECOND
+                    INTERVAL_HOUR -> INTERVAL_HOUR_TO_SECOND
+                    else -> INTERVAL_MINUTE_TO_SECOND
+                }
+                INTERVAL_DAY_TO_HOUR -> {
+                    when (t2) {
+                        INTERVAL_MINUTE -> return INTERVAL_DAY_TO_MINUTE
+                        INTERVAL_SECOND -> return INTERVAL_DAY_TO_SECOND
+                    }
+                }
+                INTERVAL_DAY_TO_MINUTE -> if (t2 == INTERVAL_SECOND) return INTERVAL_DAY_TO_SECOND
+                INTERVAL_HOUR_TO_MINUTE -> when (t2) {
+                    INTERVAL_DAY, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE -> return INTERVAL_DAY_TO_MINUTE
+                    INTERVAL_SECOND -> return INTERVAL_HOUR_TO_SECOND
+                    INTERVAL_DAY_TO_SECOND -> return INTERVAL_DAY_TO_SECOND
+                }
+                INTERVAL_HOUR_TO_SECOND -> when (t2) {
+                    INTERVAL_DAY, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND -> return INTERVAL_DAY_TO_SECOND
+                }
+                INTERVAL_MINUTE_TO_SECOND -> when (t2) {
+                    INTERVAL_DAY, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND -> return INTERVAL_DAY_TO_SECOND
+                    INTERVAL_HOUR, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND -> return INTERVAL_HOUR_TO_SECOND
+                }
+            }
+            return t1
+        }
+
+        private fun getHigherOther(t1: Int, t2: Int, g2: Int): Int {
+            when (t1) {
+                JAVA_OBJECT -> if (g2 != GROUP_BINARY_STRING) throw getDataTypeCombinationException(t1, t2)
+                ENUM -> if (g2 != GROUP_CHARACTER_STRING && (g2 != GROUP_NUMERIC || t2 > INTEGER))
+                    throw getDataTypeCombinationException(t1, t2)
+                GEOMETRY -> if (g2 != GROUP_CHARACTER_STRING && g2 != GROUP_BINARY_STRING)
+                    throw getDataTypeCombinationException(t1, t2)
+                JSON -> when (g2) {
+                    GROUP_DATETIME, GROUP_INTERVAL_YM, GROUP_INTERVAL_DT, GROUP_OTHER -> throw getDataTypeCombinationException(t1, t2)
+                }
+                UUID -> when (g2) {
+                    GROUP_CHARACTER_STRING, GROUP_BINARY_STRING -> {}
+                    GROUP_OTHER -> {
+                        if (t2 != JAVA_OBJECT) throw getDataTypeCombinationException(t1, t2)
+                    }
+                    else -> throw getDataTypeCombinationException(t1, t2)
+                }
+            }
+            return t1
+        }
+
+        fun getHigherOrderKnown(t1: Int, t2: Int): Int {
+            val g1 = GROUPS[t1].toInt()
+            val g2 = GROUPS[t2].toInt()
+            when (g1) {
+                GROUP_BOOLEAN -> if (g2 == GROUP_BINARY_STRING) throw getDataTypeCombinationException(BOOLEAN, t2)
+                GROUP_NUMERIC -> return getHigherNumeric(t1, t2, g2)
+                GROUP_DATETIME -> return getHigherDateTime(t1, t2, g2)
+                GROUP_INTERVAL_YM -> return getHigherIntervalYearMonth(t1, t2, g2)
+                GROUP_INTERVAL_DT -> return getHigherIntervalDayTime(t1, t2, g2)
+                GROUP_OTHER -> return getHigherOther(t1, t2, g2)
+            }
+            return t1
         }
 
         /**
@@ -360,7 +569,60 @@ abstract class Value : VersionedValue() {
             cache[index] = v
             return v
         }
+
+        private fun getColumnName(column: Any?): String = column?.toString() ?: ""
+
+        private fun convertToLong(x: Double, column: Any): Long {
+            if (x > Long.MAX_VALUE || x < Long.MIN_VALUE) {
+                // TODO document that +Infinity, -Infinity throw an exception and
+                // NaN returns 0
+                throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
+            }
+            return x.roundToLong()
+        }
+
+        private fun convertToLong(x: BigDecimal, column: Any): Long {
+            if (x > MAX_LONG_DECIMAL || x < MIN_LONG_DECIMAL) {
+                throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
+            }
+            return x.setScale(0, RoundingMode.HALF_UP).toLong()
+        }
+
+        private fun convertToByte(x: Long, column: Any?): Byte {
+            if (x > Byte.MAX_VALUE || x < Byte.MIN_VALUE) {
+                throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
+            }
+            return x.toByte()
+        }
+
+        private fun convertToShort(x: Long, column: Any): Short {
+            if (x > Short.MAX_VALUE || x < Short.MIN_VALUE) {
+                throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
+            }
+            return x.toShort()
+        }
+
+        /**
+         * Convert to integer, throwing exception if out of range.
+         *
+         * @param x integer value.
+         * @param column Column info.
+         * @return x
+         */
+        fun convertToInt(x: Long, column: Any?): Int {
+            if (x > Int.MAX_VALUE || x < Int.MIN_VALUE) {
+                throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
+            }
+            return x.toInt()
+        }
+
+
     }
+
+    /**
+     * Clear the value cache. Used for testing.
+     */
+    open fun clearCache() = softCache.clear()
 
     /**
      * Get the SQL expression for this value.
@@ -385,7 +647,7 @@ abstract class Value : VersionedValue() {
      * Get the value type.
      * @return the value type
      */
-    abstract fun getValueType(): Int
+    abstract fun getValueType(): Int?
 
     /**
      * Java 11 with -XX:-UseCompressedOops for all values up the ValueLong and ValueDouble
@@ -399,6 +661,243 @@ abstract class Value : VersionedValue() {
      * @return the string
      */
     abstract fun getString(): String?
+
+    open fun getReader(): Reader? = StringReader(getString())
+
+    /**
+     * Get the reader
+     *
+     * @param oneBasedOffset the offset (1 means no offset)
+     * @param length the requested length
+     * @return the new reader
+     */
+    open fun getReader(oneBasedOffset: Long, length: Long): Reader? {
+        val string = getString()
+        val zeroBasedOffset = oneBasedOffset - 1
+        rangeCheck(zeroBasedOffset, length, string!!.length.toLong())
+        val offset = zeroBasedOffset.toInt()
+        return StringReader(string!!.substring(offset, offset + length.toInt()))
+    }
+
+
+    /**
+     * Creates new instance of the DbException for data conversion error.
+     *
+     * @param targetType Target data type.
+     * @return instance of the DbException.
+     */
+    fun getDataConversionError(targetType: Int): DbException {
+        throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, "${getTypeName(getValueType())} to ${getTypeName(targetType)}")
+    }
+
+    @Throws(DbException::class)
+    open fun getBytes(): ByteArray? = throw getDataConversionError(VARBINARY)
+
+    open fun getBytesNoCopy(): ByteArray? = getBytes()
+
+    open fun getInputStream(): InputStream? = ByteArrayInputStream(getBytesNoCopy())
+
+    /**
+     * Get the input stream
+     *
+     * @param oneBasedOffset the offset (1 means no offset)
+     * @param length the requested length
+     * @return the new input stream
+     */
+    open fun getInputStream(oneBasedOffset: Long, length: Long): InputStream? {
+        val bytes = getBytesNoCopy()
+        val zeroBasedOffset = oneBasedOffset - 1
+        rangeCheck(zeroBasedOffset, length, bytes!!.size.toLong())
+        return ByteArrayInputStream(bytes, zeroBasedOffset.toInt(), length.toInt())
+    }
+
+    /**
+     * Converts this value to a BOOLEAN value. May not be called on a NULL
+     * value.
+     *
+     * @return the BOOLEAN value
+     */
+    fun convertToBoolean(): ValueBoolean = when (getValueType()) {
+        BOOLEAN -> this as ValueBoolean
+        CHAR, VARCHAR, VARCHAR_IGNORECASE -> ValueBoolean.get(getBoolean())
+        TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, DOUBLE, REAL, DECFLOAT -> ValueBoolean.get(getSignum() != 0)
+        NULL -> throw DbException.getInternalError()
+        else -> throw getDataConversionError(BOOLEAN)
+    }
+
+    /**
+     * Returns this value as a Java `boolean` value.
+     *
+     * @throws DbException
+     * if this value is `NULL` or cannot be casted to `BOOLEAN`
+     * @return value
+     * @see .isTrue
+     * @see .isFalse
+     */
+    open fun getBoolean(): Boolean = convertToBoolean().getBoolean()
+
+    /**
+     * Converts this value to a TINYINT value. May not be called on a NULL
+     * value.
+     *
+     * @param column
+     * the column, used for to improve the error message if
+     * conversion fails
+     * @return the TINYINT value
+     */
+    fun convertToTinyint(column: Any?): ValueTinyint = when (getValueType()) {
+        TINYINT -> this as ValueTinyint
+        CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN -> ValueTinyint.get(getByte())
+        SMALLINT, ENUM, INTEGER -> ValueTinyint.get(Value.convertToByte(getInt().toLong(), column))
+        BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueTinyint.get(Value.convertToByte(getLong(), column))
+        NUMERIC, DECFLOAT -> ValueTinyint.get(Value.convertToByte(Value.convertToLong(getBigDecimal(), column), column))
+        REAL, DOUBLE -> ValueTinyint.get(Value.convertToByte(Value.convertToLong(getDouble(), column), column))
+        BINARY, VARBINARY -> {
+            val bytes = getBytesNoCopy()!!
+            if (bytes.size == 1) ValueTinyint.get(bytes[0])
+            throw getDataConversionError(TINYINT)
+        }
+        NULL -> throw DbException.getInternalError()
+        else -> throw getDataConversionError(TINYINT)
+    }
+
+    /**
+     * Converts this value to a INT value. May not be called on a NULL value.
+     *
+     * @param column
+     * the column, used for to improve the error message if
+     * conversion fails
+     * @return the INT value
+     */
+    fun convertToInt(column: Any?): ValueInteger = when (getValueType()) {
+        INTEGER -> this as ValueInteger
+        CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT, ENUM, SMALLINT -> ValueInteger.get(getInt())
+        BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueInteger.get(Value.convertToInt(getLong(), column))
+        NUMERIC, DECFLOAT -> ValueInteger.get(Value.convertToInt(convertToLong(getBigDecimal(), column!!), column))
+        REAL, DOUBLE -> ValueInteger.get(Value.convertToInt(convertToLong(getDouble(), column!!), column))
+        BINARY, VARBINARY -> {
+            val bytes = getBytesNoCopy()
+            if (bytes!!.size == 4) ValueInteger.get(Bits.readInt(bytes, 0))
+            throw getDataConversionError(INTEGER)
+        }
+        NULL -> throw DbException.getInternalError()
+        else -> throw getDataConversionError(INTEGER)
+    }
+
+    /**
+     * Converts this value to a BIGINT value. May not be called on a NULL value.
+     *
+     * @param column
+     * the column, used for to improve the error message if
+     * conversion fails
+     * @return the BIGINT value
+     */
+    fun convertToBigint(column: Any?): ValueBigint {
+        return when (getValueType()) {
+            BIGINT -> this as ValueBigint
+            CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT, SMALLINT, INTEGER, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND, ENUM -> ValueBigint.get(getLong())
+            NUMERIC, DECFLOAT -> ValueBigint.get(convertToLong(getBigDecimal(), column))
+            REAL, DOUBLE -> ValueBigint.get(convertToLong(getDouble(), column))
+            BINARY, VARBINARY -> {
+                val bytes = getBytesNoCopy()
+                if (bytes!!.size == 8) return ValueBigint.get(Bits.readLong(bytes, 0))
+                throw getDataConversionError(BIGINT)
+            }
+            NULL -> throw DbException.getInternalError()
+            else -> throw getDataConversionError(BIGINT)
+        }
+    }
+
+    /**
+     * Returns this value as a Java `byte` value.
+     *
+     * @throws DbException
+     * if this value is `NULL` or cannot be casted to
+     * `TINYINT`
+     * @return value
+     */
+    open fun getByte(): Byte = convertToTinyint(null).getByte()
+
+
+    /**
+     * Converts this value to a SMALLINT value. May not be called on a NULL value.
+     *
+     * @param column
+     * the column, used for to improve the error message if
+     * conversion fails
+     * @return the SMALLINT value
+     */
+    fun convertToSmallint(column: Any?): ValueSmallint {
+        return when (getValueType()) {
+            SMALLINT -> this as ValueSmallint
+            CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT -> ValueSmallint.get(getShort())
+            ENUM, INTEGER -> ValueSmallint.get(convertToShort(getInt().toLong(), column!!))
+            BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueSmallint.get(convertToShort(getLong(), column!!))
+            NUMERIC, DECFLOAT -> ValueSmallint.get(convertToShort(convertToLong(getBigDecimal(), column), column!!))
+            REAL, DOUBLE -> ValueSmallint.get(convertToShort(convertToLong(getDouble(), column), column!!))
+            BINARY, VARBINARY -> {
+                val bytes = getBytesNoCopy()!!
+                if (bytes.size == 2) {
+                    return ValueSmallint.get(((bytes[0] shl 8) + (bytes[1] and 0xff)).toShort())
+                }
+                throw getDataConversionError(SMALLINT)
+            }
+            NULL -> throw DbException.getInternalError()
+            else -> throw getDataConversionError(SMALLINT)
+        }
+    }
+
+    /**
+     * Returns this value as a Java `short` value.
+     *
+     * @throws DbException
+     * if this value is `NULL` or cannot be casted to
+     * `SMALLINT`
+     * @return value
+     */
+    open fun getShort(): Short = convertToSmallint(null).getShort()
+
+    /**
+     * Returns this value as a Java `int` value.
+     *
+     * @throws DbException
+     * if this value is `NULL` or cannot be casted to
+     * `INTEGER`
+     * @return value
+     */
+    open fun getInt(): Int = convertToInt(null).int
+
+    /**
+     * Returns this value as a Java `long` value.
+     *
+     * @throws DbException
+     * if this value is `NULL` or cannot be casted to
+     * `BIGINT`
+     * @return value
+     */
+    open fun getLong(): Long = convertToBigint(null).getLong()
+
+    open fun getBigDecimal(): BigDecimal? = throw getDataConversionError(NUMERIC)
+
+    /**
+     * Returns this value as a Java `float` value.
+     *
+     * @throws DbException
+     * if this value is `NULL` or cannot be casted to
+     * `REAL`
+     * @return value
+     */
+    open fun getFloat(): Float = throw getDataConversionError(REAL)
+
+    /**
+     * Returns this value as a Java `double` value.
+     *
+     * @throws DbException
+     * if this value is `NULL` or cannot be casted to
+     * `DOUBLE PRECISION`
+     * @return value
+     */
+    open fun getDouble(): Double = throw getDataConversionError(DOUBLE)
 
     /**
      * Set the value as a parameter in a prepared statement.
@@ -474,6 +973,144 @@ abstract class Value : VersionedValue() {
      */
     @Throws(DbException::class)
     open fun modulus(v: Value?): Value? = throw getUnsupportedExceptionForOperation("%")
+
+
+    fun getValueTooLongException(targetType: TypeInfo, column: Any?): DbException {
+        val builder = StringBuilder()
+        if (column != null) {
+            builder.append(column).append(' ')
+        }
+        targetType.getSQL(builder, HasSQL.TRACE_SQL_FLAGS)
+        return DbException.getValueTooLongException(builder.toString(), getTraceSQL(), getType().getPrecision())
+    }
+
+    /**
+     * Convert a value to the specified type.
+     *
+     * @param targetType the type of the returned value
+     * @param provider the cast information provider
+     * @param conversionMode conversion mode
+     * @param column the column (if any), used to improve the error message if conversion fails
+     * @return the converted value
+     */
+    fun convertTo(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): Value {
+        val valueType = getValueType()
+        val targetValueType: Int = targetType.valueType
+
+        return if (valueType == NULL
+                || valueType == targetValueType//.also { targetValueType = it }
+                && conversionMode == CONVERT_TO
+                && targetType.valueType == null
+                && valueType != CHAR) {
+            this
+        } else when (targetValueType) {
+            NULL -> ValueNull.INSTANCE
+            CHAR -> convertToChar(targetType, provider, conversionMode, column)
+            VARCHAR -> convertToVarchar(targetType, provider, conversionMode, column)
+            CLOB -> convertToClob(targetType, conversionMode, column)
+            VARCHAR_IGNORECASE -> convertToVarcharIgnoreCase(targetType, conversionMode, column)
+            BINARY -> convertToBinary(targetType, conversionMode, column)
+            VARBINARY -> convertToVarbinary(targetType, conversionMode, column)
+            BLOB -> convertToBlob(targetType, conversionMode, column)
+            BOOLEAN -> convertToBoolean()
+            TINYINT -> convertToTinyint(column)
+            SMALLINT -> convertToSmallint(column)
+            INTEGER -> convertToInt(column)
+            BIGINT -> convertToBigint(column)
+            NUMERIC -> convertToNumeric(targetType, provider, conversionMode, column)
+            REAL -> convertToReal()
+            DOUBLE -> convertToDouble()
+            DECFLOAT -> convertToDecfloat(targetType, conversionMode)
+            DATE -> convertToDate(provider)
+            TIME -> convertToTime(targetType, provider, conversionMode)
+            TIME_TZ -> convertToTimeTimeZone(targetType, provider, conversionMode)
+            TIMESTAMP -> convertToTimestamp(targetType, provider, conversionMode)
+            TIMESTAMP_TZ -> convertToTimestampTimeZone(targetType, provider, conversionMode)
+            INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_YEAR_TO_MONTH -> convertToIntervalYearMonth(targetType, conversionMode, column)
+            INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> convertToIntervalDayTime(targetType, conversionMode, column)
+            JAVA_OBJECT -> convertToJavaObject(targetType, conversionMode, column)
+            ENUM -> convertToEnum(targetType.getExtTypeInfo() as ExtTypeInfoEnum?, provider)
+            GEOMETRY -> convertToGeometry(targetType.getExtTypeInfo() as ExtTypeInfoGeometry?)
+            JSON -> convertToJson(targetType, conversionMode, column)
+            UUID -> convertToUuid()
+            ARRAY -> convertToArray(targetType, provider, conversionMode, column)
+            ROW -> convertToRow(targetType, provider, conversionMode, column)
+            else -> throw getDataConversionError(targetValueType)
+        }
+    }
+
+    open fun convertToChar(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): ValueChar? {
+        val valueType = getValueType()!!
+        when (valueType) {
+            BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
+        }
+        var s = getString()!!
+        val length = s.length
+        var newLength = length
+        if (conversionMode == CONVERT_TO) {
+            while (newLength > 0 && s[newLength - 1] == ' ') {
+                newLength--
+            }
+        } else {
+            val p = MathUtils.convertLongToInt(targetType.precision)
+            if (provider == null || provider.mode.charPadding == CharPadding.ALWAYS) {
+                if (newLength != p) {
+                    if (newLength < p) {
+                        return ValueChar.get(StringUtils.pad(s, p, null, true))
+                    } else if (conversionMode == CAST_TO) {
+                        newLength = p
+                    } else {
+                        do {
+                            if (s[--newLength] != ' ') {
+                                throw getValueTooLongException(targetType, column)
+                            }
+                        } while (newLength > p)
+                    }
+                }
+            } else {
+                if (conversionMode == CAST_TO && newLength > p) {
+                    newLength = p
+                }
+                while (newLength > 0 && s[newLength - 1] == ' ') {
+                    newLength--
+                }
+                if (conversionMode == ASSIGN_TO && newLength > p) {
+                    throw getValueTooLongException(targetType, column)
+                }
+            }
+        }
+        if (length != newLength) {
+            s = s.substring(0, newLength)
+        } else if (valueType == CHAR) {
+            return this as ValueChar
+        }
+        return ValueChar.get(s)
+    }
+
+    /**
+     * Convert a value to the specified type without taking scale and precision
+     * into account.
+     *
+     * @param targetType the type of the returned value
+     * @param provider the cast information provider
+     * @return the converted value
+     */
+    fun convertTo(targetType: Int, provider: CastDataProvider?): Value {
+        return when (targetType) {
+            ARRAY -> convertToAnyArray(provider)
+            ROW -> convertToAnyRow()
+            else -> convertTo(getTypeInfo(targetType), provider, CONVERT_TO, null)
+        }
+    }
+
+    /**
+     * Convert a value to the specified type without taking scale and precision
+     * into account.
+     *
+     * @param targetType the type of the returned value
+     * @return the converted value
+     */
+    fun convertTo(targetType: Int): Value = convertTo(targetType, null)
 
     /**
      * Create an exception meaning the specified operation is not supported for
