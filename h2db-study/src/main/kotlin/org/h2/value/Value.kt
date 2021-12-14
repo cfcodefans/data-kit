@@ -12,6 +12,7 @@ import org.h2.util.MathUtils
 import org.h2.util.StringUtils
 import org.h2.util.Typed
 import org.h2.value.TypeInfo.Companion.getTypeInfo
+import org.h2.value.ValueBigint.Companion.convertToBigint
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
 import org.h2.value.lob.LobDataDatabase
 import org.h2.value.lob.LobDataInMemory
@@ -576,7 +577,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
 
         private fun getColumnName(column: Any?): String = column?.toString() ?: ""
 
-        private fun convertToLong(x: Double, column: Any?): Long {
+        internal fun convertToLong(x: Double, column: Any?): Long {
             if (x > Long.MAX_VALUE || x < Long.MIN_VALUE) {
                 // TODO document that +Infinity, -Infinity throw an exception and
                 // NaN returns 0
@@ -585,7 +586,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
             return x.roundToLong()
         }
 
-        private fun convertToLong(x: BigDecimal, column: Any?): Long {
+        internal fun convertToLong(x: BigDecimal, column: Any?): Long {
             if (x > MAX_LONG_DECIMAL || x < MIN_LONG_DECIMAL) {
                 throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
             }
@@ -639,7 +640,9 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @param builder string builder
      * @return the specified string builder
      */
-    abstract fun getSQL(builder: StringBuilder): StringBuilder
+    fun getSQL(builder: StringBuilder): StringBuilder {
+        TODO("Not yet implemented")
+    }
 
     /**
      * Get the value type.
@@ -782,29 +785,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
         else -> throw getDataConversionError(INTEGER)
     }
 
-    /**
-     * Converts this value to a BIGINT value. May not be called on a NULL value.
-     *
-     * @param column
-     * the column, used for to improve the error message if
-     * conversion fails
-     * @return the BIGINT value
-     */
-    fun convertToBigint(column: Any?): ValueBigint {
-        return when (getValueType()) {
-            BIGINT -> this as ValueBigint
-            CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT, SMALLINT, INTEGER, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND, ENUM -> ValueBigint.get(getLong())
-            NUMERIC, DECFLOAT -> ValueBigint.get(convertToLong(getBigDecimal(), column))
-            REAL, DOUBLE -> ValueBigint.get(convertToLong(getDouble(), column))
-            BINARY, VARBINARY -> {
-                val bytes = getBytesNoCopy()
-                if (bytes!!.size == 8) return ValueBigint.get(Bits.readLong(bytes, 0))
-                throw getDataConversionError(BIGINT)
-            }
-            NULL -> throw DbException.getInternalError()
-            else -> throw getDataConversionError(BIGINT)
-        }
-    }
+
 
     /**
      * Returns this value as a Java `byte` value.

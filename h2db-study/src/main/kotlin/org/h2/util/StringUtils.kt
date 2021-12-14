@@ -6,12 +6,13 @@ import org.h2.api.ErrorCode.HEX_STRING_WRONG_1
 import org.h2.api.ErrorCode.STRING_FORMAT_ERROR_1
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
-import java.lang.Math.max
 import java.lang.Math.min
 import java.lang.ref.SoftReference
 import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.experimental.and
 
 /**
  * A few String utility functions
@@ -433,6 +434,27 @@ object StringUtils {
      */
     fun convertBytesToHex(builder: StringBuilder?, value: ByteArray): java.lang.StringBuilder? {
         return convertBytesToHex(builder!!, value, value.size)
+    }
+
+    /**
+     * Convert a byte array to a hex encoded string.
+     *
+     * @param value the byte array
+     * @param len the number of bytes to encode
+     * @return the hex encoded string
+     */
+    fun convertBytesToHex(value: ByteArray, len: Int): String {
+        val bytes = ByteArray(len * 2)
+        val hex = HEX
+        var i = 0
+        var j = 0
+        while (i < len) {
+            val c: Int = value[i].toInt() and 0xff
+            bytes[j++] = hex[c shr 4].code.toByte()
+            bytes[j++] = hex[c and 0xf].code.toByte()
+            i++
+        }
+        return String(bytes, StandardCharsets.ISO_8859_1)
     }
 
     /**

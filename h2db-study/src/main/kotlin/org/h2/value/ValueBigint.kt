@@ -61,6 +61,28 @@ class ValueBigint(val value: Long) : Value() {
         private val STATIC_CACHE: Array<ValueBigint> = (0 until STATIC_SIZE).map {
             ValueBigint(it.toLong())
         }.toTypedArray()
+
+        /**
+         * Converts this value to a BIGINT value. May not be called on a NULL value.
+         *
+         * @param column
+         * the column, used for to improve the error message if
+         * conversion fails
+         * @return the BIGINT value
+         */
+        fun Value.convertToBigint(column: Any?): ValueBigint = when (getValueType()) {
+            BIGINT -> this as ValueBigint
+            CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT, SMALLINT, INTEGER, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND, ENUM -> ValueBigint.get(getLong())
+            NUMERIC, DECFLOAT -> ValueBigint[convertToLong(getBigDecimal(), column)]
+            REAL, DOUBLE -> ValueBigint[convertToLong(getDouble(), column)]
+            BINARY, VARBINARY -> {
+                val bytes = getBytesNoCopy()
+                if (bytes!!.size == 8) ValueBigint[Bits.readLong(bytes, 0)]
+                throw getDataConversionError(BIGINT)
+            }
+            NULL -> throw DbException.getInternalError()
+            else -> throw getDataConversionError(BIGINT)
+        }
     }
 
     private fun getOverflow(): DbException = DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_1, value.toString())
@@ -141,9 +163,8 @@ class ValueBigint(val value: Long) : Value() {
 
     override fun getDouble(): Double = value.toDouble()
 
-    override fun compareTypeSafe(o: Value?, mode: CompareMode?, provider: CastDataProvider?): Int {
-        return value.compareTo((o as ValueBigint).value)
-    }
+    override fun compareTypeSafe(o: Value?, mode: CompareMode?, provider: CastDataProvider?): Int =
+            value.compareTo((o as ValueBigint).value)
 
     override fun getString(): String? = value.toString()
 

@@ -5,7 +5,7 @@ import org.jetbrains.kotlin.utils.getOrPutNullable
 import java.io.IOException
 import java.io.InputStream
 import java.lang.management.ManagementFactory
-import java.util.ArrayList
+import java.util.Arrays
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import kotlin.experimental.or
@@ -123,11 +123,11 @@ object Utils {
 
         ZipInputStream(_in).use { zipIn ->
             val ze: ZipEntry? = generateSequence { zipIn.nextEntry }
-                .takeWhile { it != null }
-                .firstOrNull { ze ->
-                    val entryName: String = if (ze.name.startsWith("/")) ze.name else "/" + ze.name
-                    name == entryName
-                }
+                    .takeWhile { it != null }
+                    .firstOrNull { ze ->
+                        val entryName: String = if (ze.name.startsWith("/")) ze.name else "/" + ze.name
+                        name == entryName
+                    }
             if (ze != null) return zipIn.readBytes()
         }
         return null
@@ -147,6 +147,19 @@ object Utils {
         return source.copyInto(if (len > target.size) {
             ByteArray(len)
         } else target)
+    }
+
+    /**
+     * Create a new byte array and copy all the data. If the size of the byte
+     * array is zero, the same array is returned.
+     *
+     * @param b the byte array (may not be null)
+     * @return a new byte array
+     */
+    fun cloneByteArray(b: ByteArray?): ByteArray? {
+        if (b == null) return null
+        val len = b.size
+        return if (len == 0) EMPTY_BYTES else Arrays.copyOf(b, len)
     }
 
     /**
@@ -234,10 +247,10 @@ object Utils {
         }
         try {
             return (Class.forName("com.sun.managment.OperatingSystemMXBean")
-                .getMethod("getTotalPhysicalMemorySize")
-                .invoke(ManagementFactory.getOperatingSystemMXBean()) as java.lang.Number)
-                .longValue()
-                .let { (value * it / (1024 * 1024 * 1024)).toInt() }
+                    .getMethod("getTotalPhysicalMemorySize")
+                    .invoke(ManagementFactory.getOperatingSystemMXBean()) as java.lang.Number)
+                    .longValue()
+                    .let { (value * it / (1024 * 1024 * 1024)).toInt() }
         } catch (e: Exception) {
             //ignore
         }
