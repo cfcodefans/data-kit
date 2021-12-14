@@ -38,7 +38,6 @@ import org.h2.util.StringUtils
 import org.h2.util.Utils
 import java.io.ByteArrayInputStream
 import java.io.IOException
-import java.lang.Math.min
 import java.lang.reflect.InvocationTargetException
 import java.nio.charset.StandardCharsets
 import java.sql.DriverManager
@@ -144,6 +143,7 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         @JvmStatic
         fun getJdbcSQLException(message: String?, sql: String?, state: String?, errorCode: Int, cause: Throwable?, stackTrace: String?): SQLException {
             val _sql: String? = filterSQL(sql)
+
             when (errorCode / 1_000) {
                 2 -> return JdbcSQLNonTransientException(originalMessage = message,
                         message = message,
@@ -317,10 +317,7 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             OOME
         } catch (ex: Throwable) {
             try {
-                DbException(SQLException("GeneralError", "HY000", GENERAL_ERROR_1, e)).let {
-                    it.addSuppressed(ex)
-                    it
-                }
+                DbException(SQLException("GeneralError", "HY000", GENERAL_ERROR_1, e)).apply { addSuppressed(ex) }
             } catch (ignore: OutOfMemoryError) {
                 OOME
             }
@@ -403,6 +400,29 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
          * @return the RuntimeException object
          */
         fun getInternalError(): RuntimeException = getInternalError("Unexpected code path")
+
+        /**
+         * Gets a SQL exception meaning this value is too long.
+         *
+         * @param columnOrType  column with data type or data type name
+         * @param value         string representation of value, will be truncated to 80 characters
+         * @param valueLength   the actual length of value, `-1L` if unknown
+         * @return the exception
+         */
+        fun getValueTooLongException(columnOrType: String?, value: String, valueLength: Long): DbException {
+            val length = value.length
+            val m = if (valueLength >= 0) 22 else 0
+
+            val builder = if (length > 80)
+                StringBuilder(83 + m).append(value, 0, 80).append("...")
+            else
+                StringBuilder(length + m).append(value)
+
+            if (valueLength >= 0) {
+                builder.append(" (").append(valueLength).append(')')
+            }
+            return get(ErrorCode.VALUE_TOO_LONG_2, columnOrType!!, builder.toString())
+        }
     }
 
     private constructor(e: SQLException) : this(e.message, e)
@@ -458,7 +478,7 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
         val m = if (valueLength >= 0) 22 else 0
         val length = value.length
         val builder = if (length > 80) StringBuilder(83 + m).append(value, 0, 80).append("...")
-            else StringBuilder(length + m).append(value)
+        else StringBuilder(length + m).append(value)
         if (valueLength >= 0) {
             builder.append(" (").append(valueLength).append(')')
         }

@@ -6,10 +6,15 @@ import org.h2.engine.Mode.CharPadding
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
 import org.h2.util.Bits
+import org.h2.util.DateTimeUtils
 import org.h2.util.HasSQL
 import org.h2.util.MathUtils
 import org.h2.util.StringUtils
+import org.h2.util.Typed
 import org.h2.value.TypeInfo.Companion.getTypeInfo
+import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
+import org.h2.value.lob.LobDataDatabase
+import org.h2.value.lob.LobDataInMemory
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.Reader
@@ -17,16 +22,15 @@ import java.io.StringReader
 import java.lang.ref.SoftReference
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.sql.PreparedStatement
-import java.sql.SQLException
-import kotlin.experimental.and
+import java.nio.charset.StandardCharsets
+import java.util.Arrays
 import kotlin.math.roundToLong
 
 /**
  * This is the base class for all value classes.
  * It provides conversion and comparison methods.
  */
-abstract class Value : VersionedValue() {
+abstract class Value : VersionedValue(), HasSQL, Typed {
     companion object {
         /**
          * The data type is unknown at this time.
@@ -572,7 +576,7 @@ abstract class Value : VersionedValue() {
 
         private fun getColumnName(column: Any?): String = column?.toString() ?: ""
 
-        private fun convertToLong(x: Double, column: Any): Long {
+        private fun convertToLong(x: Double, column: Any?): Long {
             if (x > Long.MAX_VALUE || x < Long.MIN_VALUE) {
                 // TODO document that +Infinity, -Infinity throw an exception and
                 // NaN returns 0
@@ -581,7 +585,7 @@ abstract class Value : VersionedValue() {
             return x.roundToLong()
         }
 
-        private fun convertToLong(x: BigDecimal, column: Any): Long {
+        private fun convertToLong(x: BigDecimal, column: Any?): Long {
             if (x > MAX_LONG_DECIMAL || x < MIN_LONG_DECIMAL) {
                 throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
             }
@@ -638,16 +642,10 @@ abstract class Value : VersionedValue() {
     abstract fun getSQL(builder: StringBuilder): StringBuilder
 
     /**
-     * Returns the data type.
-     * @return the data type
-     */
-    abstract fun getType(): TypeInfo
-
-    /**
      * Get the value type.
      * @return the value type
      */
-    abstract fun getValueType(): Int?
+    abstract fun getValueType(): Int
 
     /**
      * Java 11 with -XX:-UseCompressedOops for all values up the ValueLong and ValueDouble
@@ -838,7 +836,7 @@ abstract class Value : VersionedValue() {
             BINARY, VARBINARY -> {
                 val bytes = getBytesNoCopy()!!
                 if (bytes.size == 2) {
-                    return ValueSmallint.get(((bytes[0] shl 8) + (bytes[1] and 0xff)).toShort())
+                    return ValueSmallint.get(((bytes[0].toInt() shl 8) + (bytes[1].toInt() and 0xff)).toShort())
                 }
                 throw getDataConversionError(SMALLINT)
             }
@@ -877,7 +875,7 @@ abstract class Value : VersionedValue() {
      */
     open fun getLong(): Long = convertToBigint(null).getLong()
 
-    open fun getBigDecimal(): BigDecimal? = throw getDataConversionError(NUMERIC)
+    open fun getBigDecimal(): BigDecimal = throw getDataConversionError(NUMERIC)
 
     /**
      * Returns this value as a Java `float` value.
@@ -899,14 +897,6 @@ abstract class Value : VersionedValue() {
      */
     open fun getDouble(): Double = throw getDataConversionError(DOUBLE)
 
-    /**
-     * Set the value as a parameter in a prepared statement.
-     * @param prep the prepared statement
-     * @param parameterIndex the parameter index
-     */
-    @Throws(SQLException::class)
-    abstract fun set(prep: PreparedStatement, parameterIndex: Int)
-
     abstract override fun hashCode(): Int
 
     /**
@@ -926,7 +916,7 @@ abstract class Value : VersionedValue() {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun add(v: Value?): Value? = throw getUnsupportedExceptionForOperation("+")
+    open fun add(v: Value?): Value = throw getUnsupportedExceptionForOperation("+")
 
     open fun getSignum(): Int = throw getUnsupportedExceptionForOperation("SIGNUM")
 
@@ -936,7 +926,7 @@ abstract class Value : VersionedValue() {
      * @return the negative
      */
     @Throws(DbException::class)
-    open fun negate(): Value? = throw getUnsupportedExceptionForOperation("NEG")
+    open fun negate(): Value = throw getUnsupportedExceptionForOperation("NEG")
 
     /**
      * Subtract a value and return the result.
@@ -945,16 +935,18 @@ abstract class Value : VersionedValue() {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun subtract(v: Value?): Value? = throw getUnsupportedExceptionForOperation("-")
+    open fun subtract(v: Value?): Value = throw getUnsupportedExceptionForOperation("-")
 
     /**
      * Divide by a value and return the result.
      *
-     * @param v the value to divide by
+     * @param v the divisor
+     * @param quotientType the type of quotient (used only to read precision and scale
+     * when applicable)
      * @return the result
      */
     @Throws(DbException::class)
-    open fun divide(v: Value?): Value? = throw getUnsupportedExceptionForOperation("/")
+    open fun divide(v: Value?, quotientType: TypeInfo?): Value = throw getUnsupportedExceptionForOperation("/")
 
     /**
      * Multiply with a value and return the result.
@@ -963,7 +955,7 @@ abstract class Value : VersionedValue() {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun multiply(v: Value?): Value? = throw getUnsupportedExceptionForOperation("*")
+    open fun multiply(v: Value?): Value = throw getUnsupportedExceptionForOperation("*")
 
     /**
      * Take the modulus with a value and return the result.
@@ -972,7 +964,7 @@ abstract class Value : VersionedValue() {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun modulus(v: Value?): Value? = throw getUnsupportedExceptionForOperation("%")
+    open fun modulus(v: Value?): Value = throw getUnsupportedExceptionForOperation("%")
 
 
     fun getValueTooLongException(targetType: TypeInfo, column: Any?): DbException {
@@ -981,7 +973,7 @@ abstract class Value : VersionedValue() {
             builder.append(column).append(' ')
         }
         targetType.getSQL(builder, HasSQL.TRACE_SQL_FLAGS)
-        return DbException.getValueTooLongException(builder.toString(), getTraceSQL(), getType().getPrecision())
+        return DbException.getValueTooLongException(builder.toString(), getTraceSQL()!!, type?.precision!!)
     }
 
     /**
@@ -1039,44 +1031,42 @@ abstract class Value : VersionedValue() {
         }
     }
 
-    open fun convertToChar(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): ValueChar? {
-        val valueType = getValueType()!!
+    open fun convertToChar(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): ValueChar {
+        val valueType: Int = getValueType()
         when (valueType) {
             BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
         }
+
         var s = getString()!!
         val length = s.length
         var newLength = length
+
         if (conversionMode == CONVERT_TO) {
-            while (newLength > 0 && s[newLength - 1] == ' ') {
-                newLength--
-            }
+            while (newLength > 0 && s[newLength - 1] == ' ') newLength--
         } else {
-            val p = MathUtils.convertLongToInt(targetType.precision)
+            val thePrecision = MathUtils.convertLongToInt(targetType.precision)
+
             if (provider == null || provider.mode.charPadding == CharPadding.ALWAYS) {
-                if (newLength != p) {
-                    if (newLength < p) {
-                        return ValueChar.get(StringUtils.pad(s, p, null, true))
+                if (newLength != thePrecision) {
+                    if (newLength < thePrecision) {
+                        return ValueChar.get(StringUtils.pad(s, thePrecision, null, true))
                     } else if (conversionMode == CAST_TO) {
-                        newLength = p
+                        newLength = thePrecision
                     } else {
                         do {
                             if (s[--newLength] != ' ') {
                                 throw getValueTooLongException(targetType, column)
                             }
-                        } while (newLength > p)
+                        } while (newLength > thePrecision)
                     }
                 }
             } else {
-                if (conversionMode == CAST_TO && newLength > p) {
-                    newLength = p
+                if (conversionMode == CAST_TO && newLength > thePrecision) {
+                    newLength = thePrecision
                 }
-                while (newLength > 0 && s[newLength - 1] == ' ') {
-                    newLength--
-                }
-                if (conversionMode == ASSIGN_TO && newLength > p) {
-                    throw getValueTooLongException(targetType, column)
-                }
+
+                while (newLength > 0 && s[newLength - 1] == ' ') newLength--
+                if (conversionMode == ASSIGN_TO && newLength > thePrecision) throw getValueTooLongException(targetType, column)
             }
         }
         if (length != newLength) {
@@ -1085,6 +1075,335 @@ abstract class Value : VersionedValue() {
             return this as ValueChar
         }
         return ValueChar.get(s)
+    }
+
+    private fun convertToVarchar(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): Value {
+        val valueType = getValueType()
+        when (valueType) {
+            BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
+        }
+
+        if (conversionMode != CONVERT_TO) {
+            val s = getString()
+            val p = MathUtils.convertLongToInt(targetType.precision)
+            if (s!!.length > p) {
+                if (conversionMode != CAST_TO) throw getValueTooLongException(targetType, column)
+                return ValueVarchar.get(s.substring(0, p), provider)
+            }
+        }
+        return if (valueType == VARCHAR) this else ValueVarchar.get(getString(), provider)
+    }
+
+    private fun convertToClob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueClob {
+        var v: ValueClob = when (getValueType()) {
+            CLOB -> this as ValueClob
+            JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
+            BLOB -> {
+                val data = (this as ValueBlob).lobData
+                // Try to reuse the array, if possible
+                if (data is LobDataInMemory) {
+                    val small = (data as LobDataInMemory).small
+                    var bytes: ByteArray? = String(small, StandardCharsets.UTF_8).toByteArray(StandardCharsets.UTF_8)
+                    if (Arrays.equals(bytes, small)) {
+                        bytes = small
+                    }
+                    ValueClob.createSmall(bytes)
+                } else if (data is LobDataDatabase) {
+                    data.getDataHandler().lobStorage.createClob(getReader(), -1)
+                } else ValueClob.createSmall(getString())
+            }
+            else -> ValueClob.createSmall(getString())
+        }
+
+        if (conversionMode == CONVERT_TO) return v
+
+        if (conversionMode == CAST_TO) return v.convertPrecision(targetType.precision)
+
+        if (v.charLength() > targetType.precision) throw v.getValueTooLongException(targetType, column)
+
+        return v
+    }
+
+    private fun convertToVarcharIgnoreCase(targetType: TypeInfo, conversionMode: Int, column: Any): Value {
+        val valueType = getValueType()
+        when (valueType) {
+            BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
+        }
+
+        if (conversionMode == CONVERT_TO)
+            return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
+
+        val s = getString()
+        val p = MathUtils.convertLongToInt(targetType.precision)
+
+        if (s!!.length > p) {
+            if (conversionMode == CAST_TO) {
+                return ValueVarcharIgnoreCase.get(s.substring(0, p))
+            }
+            throw getValueTooLongException(targetType, column)
+        }
+
+        return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
+    }
+
+    private fun convertToBinary(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBinary {
+        var v: ValueBinary = if (getValueType() == BINARY) {
+            this as ValueBinary
+        } else {
+            try {
+                ValueBinary.getNoCopy(getBytesNoCopy())
+            } catch (e: DbException) {
+                throw if (e.getErrorCode() == ErrorCode.DATA_CONVERSION_ERROR_1) getDataConversionError(BINARY) else e
+            }
+        }
+
+        if (conversionMode == CONVERT_TO) return v
+
+        val value = v.bytesNoCopy
+        val length = value.size
+        val p = MathUtils.convertLongToInt(targetType.precision)
+
+        if (length != p) {
+            if (conversionMode == ASSIGN_TO && length > p) {
+                throw v.getValueTooLongException(targetType, column)
+            }
+            v = ValueBinary.getNoCopy(Arrays.copyOf(value, p))
+        }
+        return v
+    }
+
+    private fun convertToVarbinary(targetType: TypeInfo, conversionMode: Int, column: Any): ValueVarbinary {
+        var v: ValueVarbinary = if (getValueType() == VARBINARY) {
+            this as ValueVarbinary
+        } else {
+            ValueVarbinary.getNoCopy(getBytesNoCopy())
+        }
+
+        if (conversionMode == CONVERT_TO) return v
+
+        val value = v.bytesNoCopy
+        val length = value.size
+        val p = MathUtils.convertLongToInt(targetType.precision)
+
+        if (conversionMode == CAST_TO) return if (length > p) ValueVarbinary.getNoCopy(Arrays.copyOf(value, p)) else v
+//ASSIGN_TO
+        if (length > p) throw v.getValueTooLongException(targetType, column)
+        return v
+    }
+
+    private fun convertToBlob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBlob {
+        var v: ValueBlob = getValueType().let { vt ->
+            if (vt == BLOB) return@let (this as ValueBlob)
+
+            if (vt == CLOB) {
+                val handler = (this as ValueLob).lobData.dataHandler
+                if (handler != null) {
+                    return@let handler.lobStorage.createBlob(getInputStream(), -1)
+                }
+            }
+
+            return@let try {
+                ValueBlob.createSmall(getBytesNoCopy())
+            } catch (e: DbException) {
+                throw if (e.getErrorCode() == ErrorCode.DATA_CONVERSION_ERROR_1) getDataConversionError(BLOB) else e
+            }
+        }
+
+        if (conversionMode == CONVERT_TO) return v
+        if (conversionMode == CAST_TO) return v.convertPrecision(targetType.precision)
+        if (v.octetLength() > targetType.precision) throw v.getValueTooLongException(targetType, column)
+
+        return v
+    }
+
+    private fun convertToNumeric(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): ValueNumeric {
+        var v: ValueNumeric
+        when (getValueType()) {
+            NUMERIC -> v = this as ValueNumeric
+            BOOLEAN -> v = if (getBoolean()) ValueNumeric.ONE else ValueNumeric.ZERO
+            NULL -> throw DbException.getInternalError()
+            else -> {
+                var value = getBigDecimal()
+                val targetScale: Int = targetType.scale
+                val scale = value.scale()
+                if (scale < 0 || scale > ValueNumeric.MAXIMUM_SCALE
+                        || conversionMode != CONVERT_TO
+                        && scale != targetScale
+                        && (scale >= targetScale || !provider.mode.convertOnlyToSmallerScale)) {
+                    value = ValueNumeric.setScale(value, targetScale)
+                }
+                if (conversionMode != CONVERT_TO && value.precision() > targetType.precision - targetScale + value.scale()) {
+                    throw getValueTooLongException(targetType, column)
+                }
+                return ValueNumeric.get(value)
+            }
+        }
+
+        if (conversionMode == CONVERT_TO) return v
+
+        val targetScale: Int = targetType.scale
+        val value = v.bigDecimal
+        val scale = value.scale()
+        if (scale != targetScale && (scale >= targetScale || !provider.mode.convertOnlyToSmallerScale)) {
+            v = ValueNumeric.get(ValueNumeric.setScale(value, targetScale))
+        }
+        val bd = v.bigDecimal
+        if (bd.precision() > targetType.precision - targetScale + bd.scale()) {
+            throw v.getValueTooLongException(targetType, column)
+        }
+        return v
+    }
+
+    /**
+     * Converts this value to a REAL value. May not be called on a NULL value.
+     *
+     * @return the REAL value
+     */
+    fun convertToReal(): ValueReal = when (getValueType()) {
+        REAL -> this as ValueReal
+        BOOLEAN -> if (getBoolean()) ValueReal.ONE else ValueReal.ZERO
+        NULL -> throw DbException.getInternalError()
+        else -> ValueReal.get(getFloat())
+    }
+
+    /**
+     * Converts this value to a DOUBLE value. May not be called on a NULL value.
+     *
+     * @return the DOUBLE value
+     */
+    fun convertToDouble(): ValueDouble = when (getValueType()) {
+        DOUBLE -> this as ValueDouble
+        BOOLEAN -> if (getBoolean()) ValueDouble.ONE else ValueDouble.ZERO
+        NULL -> throw DbException.getInternalError()
+        else -> ValueDouble.get(getDouble())
+    }
+
+    /**
+     * Converts this value to a DATE value. May not be called on a NULL value.
+     *
+     * @param provider
+     * the cast information provider
+     * @return the DATE value
+     */
+    fun convertToDate(provider: CastDataProvider): ValueDate = when (getValueType()) {
+        DATE -> this as ValueDate
+        TIMESTAMP -> ValueDate.fromDateValue((this as ValueTimestamp).dateValue)
+        TIMESTAMP_TZ -> {
+            val ts = this as ValueTimestampTimeZone
+            val timeNanos = ts.timeNanos
+            val epochSeconds: Long = DateTimeUtils.getEpochSeconds(ts.dateValue, timeNanos, ts.timeZoneOffsetSeconds)
+            ValueDate.fromDateValue(DateTimeUtils.dateValueFromLocalSeconds(epochSeconds + provider.currentTimeZone().getTimeZoneOffsetUTC(epochSeconds)))
+        }
+        VARCHAR, VARCHAR_IGNORECASE, CHAR -> ValueDate.parse(getString()!!.trim { it <= ' ' })
+        NULL -> throw DbException.getInternalError()
+        else -> throw getDataConversionError(DATE)
+    }
+
+    private fun getLocalTimeNanos(provider: CastDataProvider): Long {
+        val ts = this as ValueTimeTimeZone
+        val localOffset = provider.currentTimestamp().timeZoneOffsetSeconds
+        return DateTimeUtils.normalizeNanosOfDay(ts.nanos + (ts.timeZoneOffsetSeconds - localOffset) * DateTimeUtils.NANOS_PER_DAY)
+    }
+
+    private fun convertToTime(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int): ValueTime {
+        var v: ValueTime = when (getValueType()) {
+            TIME -> this as ValueTime
+            TIME_TZ -> ValueTime.fromNanos(getLocalTimeNanos(provider))
+            TIMESTAMP -> ValueTime.fromNanos((this as ValueTimestamp).timeNanos)
+            TIMESTAMP_TZ -> {
+                val ts = this as ValueTimestampTimeZone
+                val timeNanos = ts.timeNanos
+                val epochSeconds = DateTimeUtils.getEpochSeconds(ts.dateValue, timeNanos, ts.timeZoneOffsetSeconds)
+
+                ValueTime.fromNanos(DateTimeUtils.nanosFromLocalSeconds(epochSeconds
+                        + provider.currentTimeZone().getTimeZoneOffsetUTC(epochSeconds))
+                        + timeNanos % DateTimeUtils.NANOS_PER_SECOND)
+            }
+            VARCHAR, VARCHAR_IGNORECASE, CHAR -> ValueTime.parse(getString()!!.trim { it <= ' ' })
+            else -> throw getDataConversionError(TIME)
+        }
+
+        if (conversionMode == CONVERT_TO) return v
+
+        val targetScale: Int = targetType.scale
+        if (targetScale < ValueTime.MAXIMUM_SCALE) {
+            val n = v.nanos
+            val n2: Long = DateTimeUtils.convertScale(n, targetScale, DateTimeUtils.NANOS_PER_DAY)
+            if (n2 != n) {
+                v = ValueTime.fromNanos(n2)
+            }
+        }
+        return v
+    }
+
+    private fun convertToTimeTimeZone(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int): ValueTimeTimeZone {
+        var v: ValueTimeTimeZone = when (getValueType()) {
+            TIME_TZ -> this as ValueTimeTimeZone
+            TIME -> ValueTimeTimeZone.fromNanos((this as ValueTime).nanos,
+                    provider.currentTimestamp().timeZoneOffsetSeconds)
+            TIMESTAMP -> {
+                val ts = this as ValueTimestamp
+                val timeNanos = ts.timeNanos
+                ValueTimeTimeZone.fromNanos(timeNanos, provider.currentTimeZone().getTimeZoneOffsetLocal(ts.dateValue, timeNanos))
+            }
+            TIMESTAMP_TZ -> {
+                val ts = this as ValueTimestampTimeZone
+                ValueTimeTimeZone.fromNanos(ts.timeNanos, ts.timeZoneOffsetSeconds)
+            }
+            VARCHAR, VARCHAR_IGNORECASE, CHAR -> ValueTimeTimeZone.parse(getString()!!.trim { it <= ' ' })
+            else -> throw getDataConversionError(TIME_TZ)
+        }
+
+        if (conversionMode == CONVERT_TO) return v
+
+        val targetScale: Int = targetType.scale
+        if (targetScale < ValueTime.MAXIMUM_SCALE) {
+            val n = v.nanos
+            val n2 = DateTimeUtils.convertScale(n, targetScale, DateTimeUtils.NANOS_PER_DAY)
+            if (n2 != n) {
+                v = ValueTimeTimeZone.fromNanos(n2, v.timeZoneOffsetSeconds)
+            }
+        }
+        return v
+    }
+
+    private fun convertToTimestamp(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int): ValueTimestamp? {
+        var v: ValueTimestamp
+        when (getValueType()) {
+            TIMESTAMP -> v = this as ValueTimestamp
+            TIME -> v = ValueTimestamp.fromDateValueAndNanos(provider.currentTimestamp().dateValue, (this as ValueTime).nanos)
+            TIME_TZ -> v = ValueTimestamp.fromDateValueAndNanos(provider.currentTimestamp().dateValue, getLocalTimeNanos(provider))
+            DATE ->             // Scale is always 0
+                return ValueTimestamp.fromDateValueAndNanos((this as ValueDate).dateValue, 0)
+            TIMESTAMP_TZ -> {
+                val ts = this as ValueTimestampTimeZone
+                val timeNanos = ts.timeNanos
+                var epochSeconds = DateTimeUtils.getEpochSeconds(ts.dateValue, timeNanos, ts.timeZoneOffsetSeconds)
+                epochSeconds += provider.currentTimeZone().getTimeZoneOffsetUTC(epochSeconds).toLong()
+                v = ValueTimestamp.fromDateValueAndNanos(DateTimeUtils.dateValueFromLocalSeconds(epochSeconds),
+                        DateTimeUtils.nanosFromLocalSeconds(epochSeconds) + timeNanos % DateTimeUtils.NANOS_PER_SECOND)
+            }
+            VARCHAR, VARCHAR_IGNORECASE, CHAR -> v = ValueTimestamp.parse(getString()!!.trim { it <= ' ' }, provider)
+            else -> throw getDataConversionError(TIMESTAMP)
+        }
+
+        if (conversionMode != CONVERT_TO) {
+            val targetScale: Int = targetType.scale
+            if (targetScale < ValueTimestamp.MAXIMUM_SCALE) {
+                var dv = v.dateValue
+                val n = v.timeNanos
+                var n2 = DateTimeUtils.convertScale(n, targetScale,
+                        if (dv == DateTimeUtils.MAX_DATE_VALUE) DateTimeUtils.NANOS_PER_DAY else Long.MAX_VALUE)
+                if (n2 != n) {
+                    if (n2 >= DateTimeUtils.NANOS_PER_DAY) {
+                        n2 -= DateTimeUtils.NANOS_PER_DAY
+                        dv = DateTimeUtils.incrementDateValue(dv)
+                    }
+                    v = ValueTimestamp.fromDateValueAndNanos(dv, n2)
+                }
+            }
+        }
+        return v
     }
 
     /**
@@ -1122,4 +1441,17 @@ abstract class Value : VersionedValue() {
     @Throws(DbException::class)
     protected fun getUnsupportedExceptionForOperation(op: String): DbException =
             DbException.getUnsupportedException("${DataType.getDataType(getValueType()).name.toString()} $op")
+
+
+    /**
+     * Compare this value against another value given that the values are of the
+     * same data type.
+     *
+     * @param v the other value
+     * @param mode the compare mode
+     * @param provider the cast information provider
+     * @return 0 if both values are equal, -1 if the other value is smaller, and
+     * 1 otherwise
+     */
+    abstract fun compareTypeSafe(v: Value?, mode: CompareMode?, provider: CastDataProvider?): Int
 }

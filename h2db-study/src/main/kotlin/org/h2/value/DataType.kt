@@ -186,15 +186,15 @@ open class DataType(
         fun addDecimal() = add(type = Value.DECIMAL,
             sqlType = Types.DECIMAL,
             dataType = createNumeric(Integer.MAX_VALUE.toLong(),
-                ValueDecimal.DEFAULT_PRECISION.toLong(),
-                ValueDecimal.DEFAULT_SCALE),
+                ValueDecfloat.DEFAULT_PRECISION.toLong(),
+                ValueDecfloat.DEFAULT_SCALE),
             names = arrayOf("DECIMAL", "DEC"))
 
         fun addNumeric() = add(type = Value.DECIMAL,
             sqlType = Types.NUMERIC,
             dataType = createNumeric(Integer.MAX_VALUE.toLong(),
-                ValueDecimal.DEFAULT_PRECISION.toLong(),
-                ValueDecimal.DEFAULT_SCALE),
+                ValueDecfloat.DEFAULT_PRECISION.toLong(),
+                ValueDecfloat.DEFAULT_SCALE),
             names = arrayOf("NUMERIC", "NUMBER"))
 
         /**

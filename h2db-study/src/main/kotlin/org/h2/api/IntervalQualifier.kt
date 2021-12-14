@@ -174,91 +174,69 @@ enum class IntervalQualifier {
     open fun hasMultipleFields(): Boolean = ordinal > 5
 
     /**
-     * Returns full type name.
+     * Appends full type name to the specified string builder.
      *
+     * @param builder string builder
      * @param precision precision, or {@code -1}
      * @param scale fractional seconds precision, or {@code -1}
-     * @return full type name
+     * @param qualifierOnly if {@code true}, don't add the INTERVAL prefix
+     * @return the specified string builder
      */
-    fun getTypeName(precision: Int, scale: Int): String {
-        val b: StringBuilder = StringBuilder("INTERVAL")
-        val isPrecision: Boolean = precision > 0
-        val isScale: Boolean = scale >= 0
+    fun getTypeName(builder: StringBuilder, precision: Int, scale: Int, qualifierOnly: Boolean): StringBuilder {
+        if (!qualifierOnly) builder.append("INTERVAL ")
 
         when (this) {
             YEAR, MONTH, DAY, HOUR, MINUTE -> {
-                b.append(string)
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
+                builder.append(string)
+                if (precision > 0) builder.append('(').append(precision).append(')')
             }
             SECOND -> {
-                b.append(string)
-                if (isPrecision || isScale) {
-                    b.append('(').append(if (isPrecision) precision else 2)
-                    if (isScale) b.append(", ").append(scale)
-                    b.append(')')
+                builder.append(string)
+                if (precision > 0 || scale >= 0) {
+                    builder.append('(').append(if (precision > 0) precision else 2)
+                    if (scale >= 0) builder.append(", ").append(scale)
+                    builder.append(')')
                 }
             }
             YEAR_TO_MONTH -> {
-                b.append("YEAR")
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
-                b.append(" TO MONTH")
+                builder.append("YEAR")
+                if (precision > 0) builder.append('(').append(precision).append(')')
+                builder.append(" TO MONTH")
             }
             DAY_TO_HOUR -> {
-                b.append("DAY")
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
-                b.append(" TO HOUR")
+                builder.append("DAY")
+                if (precision > 0) builder.append('(').append(precision).append(')')
+                builder.append(" TO HOUR")
             }
             DAY_TO_MINUTE -> {
-                b.append("DAY")
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
-                b.append(" TO MINUTE")
+                builder.append("DAY")
+                if (precision > 0) builder.append('(').append(precision).append(')')
+                builder.append(" TO MINUTE")
             }
             DAY_TO_SECOND -> {
-                b.append("DAY")
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
-                b.append(" TO SECOND")
-                if (isScale) {
-                    b.append('(').append(scale).append(')')
-                }
+                builder.append("DAY")
+                if (precision > 0) builder.append('(').append(precision).append(')')
+                builder.append(" TO SECOND")
+                if (scale >= 0) builder.append('(').append(scale).append(')')
             }
             HOUR_TO_MINUTE -> {
-                b.append("HOUR")
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
-                b.append(" TO MINUTE")
+                builder.append("HOUR")
+                if (precision > 0) builder.append('(').append(precision).append(')')
+                builder.append(" TO MINUTE")
             }
             HOUR_TO_SECOND -> {
-                b.append("HOUR")
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
-                b.append(" TO SECOND")
-                if (isScale) {
-                    b.append('(').append(scale).append(')')
-                }
+                builder.append("HOUR")
+                if (precision > 0) builder.append('(').append(precision).append(')')
+                builder.append(" TO SECOND")
+                if (scale >= 0) builder.append('(').append(scale).append(')')
             }
             MINUTE_TO_SECOND -> {
-                b.append("MINUTE")
-                if (isPrecision) {
-                    b.append('(').append(precision).append(')')
-                }
-                b.append(" TO SECOND")
-                if (isScale) {
-                    b.append('(').append(scale).append(')')
-                }
+                builder.append("MINUTE")
+                if (precision > 0) builder.append('(').append(precision).append(')')
+                builder.append(" TO SECOND")
+                if (scale >= 0) builder.append('(').append(scale).append(')')
             }
         }
-        return b.toString()
+        return builder
     }
 }

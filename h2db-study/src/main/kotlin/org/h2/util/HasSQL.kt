@@ -1,6 +1,4 @@
-package org.h2.value
-
-import org.h2.util.HasSQL
+package org.h2.util
 
 /**
  * An object that has an SQL representation.
@@ -36,7 +34,7 @@ interface HasSQL {
         /**
          * Combined flags for trace.
          */
-        const val TRACE_SQL_FLAGS = HasSQL.QUOTE_ONLY_WHEN_REQUIRED or REPLACE_LOBS_FOR_TRACE
+        const val TRACE_SQL_FLAGS = QUOTE_ONLY_WHEN_REQUIRED or REPLACE_LOBS_FOR_TRACE
     }
 
     /**
@@ -44,7 +42,7 @@ interface HasSQL {
      *
      * @return the SQL expression
      */
-    fun getTraceSQL(): String? = getSQL(HasSQL.TRACE_SQL_FLAGS)
+    fun getTraceSQL(): String? = getSQL(TRACE_SQL_FLAGS)
 
     /**
      * Appends the SQL statement of this object to the specified builder.
@@ -55,7 +53,7 @@ interface HasSQL {
      * formatting flags
      * @return the specified string builder
      */
-    fun getSQL(builder: StringBuilder?, sqlFlags: Int): StringBuilder?
+    fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder
 
     /**
      * Get the SQL statement of this expression. This may not always be the
@@ -65,7 +63,6 @@ interface HasSQL {
      * formatting flags
      * @return the SQL statement
      */
-    fun getSQL(sqlFlags: Int): String? = getSQL(StringBuilder(), sqlFlags).toString()
-
+    fun getSQL(sqlFlags: Int): String = getSQL(StringBuilder(), sqlFlags).toString()
 
 }

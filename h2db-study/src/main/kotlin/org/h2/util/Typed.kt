@@ -1,4 +1,6 @@
-package org.h2.value
+package org.h2.util
+
+import org.h2.value.TypeInfo
 
 /**
  * An object with data type.
