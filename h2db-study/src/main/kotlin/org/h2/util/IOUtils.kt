@@ -2,9 +2,17 @@ package org.h2.util
 
 import org.h2.engine.Constants
 import org.h2.message.DbException
+import org.h2.mvstore.DataUtils
+import java.io.BufferedReader
+import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
+import java.io.InputStreamReader
 import java.io.OutputStream
+import java.io.Reader
+import java.io.StringWriter
+import java.io.Writer
+import java.nio.charset.StandardCharsets
 import kotlin.math.min
 
 /**
@@ -24,6 +32,54 @@ object IOUtils {
     }
 
     /**
+     * Skip a number of bytes in an input stream.
+     *
+     * @param `in` the input stream
+     * @param skip the number of bytes to skip
+     * @throws EOFException if the end of file has been reached before all bytes
+     * could be skipped
+     * @throws IOException if an IO exception occurred while skipping
+     */
+    @Throws(IOException::class)
+    fun skipFully(inputStream: InputStream, skip: Long) {
+        var toSkip = skip
+        try {
+            while (toSkip > 0) {
+                val skipped = inputStream.skip(toSkip)
+                if (skipped <= 0) throw EOFException()
+                toSkip -= skipped
+            }
+        } catch (e: Exception) {
+            throw DataUtils.convertToIOException(e)
+        }
+    }
+
+    /**
+     * Skip a number of characters in a reader.
+     *
+     * @param reader the reader
+     * @param skip the number of characters to skip
+     * @throws EOFException if the end of file has been reached before all
+     * characters could be skipped
+     * @throws IOException if an IO exception occurred while skipping
+     */
+    @Throws(IOException::class)
+    fun skipFully(reader: Reader, skip: Long) {
+        var skip = skip
+        try {
+            while (skip > 0) {
+                val skipped = reader.skip(skip)
+                if (skipped <= 0) {
+                    throw EOFException()
+                }
+                skip -= skipped
+            }
+        } catch (e: java.lang.Exception) {
+            throw DataUtils.convertToIOException(e)
+        }
+    }
+
+    /**
      * Trace input or output operations if enabled
      *
      * @param method the method from where this method was called
@@ -33,6 +89,40 @@ object IOUtils {
     fun trace(method: String, fileName: String?, o: Any?) {
         //TODO
         println("IOUtils.$method $fileName $o")
+    }
+
+    /**
+     * Copy all data from the reader to the writer and close the reader.
+     * Exceptions while closing are ignored.
+     *
+     * @param in the reader
+     * @param out the writer (null if writing is not required)
+     * @param length the maximum number of bytes to copy
+     * @return the number of characters copied
+     * @throws IOException on failure
+     */
+    @Throws(IOException::class)
+    fun copyAndCloseInput(`in`: Reader, out: Writer?, length: Long): Long {
+        val bufSize: Long = Constants.IO_BUFFER_SIZE.toLong()
+        var toCopy = length
+        return try {
+            var copied: Long = 0
+            var len = toCopy.coerceAtMost(bufSize).toInt()
+            val buffer = CharArray(len)
+            while (toCopy > 0) {
+                len = `in`.read(buffer, 0, len)
+                if (len < 0) break
+                out?.write(buffer, 0, len)
+                copied += len.toLong()
+                toCopy -= len.toLong()
+                len = toCopy.coerceAtMost(bufSize).toInt()
+            }
+            copied
+        } catch (e: java.lang.Exception) {
+            throw DataUtils.convertToIOException(e)
+        } finally {
+            `in`.close()
+        }
     }
 
     /**
@@ -58,6 +148,26 @@ object IOUtils {
     }
 
     /**
+     * Read a number of characters from a reader and close it.
+     *
+     * @param in the reader
+     * @param length the maximum number of characters to read, or -1 to read
+     * until the end of file
+     * @return the string read
+     * @throws IOException on failure
+     */
+    @Throws(IOException::class)
+    fun readStringAndClose(`in`: Reader, length: Int): String {
+        var len = if (length <= 0) Int.MAX_VALUE else length
+        return `in`.use { `in` ->
+            val block = Constants.IO_BUFFER_SIZE.coerceAtMost(len)
+            val out = StringWriter(block)
+            copyAndCloseInput(`in`, out, len.toLong())
+            out.toString()
+        }
+    }
+
+    /**
      * Copy all data from the input stream to the output stream. Both streams
      * are kept open.
      *
@@ -66,9 +176,7 @@ object IOUtils {
      * @return the number of bytes copied
      */
     @Throws(IOException::class)
-    fun copy(`in`: InputStream, out: OutputStream?): Long {
-        return copy(`in`, out, Long.MAX_VALUE)
-    }
+    fun copy(`in`: InputStream, out: OutputStream?): Long = copy(`in`, out, Long.MAX_VALUE)
 
     /**
      * Copy all data from the input stream to the output stream. Both streams
@@ -87,5 +195,19 @@ object IOUtils {
         } catch (e: Exception) {
             throw DbException.convertToIOException(e)
         }
+    }
+
+    /**
+     * Create a reader to read from an input stream using the UTF-8 format. If
+     * the input stream is null, this method returns null. The InputStreamReader
+     * that is used here is not exact, that means it may read some additional
+     * bytes when buffering.
+     *
+     * @param in the input stream or null
+     * @return the reader
+     */
+    fun getReader(`in`: InputStream?): Reader? {
+        // InputStreamReader may read some more bytes
+        return `in`?.let { BufferedReader(InputStreamReader(it, StandardCharsets.UTF_8)) }
     }
 }

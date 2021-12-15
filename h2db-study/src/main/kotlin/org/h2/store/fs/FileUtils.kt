@@ -45,6 +45,19 @@ object FileUtils {
     fun isDirectory(fileName: String): Boolean = get(fileName).isDirectory()
 
     /**
+     * Open a random access file object.
+     * This method is similar to Java 7
+     * `java.nio.channels.FileChannel.open`.
+     *
+     * @param fileName the file name
+     * @param mode the access mode. Supported are r, rw, rws, rwd
+     * @return the file object
+     * @throws IOException on failure
+     */
+    @Throws(IOException::class)
+    fun open(fileName: String, mode: String): FileChannel = get(fileName).open(mode)
+
+    /**
      * Create a directory (all required parent directories must already exist).
      * This method is similar to Java7
      * <code>java.nio.file.Path.createDirectory</code>
@@ -101,5 +114,28 @@ object FileUtils {
     @Throws(IOException::class)
     @JvmStatic
     fun newOutputStream(fileName: String, append: Boolean): OutputStream = get(fileName).newOutputStream(append)
+
+    /**
+     * Check if the file is writable.
+     * This method is similar to Java 7
+     * `java.nio.file.Path.checkAccess(AccessMode.WRITE)`
+     *
+     * @param fileName the file name
+     * @return if the file is writable
+     */
+    fun canWrite(fileName: String): Boolean = get(fileName).canWrite()
+
+    /**
+     * Create a new temporary file.
+     *
+     * @param prefix the prefix of the file name (including directory name if
+     * required)
+     * @param suffix the suffix
+     * @param inTempDir if the file should be stored in the temporary directory
+     * @return the name of the created file
+     * @throws IOException on failure
+     */
+    @Throws(IOException::class)
+    fun createTempFile(prefix: String?, suffix: String?, inTempDir: Boolean): String = get(prefix!!).createTempFile(suffix!!, inTempDir).toString()
 }
 

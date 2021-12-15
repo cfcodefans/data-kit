@@ -13,7 +13,10 @@ import org.h2.util.StringUtils
 import org.h2.util.Typed
 import org.h2.value.TypeInfo.Companion.getTypeInfo
 import org.h2.value.ValueBigint.Companion.convertToBigint
+import org.h2.value.ValueBinary.Companion.convertToBinary
+import org.h2.value.ValueClob.createSmall
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
+import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
 import org.h2.value.lob.LobDataDatabase
 import org.h2.value.lob.LobDataInMemory
 import java.io.ByteArrayInputStream
@@ -1125,51 +1128,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
         }
 
         return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
-    }
-
-    private fun convertToBinary(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBinary {
-        var v: ValueBinary = if (getValueType() == BINARY) {
-            this as ValueBinary
-        } else {
-            try {
-                ValueBinary.getNoCopy(getBytesNoCopy())
-            } catch (e: DbException) {
-                throw if (e.getErrorCode() == ErrorCode.DATA_CONVERSION_ERROR_1) getDataConversionError(BINARY) else e
-            }
-        }
-
-        if (conversionMode == CONVERT_TO) return v
-
-        val value = v.bytesNoCopy
-        val length = value.size
-        val p = MathUtils.convertLongToInt(targetType.precision)
-
-        if (length != p) {
-            if (conversionMode == ASSIGN_TO && length > p) {
-                throw v.getValueTooLongException(targetType, column)
-            }
-            v = ValueBinary.getNoCopy(Arrays.copyOf(value, p))
-        }
-        return v
-    }
-
-    private fun convertToVarbinary(targetType: TypeInfo, conversionMode: Int, column: Any): ValueVarbinary {
-        var v: ValueVarbinary = if (getValueType() == VARBINARY) {
-            this as ValueVarbinary
-        } else {
-            ValueVarbinary.getNoCopy(getBytesNoCopy())
-        }
-
-        if (conversionMode == CONVERT_TO) return v
-
-        val value = v.bytesNoCopy
-        val length = value.size
-        val p = MathUtils.convertLongToInt(targetType.precision)
-
-        if (conversionMode == CAST_TO) return if (length > p) ValueVarbinary.getNoCopy(Arrays.copyOf(value, p)) else v
-//ASSIGN_TO
-        if (length > p) throw v.getValueTooLongException(targetType, column)
-        return v
     }
 
     private fun convertToBlob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBlob {

@@ -144,9 +144,51 @@ object Utils {
     @JvmStatic
     fun copy(source: ByteArray, target: ByteArray): ByteArray {
         val len: Int = source.size
-        return source.copyInto(if (len > target.size) {
-            ByteArray(len)
-        } else target)
+        return source.copyInto(if (len > target.size) ByteArray(len) else target)
+    }
+
+    /**
+     * Create an array of bytes with the given size. If this is not possible
+     * because not enough memory is available, an OutOfMemoryError with the
+     * requested size in the message is thrown.
+     *
+     *
+     * This method should be used if the size of the array is user defined, or
+     * stored in a file, so wrong size data can be distinguished from regular
+     * out-of-memory.
+     *
+     *
+     * @param len the number of bytes requested
+     * @return the byte array
+     * @throws OutOfMemoryError if the allocation was too large
+     */
+    fun newBytes(len: Int): ByteArray = if (len == 0) EMPTY_BYTES else try {
+        ByteArray(len)
+    } catch (e: OutOfMemoryError) {
+        throw OutOfMemoryError("Requested memory: $len").initCause(e)
+    }
+
+    /**
+     * Creates a copy of array of bytes with the new size. If this is not possible
+     * because not enough memory is available, an OutOfMemoryError with the
+     * requested size in the message is thrown.
+     *
+     *
+     * This method should be used if the size of the array is user defined, or
+     * stored in a file, so wrong size data can be distinguished from regular
+     * out-of-memory.
+     *
+     *
+     * @param bytes source array
+     * @param len the number of bytes in the new array
+     * @return the byte array
+     * @throws OutOfMemoryError if the allocation was too large
+     * @see Arrays.copyOf
+     */
+    fun copyBytes(bytes: ByteArray?, len: Int): ByteArray = if (len == 0) EMPTY_BYTES else try {
+        Arrays.copyOf(bytes, len)
+    } catch (e: OutOfMemoryError) {
+        throw OutOfMemoryError("Requested memory: $len").initCause(e)
     }
 
     /**

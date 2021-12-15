@@ -12,7 +12,6 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.TimeUnit
-import kotlin.experimental.and
 
 /**
  * A few String utility functions
@@ -523,4 +522,12 @@ object StringUtils {
         val paddingChar: Char = (if (padding.isNullOrEmpty()) ' ' else padding[0])
         return if (right) string.padEnd(n, paddingChar) else string.padStart(n, paddingChar)
     }
+
+    /**
+     * Convert a byte array to a hex encoded string.
+     *
+     * @param value the byte array
+     * @return the hex encoded string
+     */
+    fun convertBytesToHex(value: ByteArray): String = convertBytesToHex(value, value.size)
 }

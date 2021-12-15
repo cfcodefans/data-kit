@@ -65,4 +65,18 @@ interface DataHandler {
      * column of type OTHER
      */
     fun getJavaObjectSerializer(): JavaObjectSerializer?
+
+    /**
+     * Get the maximum length of a in-place large object
+     *
+     * @return the maximum size
+     */
+    fun getMaxLengthInplaceLob(): Int
+
+    /**
+     * Get the lob storage mechanism to use.
+     *
+     * @return the lob storage mechanism
+     */
+    fun getLobStorage(): LobStorageInterface
 }

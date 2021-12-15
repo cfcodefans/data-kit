@@ -134,10 +134,6 @@ class ValueBigint(val value: Long) : Value() {
         return ValueBigint[value % other.value]
     }
 
-    override fun getSQL(builder: StringBuilder): StringBuilder {
-        TODO("Not yet implemented")
-    }
-
     override fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder {
         return if (sqlFlags and HasSQL.NO_CASTS == 0 && value == value.toInt().toLong()) {
             builder.append("CAST(").append(value).append(" AS BIGINT)")
