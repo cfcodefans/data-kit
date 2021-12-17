@@ -124,7 +124,7 @@ abstract class ValueLob(val lobData: LobData, var octetLength: Long, var charLen
      * @param tableId the table where this object is used
      * @return the new value or itself
      */
-    abstract fun copy(database: DataHandler?, tableId: Int): ValueLob?
+    abstract fun copy(database: DataHandler, tableId: Int): ValueLob?
 
     override var type: TypeInfo? = null
         get() {
@@ -150,8 +150,8 @@ abstract class ValueLob(val lobData: LobData, var octetLength: Long, var charLen
 
     override fun getReader(): Reader? = IOUtils.getReader(getInputStream())
 
-    private fun getSmall(): ByteArray? {
-        val small = (lobData as LobDataInMemory).small
+    private fun getSmall(): ByteArray {
+        val small = (lobData as LobDataInMemory).getSmall()
         val p = small.size
         if (p > Constants.MAX_STRING_LENGTH) {
             throw DbException.getValueTooLongException("BINARY VARYING", StringUtils.convertBytesToHex(small, 41), p.toLong())
@@ -159,9 +159,9 @@ abstract class ValueLob(val lobData: LobData, var octetLength: Long, var charLen
         return small
     }
 
-    abstract fun getBytesInternal(): ByteArray?
+    abstract fun getBytesInternal(): ByteArray
 
-    override fun getBytes(): ByteArray? = if (lobData is LobDataInMemory) Utils.cloneByteArray(getSmall()) else getBytesInternal()
+    override fun getBytes(): ByteArray = if (lobData is LobDataInMemory) Utils.cloneByteArray(getSmall())!! else getBytesInternal()
 
     open fun getBinaryTooLong(precision: Long): DbException? {
         return DbException.getValueTooLongException("BINARY VARYING", StringUtils.convertBytesToHex(readBytes(41)), precision)
@@ -203,6 +203,6 @@ abstract class ValueLob(val lobData: LobData, var octetLength: Long, var charLen
         if (lobData !is LobDataDatabase) return this
 
         val s: LobStorageInterface = lobData.getDataHandler()?.getLobStorage()!!
-        return if (s.isReadOnly) this else return s.copyLob(this, LobStorageFrontend.TABLE_RESULT)
+        return if (s.isReadOnly()) this else return s.copyLob(this, LobStorageFrontend.TABLE_RESULT)
     }
 }

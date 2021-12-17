@@ -168,6 +168,58 @@ object IOUtils {
     }
 
     /**
+     * Try to read the given number of bytes to the buffer. This method reads
+     * until the maximum number of bytes have been read or until the end of
+     * file.
+     *
+     * @param in the input stream
+     * @param buffer the output buffer
+     * @param max the number of bytes to read at most
+     * @return the number of bytes read, 0 meaning EOF
+     * @throws IOException on failure
+     */
+    @Throws(IOException::class)
+    fun readFully(`in`: InputStream, buffer: ByteArray, max: Int): Int = try {
+        var result = 0
+        var len = max.coerceAtMost(buffer.size)
+        while (len > 0) {
+            val l = `in`.read(buffer, result, len)
+            if (l < 0) break
+            result += l
+            len -= l
+        }
+        result
+    } catch (e: java.lang.Exception) {
+        throw DataUtils.convertToIOException(e)
+    }
+
+    /**
+     * Try to read the given number of characters to the buffer. This method
+     * reads until the maximum number of characters have been read or until the
+     * end of file.
+     *
+     * @param `in` the reader
+     * @param buffer the output buffer
+     * @param max the number of characters to read at most
+     * @return the number of characters read, 0 meaning EOF
+     * @throws IOException on failure
+     */
+    @Throws(IOException::class)
+    fun readFully(rd: Reader, buffer: CharArray, max: Int): Int = try {
+        var result = 0
+        var len = max.coerceAtMost(buffer.size)
+        while (len > 0) {
+            val l = rd.read(buffer, result, len)
+            if (l < 0) break
+            result += l
+            len -= l
+        }
+        result
+    } catch (e: java.lang.Exception) {
+        throw DataUtils.convertToIOException(e)
+    }
+
+    /**
      * Copy all data from the input stream to the output stream. Both streams
      * are kept open.
      *

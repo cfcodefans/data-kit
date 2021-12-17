@@ -14,7 +14,7 @@ import org.h2.util.Typed
 import org.h2.value.TypeInfo.Companion.getTypeInfo
 import org.h2.value.ValueBigint.Companion.convertToBigint
 import org.h2.value.ValueBinary.Companion.convertToBinary
-import org.h2.value.ValueClob.createSmall
+import org.h2.value.ValueBlob.Companion.convertToBlob
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
 import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
 import org.h2.value.lob.LobDataDatabase
@@ -695,9 +695,9 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
     }
 
     @Throws(DbException::class)
-    open fun getBytes(): ByteArray? = throw getDataConversionError(VARBINARY)
+    open fun getBytes(): ByteArray = throw getDataConversionError(VARBINARY)
 
-    open fun getBytesNoCopy(): ByteArray? = getBytes()
+    open fun getBytesNoCopy(): ByteArray = getBytes()
 
     open fun getInputStream(): InputStream? = ByteArrayInputStream(getBytesNoCopy())
 
@@ -1130,31 +1130,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
         return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
     }
 
-    private fun convertToBlob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBlob {
-        var v: ValueBlob = getValueType().let { vt ->
-            if (vt == BLOB) return@let (this as ValueBlob)
-
-            if (vt == CLOB) {
-                val handler = (this as ValueLob).lobData.dataHandler
-                if (handler != null) {
-                    return@let handler.lobStorage.createBlob(getInputStream(), -1)
-                }
-            }
-
-            return@let try {
-                ValueBlob.createSmall(getBytesNoCopy())
-            } catch (e: DbException) {
-                throw if (e.getErrorCode() == ErrorCode.DATA_CONVERSION_ERROR_1) getDataConversionError(BLOB) else e
-            }
-        }
-
-        if (conversionMode == CONVERT_TO) return v
-        if (conversionMode == CAST_TO) return v.convertPrecision(targetType.precision)
-        if (v.octetLength() > targetType.precision) throw v.getValueTooLongException(targetType, column)
-
-        return v
-    }
-
     private fun convertToNumeric(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): ValueNumeric {
         var v: ValueNumeric
         when (getValueType()) {
@@ -1393,4 +1368,20 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * 1 otherwise
      */
     abstract fun compareTypeSafe(v: Value?, mode: CompareMode?, provider: CastDataProvider?): Int
+
+    /**
+     * Returns length of this value in characters.
+     *
+     * @return length of this value in characters
+     * @throws NullPointerException if this value is `NULL`
+     */
+    open fun charLength(): Long = getString()!!.length.toLong()
+
+    /**
+     * Returns length of this value in bytes.
+     *
+     * @return length of this value in bytes
+     * @throws NullPointerException if this value is `NULL`
+     */
+    open fun octetLength(): Long =  getBytesNoCopy().size.toLong()
 }
