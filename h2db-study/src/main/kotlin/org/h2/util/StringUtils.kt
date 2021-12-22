@@ -144,6 +144,71 @@ object StringUtils {
     fun toLowerEnglish(s: String): String = s.toLowerCase(Locale.ENGLISH)
 
     /**
+     * Convert a string to a SQL literal. Null is converted to NULL. The text is
+     * enclosed in single quotes. If there are any special characters, the
+     * method STRINGDECODE is used.
+     *
+     * @param s the text to convert.
+     * @return the SQL literal
+     */
+    fun quoteStringSQL(s: String?): String = if (s == null) "NULL" else quoteStringSQL(StringBuilder(s.length + 2), s).toString()
+
+    /**
+     * Convert a string to a SQL character string literal. Null is converted to
+     * NULL. If there are any special characters, the Unicode character string
+     * literal is used.
+     *
+     * @param builder
+     * string builder to append result to
+     * @param s the text to convert
+     * @return the specified string builder
+     */
+    fun quoteStringSQL(builder: StringBuilder, s: String?): StringBuilder {
+        return if (s == null)
+            builder.append("NULL")
+        else
+            quoteIdentifierOrLiteral(builder, s, '\'')
+    }
+
+    private fun quoteIdentifierOrLiteral(builder: StringBuilder, s: String, q: Char): StringBuilder {
+        val builderLength = builder.length
+        builder.append(q)
+        var i = 0
+        val l = s.length
+        while (i < l) {
+            var cp = s.codePointAt(i)
+            i += Character.charCount(cp)
+
+            if (cp < ' '.code || cp > 127) {
+                // need to start from the beginning
+                builder.setLength(builderLength)
+                builder.append("U&").append(q)
+                i = 0
+                while (i < l) {
+                    cp = s.codePointAt(i)
+                    i += Character.charCount(cp)
+                    if (cp >= ' '.code && cp < 127) {
+                        val ch = cp.toChar()
+                        if (ch == q || ch == '\\') {
+                            builder.append(ch)
+                        }
+                        builder.append(ch)
+                    } else if (cp <= 0xffff) {
+                        appendHex(builder.append('\\'), cp.toLong(), 2)
+                    } else {
+                        appendHex(builder.append("\\+"), cp.toLong(), 3)
+                    }
+                }
+                break
+            }
+
+            if (cp == q.code) builder.append(q)
+            builder.append(cp.toChar())
+        }
+        return builder.append(q)
+    }
+
+    /**
      * Enclose a string with double quotes. A double quote inside the string is
      * escaped using a double quote.
      *
@@ -530,4 +595,22 @@ object StringUtils {
      * @return the hex encoded string
      */
     fun convertBytesToHex(value: ByteArray): String = convertBytesToHex(value, value.size)
+
+    /**
+     * Appends specified number of trailing bytes from unsigned long value to a
+     * specified string builder.
+     *
+     * @param builder string builder to append to
+     * @param x value to append
+     * @param bytes number of bytes to append
+     * @return the specified string builder
+     */
+    fun appendHex(builder: StringBuilder, x: Long, bytes: Int): StringBuilder {
+        var i = bytes * 8
+        while (i > 0) {
+            builder.append(HEX[(x shr 4.let { i -= it; i }).toInt() and 0xf])
+                    .append(HEX[(x shr 4.let { i -= it; i }).toInt() and 0xf])
+        }
+        return builder
+    }
 }

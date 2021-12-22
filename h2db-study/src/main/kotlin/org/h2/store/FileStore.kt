@@ -120,4 +120,12 @@ open class FileStore(var handler: DataHandler, val name: String, _mode: String) 
         if (autoDeleteReference != null) return
         autoDeleteReference = handler.getTempFileDeleter().addFile(name, this)
     }
+
+    /**
+     * No longer automatically delete the file once it is no longer in use.
+     */
+    open fun stopAutoDelete() {
+        handler.getTempFileDeleter().stopAutoDelete(autoDeleteReference, name)
+        autoDeleteReference = null
+    }
 }

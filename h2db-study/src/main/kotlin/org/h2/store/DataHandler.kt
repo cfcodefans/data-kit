@@ -55,7 +55,19 @@ interface DataHandler {
      */
     fun getLogCompressionAlgorithm(type: Int): String
 
-    fun getTempFileDeleter(): TempFileDeleter
+    /**
+     * Get the temp file deleter mechanism.
+     *
+     * @return the temp file deleter
+     */
+    fun getTempFileDeleter(): TempFileDeleter?
+
+    /**
+     * Get the synchronization object for lob operations.
+     *
+     * @return the synchronization object
+     */
+    fun getLobSyncObject(): Any
 
     /**
      * Return the serializer to be used for java objects being stored in

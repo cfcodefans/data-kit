@@ -2,6 +2,7 @@ package org.h2.util
 
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
+import org.h2.util.IOUtils.trace
 import java.lang.ref.PhantomReference
 import java.lang.ref.Reference
 import java.lang.ref.ReferenceQueue
@@ -71,5 +72,25 @@ class TempFileDeleter {
             val ref: Reference<out Any> = queue.poll() ?: return
             deleteFile(ref, null)
         }
+    }
+
+    /**
+     * This method is called if a file should no longer be deleted or a resource
+     * should no longer be closed if the object is garbage collected.
+     *
+     * @param ref the reference as returned by addFile
+     * @param resource file name or closeable
+     */
+    fun stopAutoDelete(ref: Reference<*>?, resource: Any) {
+        trace("TempFileDeleter.stopAutoDelete", if (resource is String) resource else "-", ref)
+        if (ref != null) {
+            val f2 = refMap.remove(ref)
+            if (SysProperties.CHECK) {
+                if (f2 == null || f2 != resource) {
+                    throw DbException.getInternalError("f2:$f2 ${f2 ?: ""} f:$resource")
+                }
+            }
+        }
+        deleteUnused()
     }
 }

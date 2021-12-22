@@ -83,6 +83,36 @@ object FileUtils {
     }
 
     /**
+     * Create a new file. This method is similar to Java 7
+     * `java.nio.file.Path.createFile`, but returns false instead of
+     * throwing a exception if the file already existed.
+     *
+     * @param fileName the file name
+     * @return true if creating was successful
+     */
+    fun createFile(fileName: String): Boolean = get(fileName).createFile()
+
+    /**
+     * Delete a file or directory if it exists.
+     * Directories may only be deleted if they are empty.
+     * This method is similar to Java 7
+     * `java.nio.file.Path.deleteIfExists`.
+     *
+     * @param path the file or directory name
+     */
+    fun delete(path: String) = get(path).delete()
+
+    /**
+     * Get the canonical file or directory name. This method is similar to Java
+     * 7 `java.nio.file.Path.toRealPath`.
+     *
+     * @param fileName the file name
+     * @return the normalized file name
+     */
+    fun toRealPath(fileName: String): String = get(fileName).toRealPath().toString()
+
+
+    /**
      * Get the parent directory of a file or directory. This method returns null
      * if there is no parent. This method is similar to Java 7
      * <code>java.nio.file.Path.getParent</code>

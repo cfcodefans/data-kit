@@ -15,6 +15,7 @@ import org.h2.value.TypeInfo.Companion.getTypeInfo
 import org.h2.value.ValueBigint.Companion.convertToBigint
 import org.h2.value.ValueBinary.Companion.convertToBinary
 import org.h2.value.ValueBlob.Companion.convertToBlob
+import org.h2.value.ValueClob.Companion.convertToClob
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
 import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
 import org.h2.value.lob.LobDataDatabase
@@ -1076,36 +1077,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
             }
         }
         return if (valueType == VARCHAR) this else ValueVarchar.get(getString(), provider)
-    }
-
-    private fun convertToClob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueClob {
-        var v: ValueClob = when (getValueType()) {
-            CLOB -> this as ValueClob
-            JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
-            BLOB -> {
-                val data = (this as ValueBlob).lobData
-                // Try to reuse the array, if possible
-                if (data is LobDataInMemory) {
-                    val small = (data as LobDataInMemory).small
-                    var bytes: ByteArray? = String(small, StandardCharsets.UTF_8).toByteArray(StandardCharsets.UTF_8)
-                    if (Arrays.equals(bytes, small)) {
-                        bytes = small
-                    }
-                    ValueClob.createSmall(bytes)
-                } else if (data is LobDataDatabase) {
-                    data.getDataHandler().lobStorage.createClob(getReader(), -1)
-                } else ValueClob.createSmall(getString())
-            }
-            else -> ValueClob.createSmall(getString())
-        }
-
-        if (conversionMode == CONVERT_TO) return v
-
-        if (conversionMode == CAST_TO) return v.convertPrecision(targetType.precision)
-
-        if (v.charLength() > targetType.precision) throw v.getValueTooLongException(targetType, column)
-
-        return v
     }
 
     private fun convertToVarcharIgnoreCase(targetType: TypeInfo, conversionMode: Int, column: Any): Value {
