@@ -17,9 +17,8 @@ import org.h2.value.ValueBinary.Companion.convertToBinary
 import org.h2.value.ValueBlob.Companion.convertToBlob
 import org.h2.value.ValueClob.Companion.convertToClob
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
+import org.h2.value.ValueEnum.Companion.convertToEnum
 import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
-import org.h2.value.lob.LobDataDatabase
-import org.h2.value.lob.LobDataInMemory
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.Reader
@@ -27,8 +26,6 @@ import java.io.StringReader
 import java.lang.ref.SoftReference
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.nio.charset.StandardCharsets
-import java.util.Arrays
 import kotlin.math.roundToLong
 
 /**
@@ -414,22 +411,17 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
             var t2 = pt2
 
             if (t1 == t2) {
-                if (t1 == UNKNOWN)
-                    throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, ?")
+                if (t1 == UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, ?")
                 return t1
             }
 
             if (t1 < t2) t1 = t2.also { t2 = t1 }
 
             if (t1 == UNKNOWN) {
-                if (t2 == NULL) {
-                    throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, NULL")
-                }
+                if (t2 == NULL) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, NULL")
                 return t2
             } else if (t2 == UNKNOWN) {
-                if (t1 == NULL) {
-                    throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "NULL, ?")
-                }
+                if (t1 == NULL) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "NULL, ?")
                 return t1
             }
             if (t2 == NULL) return t1
@@ -437,7 +429,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
         }
 
         private fun getDataTypeCombinationException(t1: Int, t2: Int): DbException {
-            return DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, getTypeName(t1) + ", " + getTypeName(t2))
+            return DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, "${getTypeName(t1)}, ${getTypeName(t2)}")
         }
 
         private fun getHigherNumeric(t1: Int, t2: Int, g2: Int): Int {
@@ -769,17 +761,15 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
     /**
      * Converts this value to a INT value. May not be called on a NULL value.
      *
-     * @param column
-     * the column, used for to improve the error message if
-     * conversion fails
+     * @param column the column, used for to improve the error message if conversion fails
      * @return the INT value
      */
     fun convertToInt(column: Any?): ValueInteger = when (getValueType()) {
         INTEGER -> this as ValueInteger
         CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT, ENUM, SMALLINT -> ValueInteger.get(getInt())
         BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueInteger.get(Value.convertToInt(getLong(), column))
-        NUMERIC, DECFLOAT -> ValueInteger.get(Value.convertToInt(convertToLong(getBigDecimal(), column!!), column))
-        REAL, DOUBLE -> ValueInteger.get(Value.convertToInt(convertToLong(getDouble(), column!!), column))
+        NUMERIC, DECFLOAT -> ValueInteger.get(Value.convertToInt(convertToLong(getBigDecimal(), column), column))
+        REAL, DOUBLE -> ValueInteger.get(Value.convertToInt(convertToLong(getDouble(), column), column))
         BINARY, VARBINARY -> {
             val bytes = getBytesNoCopy()
             if (bytes!!.size == 4) ValueInteger.get(Bits.readInt(bytes, 0))
@@ -788,7 +778,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
         NULL -> throw DbException.getInternalError()
         else -> throw getDataConversionError(INTEGER)
     }
-
 
 
     /**
@@ -901,7 +890,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun add(v: Value?): Value = throw getUnsupportedExceptionForOperation("+")
+    open fun add(v: Value): Value = throw getUnsupportedExceptionForOperation("+")
 
     open fun getSignum(): Int = throw getUnsupportedExceptionForOperation("SIGNUM")
 
@@ -920,7 +909,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun subtract(v: Value?): Value = throw getUnsupportedExceptionForOperation("-")
+    open fun subtract(v: Value): Value = throw getUnsupportedExceptionForOperation("-")
 
     /**
      * Divide by a value and return the result.
@@ -931,7 +920,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun divide(v: Value?, quotientType: TypeInfo?): Value = throw getUnsupportedExceptionForOperation("/")
+    open fun divide(v: Value, quotientType: TypeInfo?): Value = throw getUnsupportedExceptionForOperation("/")
 
     /**
      * Multiply with a value and return the result.
@@ -940,7 +929,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun multiply(v: Value?): Value = throw getUnsupportedExceptionForOperation("*")
+    open fun multiply(v: Value): Value = throw getUnsupportedExceptionForOperation("*")
 
     /**
      * Take the modulus with a value and return the result.
@@ -949,7 +938,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @return the result
      */
     @Throws(DbException::class)
-    open fun modulus(v: Value?): Value = throw getUnsupportedExceptionForOperation("%")
+    open fun modulus(v: Value): Value = throw getUnsupportedExceptionForOperation("%")
 
 
     fun getValueTooLongException(targetType: TypeInfo, column: Any?): DbException {
@@ -1338,11 +1327,10 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @return 0 if both values are equal, -1 if the other value is smaller, and
      * 1 otherwise
      */
-    abstract fun compareTypeSafe(v: Value?, mode: CompareMode?, provider: CastDataProvider?): Int
+    abstract fun compareTypeSafe(v: Value, mode: CompareMode?, provider: CastDataProvider?): Int
 
     /**
      * Returns length of this value in characters.
-     *
      * @return length of this value in characters
      * @throws NullPointerException if this value is `NULL`
      */
@@ -1350,9 +1338,69 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
 
     /**
      * Returns length of this value in bytes.
-     *
      * @return length of this value in bytes
      * @throws NullPointerException if this value is `NULL`
      */
-    open fun octetLength(): Long =  getBytesNoCopy().size.toLong()
+    open fun octetLength(): Long = getBytesNoCopy().size.toLong()
+
+    /**
+     * Returns true if this value is NULL or contains NULL value.
+     * @return true if this value is NULL or contains NULL value
+     */
+    open fun containsNull(): Boolean = false
+
+    private fun compareToNotNullable(v: Value, provider: CastDataProvider, compareMode: CompareMode): Int {
+        var v = v
+        var l = this
+        val leftType = l.getValueType()
+        val rightType = v.getValueType()
+
+        if (leftType != rightType || leftType == ENUM) {
+            var dataType = getHigherOrder(leftType, rightType)
+
+            if (dataType == ENUM) {
+                val enumerators = ExtTypeInfoEnum.getEnumeratorsForBinaryOperation(l, v)
+                l = l.convertToEnum(enumerators, provider)
+                v = v.convertToEnum(enumerators, provider)
+            } else {
+                if (dataType <= BLOB) {
+                    if (dataType <= CLOB) {
+                        if (leftType == CHAR || rightType == CHAR) {
+                            dataType = CHAR
+                        }
+                    } else if (dataType >= BINARY && (leftType == BINARY || rightType == BINARY)) {
+                        dataType = BINARY
+                    }
+                }
+                l = l.convertTo(dataType, provider)
+                v = v.convertTo(dataType, provider)
+            }
+        }
+
+        return l.compareTypeSafe(v, compareMode, provider)
+    }
+
+    /**
+     * Compare this value against another value using the specified compare mode.
+     *
+     * @param v the other value
+     * @param forEquality perform only check for equality
+     * @param provider the cast information provider
+     * @param compareMode the compare mode
+     * @return 0 if both values are equal,
+     *
+     * -1 if this value is smaller,
+     *
+     * 1 if other value is larger,
+     *
+     * [Integer.MIN_VALUE] if order is not defined due to NULL comparison
+     */
+    open fun compareWithNull(v: Value,
+                             forEquality: Boolean,
+                             provider: CastDataProvider?,
+                             compareMode: CompareMode?): Int {
+        return if (this === ValueNull.INSTANCE || v === ValueNull.INSTANCE)
+            Int.MIN_VALUE
+        else compareToNotNullable(v, provider, compareMode)
+    }
 }

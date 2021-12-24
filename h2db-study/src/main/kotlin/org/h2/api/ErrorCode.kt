@@ -133,6 +133,27 @@ object ErrorCode {
     const val INVALID_PRECEDING_OR_FOLLOWING_1 = 22013
 
     /**
+     * The error with code `22025` is thrown when using an invalid
+     * escape character sequence for LIKE or REGEXP. The default escape
+     * character is '\'. The escape character is required when searching for
+     * the characters '%', '_' and the escape character itself. That means if
+     * you want to search for the text '10%', you need to use LIKE '10\%'. If
+     * you want to search for 'C:\temp' you need to use 'C:\\temp'. The escape
+     * character can be changed using the ESCAPE clause as in LIKE '10+%' ESCAPE
+     * '+'. Example of wrong usage:
+     * <pre>
+     * CALL 'C:\temp' LIKE 'C:\temp';
+     * CALL '1+1' LIKE '1+1' ESCAPE '+';
+    </pre> *
+     * Correct:
+     * <pre>
+     * CALL 'C:\temp' LIKE 'C:\\temp';
+     * CALL '1+1' LIKE '1++1' ESCAPE '+';
+    </pre> *
+     */
+    const val LIKE_ESCAPE_ERROR_1 = 22025
+
+    /**
      * The error with code `22018` is thrown when
      * trying to convert a value to a data type where the conversion is
      * undefined, or when an error occurred trying to convert. Example:
@@ -142,6 +163,44 @@ object ErrorCode {
     </pre> *
      */
     const val DATA_CONVERSION_ERROR_1 = 22018
+
+    /**
+     * The error with code `22030` is thrown when
+     * an attempt is made to INSERT or UPDATE an ENUM-typed cell,
+     * but the value is not one of the values enumerated by the
+     * type.
+     *
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(CASE ENUM('sensitive','insensitive'));
+     * INSERT INTO TEST VALUES('snake');
+    </pre> *
+     */
+    const val ENUM_VALUE_NOT_PERMITTED = 22030
+
+    /**
+     * The error with code `22032` is thrown when an
+     * attempt is made to add or modify an ENUM-typed column so
+     * that one or more of its enumerators would be empty.
+     *
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(CASE ENUM(' '));
+    </pre> *
+     */
+    const val ENUM_EMPTY = 22032
+
+    /**
+     * The error with code `22033` is thrown when an
+     * attempt is made to add or modify an ENUM-typed column so
+     * that it would have duplicate values.
+     *
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(CASE ENUM('sensitive', 'sensitive'));
+    </pre> *
+     */
+    const val ENUM_DUPLICATE = 22033
 
     /**
      * The error with code <code>42101</code> is thrown when
