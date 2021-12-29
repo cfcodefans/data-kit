@@ -74,27 +74,25 @@ class ValueBlob(lobData: LobData, octetLength: Long) : ValueLob(
          * @param handler the data handler
          * @return the lob value
          */
-        fun createTempBlob(`in`: InputStream, length: Long, handler: DataHandler): ValueBlob {
-            return try {
-                val remaining = if (length >= 0 && length < Long.MAX_VALUE) length else Long.MAX_VALUE
+        fun createTempBlob(`in`: InputStream, length: Long, handler: DataHandler): ValueBlob = try {
+            val remaining = if (length >= 0 && length < Long.MAX_VALUE) length else Long.MAX_VALUE
 
-                var len = getBufferSize(handler, remaining)
-                val buff: ByteArray
-                if (len >= Int.MAX_VALUE) {
-                    buff = IOUtils.readBytesAndClose(`in`, -1)
-                    len = buff.size
-                } else {
-                    buff = Utils.newBytes(len)
-                    len = `in`.readNBytes(buff, 0, len)
-                }
-                if (len <= handler.getMaxLengthInplaceLob()) {
-                    createSmall(Utils.copyBytes(buff, len))
-                } else {
-                    createTemporary(handler, buff, len, `in`, remaining)
-                }
-            } catch (e: IOException) {
-                throw DbException.convertIOException(e, null)
+            var len = getBufferSize(handler, remaining)
+            val buff: ByteArray
+            if (len >= Int.MAX_VALUE) {
+                buff = IOUtils.readBytesAndClose(`in`, -1)
+                len = buff.size
+            } else {
+                buff = Utils.newBytes(len)
+                len = `in`.readNBytes(buff, 0, len)
             }
+            if (len <= handler.getMaxLengthInplaceLob()) {
+                createSmall(Utils.copyBytes(buff, len))
+            } else {
+                createTemporary(handler, buff, len, `in`, remaining)
+            }
+        } catch (e: IOException) {
+            throw DbException.convertIOException(e, null)
         }
 
         /**
@@ -162,7 +160,7 @@ class ValueBlob(lobData: LobData, octetLength: Long) : ValueLob(
     }
 
 
-    override fun compareTypeSafe(v: Value?, mode: CompareMode?, provider: CastDataProvider?): Int {
+    override fun compareTypeSafe(v: Value, mode: CompareMode?, provider: CastDataProvider?): Int {
         if (v === this) return 0
 
         val v2 = v as ValueBlob
@@ -191,10 +189,13 @@ class ValueBlob(lobData: LobData, octetLength: Long) : ValueLob(
         } else {
             if (sqlFlags and (HasSQL.REPLACE_LOBS_FOR_TRACE or HasSQL.NO_CASTS) == 0) {
                 builder.append("CAST(X'")
-                StringUtils.convertBytesToHex(builder, getBytesNoCopy()!!)!!.append("' AS BINARY LARGE OBJECT(").append(octetLength).append("))")
+                StringUtils.convertBytesToHex(builder, getBytesNoCopy()!!)!!
+                        .append("' AS BINARY LARGE OBJECT(")
+                        .append(octetLength).append("))")
             } else {
                 builder.append("X'")
-                StringUtils.convertBytesToHex(builder, getBytesNoCopy()!!)!!.append('\'')
+                StringUtils.convertBytesToHex(builder, getBytesNoCopy()!!)!!
+                        .append('\'')
             }
         }
         return builder
@@ -282,5 +283,5 @@ class ValueBlob(lobData: LobData, octetLength: Long) : ValueLob(
         return s
     }
 
-    fun octetLength(): Long = octetLength
+    override fun octetLength(): Long = octetLength
 }

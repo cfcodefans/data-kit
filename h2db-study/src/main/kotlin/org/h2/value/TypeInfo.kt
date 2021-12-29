@@ -1,9 +1,11 @@
 package org.h2.value
 
+import org.h2.api.ErrorCode
 import org.h2.api.IntervalQualifier
 import org.h2.engine.Constants
 import org.h2.engine.Constants.MAX_NUMERIC_PRECISION
 import org.h2.engine.Constants.MAX_STRING_LENGTH
+import org.h2.message.DbException
 import org.h2.util.Typed
 import org.h2.value.Value.Companion.NULL
 import org.h2.value.Value.Companion.UNKNOWN
@@ -114,6 +116,23 @@ open class TypeInfo(
                 precision = -1L,
                 scale = -1,
                 extTypeInfo = ExtTypeInfoRow(LinkedHashMap())).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
+
+        /**
+         * Get the data type with parameters object for the given value type and
+         * maximum parameters.
+         *
+         * @param type
+         * the value type
+         * @return the data type with parameters object
+         */
+        fun getTypeInfo(type: Int): TypeInfo {
+            if (type == UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?")
+            if (type >= NULL && type < Value.TYPE_COUNT) {
+                val t = TYPE_INFOS_BY_VALUE_TYPE[type]
+                if (t != null) return t
+            }
+            return TYPE_NULL
+        }
 
         /**
          * Get the data type with parameters object for the given value type and the

@@ -87,20 +87,18 @@ class ValueBigint(val value: Long) : Value() {
 
     private fun getOverflow(): DbException = DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_1, value.toString())
 
-    override fun add(v: Value?): Value {
+    override fun add(v: Value): Value {
         val x = value
         val y = (v as ValueBigint).value
         val result = x + y
         /*
          * If signs of both summands are different from the sign of the sum there is an
          * overflow.
-         */if (x xor result and (y xor result) < 0) {
-            throw getOverflow()
-        }
+         */if (x xor result and (y xor result) < 0) throw getOverflow()
         return ValueBigint[result]
     }
 
-    override fun multiply(v: Value?): Value {
+    override fun multiply(v: Value): Value {
         val x = value
         val y = (v as ValueBigint).value
         val result = x * y
@@ -114,7 +112,7 @@ class ValueBigint(val value: Long) : Value() {
         return ValueBigint[result]
     }
 
-    override fun divide(v: Value?, quotientType: TypeInfo?): Value {
+    override fun divide(v: Value, quotientType: TypeInfo?): Value {
         val y = (v as ValueBigint).value
         if (y == 0L) {
             throw DbException.get(ErrorCode.DIVISION_BY_ZERO_1, getTraceSQL()!!)
@@ -126,7 +124,7 @@ class ValueBigint(val value: Long) : Value() {
         return ValueBigint[x / y]
     }
 
-    override fun modulus(v: Value?): Value {
+    override fun modulus(v: Value): Value {
         val other = v as ValueBigint
         if (other.value == 0L) {
             throw DbException.get(ErrorCode.DIVISION_BY_ZERO_1, getTraceSQL()!!)
@@ -159,7 +157,7 @@ class ValueBigint(val value: Long) : Value() {
 
     override fun getDouble(): Double = value.toDouble()
 
-    override fun compareTypeSafe(o: Value?, mode: CompareMode?, provider: CastDataProvider?): Int =
+    override fun compareTypeSafe(o: Value, mode: CompareMode?, provider: CastDataProvider?): Int =
             value.compareTo((o as ValueBigint).value)
 
     override fun getString(): String? = value.toString()

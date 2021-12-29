@@ -15,10 +15,12 @@ import org.h2.value.TypeInfo.Companion.getTypeInfo
 import org.h2.value.ValueBigint.Companion.convertToBigint
 import org.h2.value.ValueBinary.Companion.convertToBinary
 import org.h2.value.ValueBlob.Companion.convertToBlob
+import org.h2.value.ValueChar.Companion.convertToChar
 import org.h2.value.ValueClob.Companion.convertToClob
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
 import org.h2.value.ValueEnum.Companion.convertToEnum
 import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
+import org.h2.value.ValueVarchar.Companion.convertToVarchar
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.Reader
@@ -306,16 +308,36 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
 
 
         val GROUPS = byteArrayOf( // NULL
-                GROUP_NULL.toByte(),  // CHAR, VARCHAR, CLOB, VARCHAR_IGNORECASE
-                GROUP_CHARACTER_STRING.toByte(), GROUP_CHARACTER_STRING.toByte(), GROUP_CHARACTER_STRING.toByte(), GROUP_CHARACTER_STRING.toByte(),  // BINARY, VARBINARY, BLOB
-                GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(),  // BOOLEAN
-                GROUP_BOOLEAN.toByte(),  // TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, REAL, DOUBLE, DECFLOAT
-                GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(), GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),  // DATE, TIME, TIME_TZ, TIMESTAMP, TIMESTAMP_TZ
-                GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(),  // INTERVAL_YEAR, INTERVAL_MONTH
-                GROUP_INTERVAL_YM.toByte(), GROUP_INTERVAL_YM.toByte(),  // INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND
-                GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),  // INTERVAL_YEAR_TO_MONTH
-                GROUP_INTERVAL_YM.toByte(),  // INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
+                GROUP_NULL.toByte(),
+                // CHAR, VARCHAR, CLOB, VARCHAR_IGNORECASE
+                GROUP_CHARACTER_STRING.toByte(),
+                GROUP_CHARACTER_STRING.toByte(),
+                GROUP_CHARACTER_STRING.toByte(),
+                GROUP_CHARACTER_STRING.toByte(),
+
+                // BINARY, VARBINARY, BLOB
+                GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(),
+                // BOOLEAN
+                GROUP_BOOLEAN.toByte(),
+                // TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, REAL, DOUBLE, DECFLOAT
+                GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),
+                GROUP_NUMERIC.toByte(),
+
+                // DATE, TIME, TIME_TZ, TIMESTAMP, TIMESTAMP_TZ
+                GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(),
+                // INTERVAL_YEAR, INTERVAL_MONTH
+                GROUP_INTERVAL_YM.toByte(), GROUP_INTERVAL_YM.toByte(),
+                // INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND
+                GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),
+                // INTERVAL_YEAR_TO_MONTH
+                GROUP_INTERVAL_YM.toByte(),
+                // INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
                 // INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE,
                 // INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND
                 GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),
@@ -378,7 +400,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
          * the value type
          * @return the name
          */
-        fun getTypeName(valueType: Int): String? = NAMES[valueType]
+        fun getTypeName(valueType: Int): String = NAMES[valueType]
 
         /**
          * Check the range of the parameters.
@@ -420,7 +442,8 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
             if (t1 == UNKNOWN) {
                 if (t2 == NULL) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, NULL")
                 return t2
-            } else if (t2 == UNKNOWN) {
+            }
+            if (t2 == UNKNOWN) {
                 if (t1 == NULL) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "NULL, ?")
                 return t1
             }
@@ -463,9 +486,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
         private fun getHigherIntervalYearMonth(t1: Int, t2: Int, g2: Int): Int {
             return when (g2) {
                 GROUP_INTERVAL_YM -> {
-                    if (t1 == INTERVAL_MONTH && t2 == INTERVAL_YEAR) {
-                        INTERVAL_YEAR_TO_MONTH
-                    } else t1
+                    if (t1 == INTERVAL_MONTH && t2 == INTERVAL_YEAR) INTERVAL_YEAR_TO_MONTH else t1
                 }
                 GROUP_CHARACTER_STRING, GROUP_NUMERIC -> t1
                 else -> throw getDataTypeCombinationException(t1, t2)
@@ -524,9 +545,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
                 }
                 UUID -> when (g2) {
                     GROUP_CHARACTER_STRING, GROUP_BINARY_STRING -> {}
-                    GROUP_OTHER -> {
-                        if (t2 != JAVA_OBJECT) throw getDataTypeCombinationException(t1, t2)
-                    }
+                    GROUP_OTHER -> if (t2 != JAVA_OBJECT) throw getDataTypeCombinationException(t1, t2)
                     else -> throw getDataTypeCombinationException(t1, t2)
                 }
             }
@@ -1003,69 +1022,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
             ROW -> convertToRow(targetType, provider, conversionMode, column)
             else -> throw getDataConversionError(targetValueType)
         }
-    }
-
-    open fun convertToChar(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): ValueChar {
-        val valueType: Int = getValueType()
-        when (valueType) {
-            BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
-        }
-
-        var s = getString()!!
-        val length = s.length
-        var newLength = length
-
-        if (conversionMode == CONVERT_TO) {
-            while (newLength > 0 && s[newLength - 1] == ' ') newLength--
-        } else {
-            val thePrecision = MathUtils.convertLongToInt(targetType.precision)
-
-            if (provider == null || provider.mode.charPadding == CharPadding.ALWAYS) {
-                if (newLength != thePrecision) {
-                    if (newLength < thePrecision) {
-                        return ValueChar.get(StringUtils.pad(s, thePrecision, null, true))
-                    } else if (conversionMode == CAST_TO) {
-                        newLength = thePrecision
-                    } else {
-                        do {
-                            if (s[--newLength] != ' ') {
-                                throw getValueTooLongException(targetType, column)
-                            }
-                        } while (newLength > thePrecision)
-                    }
-                }
-            } else {
-                if (conversionMode == CAST_TO && newLength > thePrecision) {
-                    newLength = thePrecision
-                }
-
-                while (newLength > 0 && s[newLength - 1] == ' ') newLength--
-                if (conversionMode == ASSIGN_TO && newLength > thePrecision) throw getValueTooLongException(targetType, column)
-            }
-        }
-        if (length != newLength) {
-            s = s.substring(0, newLength)
-        } else if (valueType == CHAR) {
-            return this as ValueChar
-        }
-        return ValueChar.get(s)
-    }
-
-    private fun convertToVarchar(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): Value {
-        val valueType = getValueType()
-        when (valueType) {
-            BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
-        }
-
-        if (conversionMode != CONVERT_TO) {
-            val s = getString()
-            val p = MathUtils.convertLongToInt(targetType.precision)
-            if (s!!.length > p) {
-                if (conversionMode != CAST_TO) throw getValueTooLongException(targetType, column)
-                return ValueVarchar.get(s.substring(0, p), provider)
-            }
-        }
-        return if (valueType == VARCHAR) this else ValueVarchar.get(getString(), provider)
     }
 
     private fun convertToVarcharIgnoreCase(targetType: TypeInfo, conversionMode: Int, column: Any): Value {
