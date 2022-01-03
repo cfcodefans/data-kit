@@ -134,7 +134,7 @@ class ValueBlob(lobData: LobData, octetLength: Long) : ValueLob(
         }
 
         fun Value.convertToBlob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBlob {
-            var v: ValueBlob = getValueType().let { vt ->
+            val v: ValueBlob = getValueType().let { vt ->
                 if (vt == BLOB) return@let (this as ValueBlob)
 
                 if (vt == CLOB) {

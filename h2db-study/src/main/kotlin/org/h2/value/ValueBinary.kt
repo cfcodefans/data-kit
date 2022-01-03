@@ -1,6 +1,7 @@
 package org.h2.value
 
 import org.h2.api.ErrorCode
+import org.h2.engine.CastDataProvider
 import org.h2.engine.Constants
 import org.h2.engine.SysProperties
 import org.h2.message.DbException

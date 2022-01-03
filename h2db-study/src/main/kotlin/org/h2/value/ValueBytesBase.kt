@@ -26,7 +26,7 @@ abstract class ValueBytesBase(var value: ByteArray) : Value() {
 
     override fun getBytesNoCopy(): ByteArray = value
 
-    override fun compareTypeSafe(v: Value?, mode: CompareMode?, provider: CastDataProvider?): Int {
+    override fun compareTypeSafe(v: Value, mode: CompareMode?, provider: CastDataProvider?): Int {
         return Bits.compareNotNullUnsigned(value, (v as ValueBytesBase).value)
     }
 

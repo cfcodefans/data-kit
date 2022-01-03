@@ -15,12 +15,15 @@ import org.h2.value.TypeInfo.Companion.getTypeInfo
 import org.h2.value.ValueBigint.Companion.convertToBigint
 import org.h2.value.ValueBinary.Companion.convertToBinary
 import org.h2.value.ValueBlob.Companion.convertToBlob
+import org.h2.value.ValueBoolean.Companion.convertToBoolean
 import org.h2.value.ValueChar.Companion.convertToChar
 import org.h2.value.ValueClob.Companion.convertToClob
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
 import org.h2.value.ValueEnum.Companion.convertToEnum
+import org.h2.value.ValueTinyint.Companion.convertToTinyint
 import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
 import org.h2.value.ValueVarchar.Companion.convertToVarchar
+import org.h2.value.ValueVarchar.Companion.convertToVarcharIgnoreCase
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.io.Reader
@@ -608,7 +611,7 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
             return x.setScale(0, RoundingMode.HALF_UP).toLong()
         }
 
-        private fun convertToByte(x: Long, column: Any?): Byte {
+        internal fun convertToByte(x: Long, column: Any?): Byte {
             if (x > Byte.MAX_VALUE || x < Byte.MIN_VALUE) {
                 throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
             }
@@ -728,20 +731,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
     }
 
     /**
-     * Converts this value to a BOOLEAN value. May not be called on a NULL
-     * value.
-     *
-     * @return the BOOLEAN value
-     */
-    fun convertToBoolean(): ValueBoolean = when (getValueType()) {
-        BOOLEAN -> this as ValueBoolean
-        CHAR, VARCHAR, VARCHAR_IGNORECASE -> ValueBoolean.get(getBoolean())
-        TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, DOUBLE, REAL, DECFLOAT -> ValueBoolean.get(getSignum() != 0)
-        NULL -> throw DbException.getInternalError()
-        else -> throw getDataConversionError(BOOLEAN)
-    }
-
-    /**
      * Returns this value as a Java `boolean` value.
      *
      * @throws DbException
@@ -751,31 +740,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
      * @see .isFalse
      */
     open fun getBoolean(): Boolean = convertToBoolean().getBoolean()
-
-    /**
-     * Converts this value to a TINYINT value. May not be called on a NULL
-     * value.
-     *
-     * @param column
-     * the column, used for to improve the error message if
-     * conversion fails
-     * @return the TINYINT value
-     */
-    fun convertToTinyint(column: Any?): ValueTinyint = when (getValueType()) {
-        TINYINT -> this as ValueTinyint
-        CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN -> ValueTinyint.get(getByte())
-        SMALLINT, ENUM, INTEGER -> ValueTinyint.get(Value.convertToByte(getInt().toLong(), column))
-        BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueTinyint.get(Value.convertToByte(getLong(), column))
-        NUMERIC, DECFLOAT -> ValueTinyint.get(Value.convertToByte(Value.convertToLong(getBigDecimal(), column), column))
-        REAL, DOUBLE -> ValueTinyint.get(Value.convertToByte(Value.convertToLong(getDouble(), column), column))
-        BINARY, VARBINARY -> {
-            val bytes = getBytesNoCopy()!!
-            if (bytes.size == 1) ValueTinyint.get(bytes[0])
-            throw getDataConversionError(TINYINT)
-        }
-        NULL -> throw DbException.getInternalError()
-        else -> throw getDataConversionError(TINYINT)
-    }
 
     /**
      * Converts this value to a INT value. May not be called on a NULL value.
@@ -1022,28 +986,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
             ROW -> convertToRow(targetType, provider, conversionMode, column)
             else -> throw getDataConversionError(targetValueType)
         }
-    }
-
-    private fun convertToVarcharIgnoreCase(targetType: TypeInfo, conversionMode: Int, column: Any): Value {
-        val valueType = getValueType()
-        when (valueType) {
-            BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
-        }
-
-        if (conversionMode == CONVERT_TO)
-            return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
-
-        val s = getString()
-        val p = MathUtils.convertLongToInt(targetType.precision)
-
-        if (s!!.length > p) {
-            if (conversionMode == CAST_TO) {
-                return ValueVarcharIgnoreCase.get(s.substring(0, p))
-            }
-            throw getValueTooLongException(targetType, column)
-        }
-
-        return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
     }
 
     private fun convertToNumeric(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): ValueNumeric {
