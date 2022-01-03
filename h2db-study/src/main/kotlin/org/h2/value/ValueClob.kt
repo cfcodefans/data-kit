@@ -146,7 +146,7 @@ class ValueClob(lobData: LobData, octetLen: Long, charLen: Long) : ValueLob(lobD
          * @return result of comparison
          */
         private fun compare(v1: ValueClob, v2: ValueClob): Int {
-            var minPrec = Math.min(v1.charLength, v2.charLength)
+            var minPrec = v1.charLength.coerceAtMost(v2.charLength)
             try {
                 v1.getReader().use { reader1 ->
                     v2.getReader().use { reader2 ->
@@ -296,7 +296,7 @@ class ValueClob(lobData: LobData, octetLen: Long, charLen: Long) : ValueLob(lobD
         else -> readString(charLength.toInt())
     }
 
-    override fun compareTypeSafe(v: Value?, mode: CompareMode?, provider: CastDataProvider?): Int {
+    override fun compareTypeSafe(v: Value, mode: CompareMode?, provider: CastDataProvider?): Int {
         if (v === this) return 0
 
         val v2 = v as ValueClob
@@ -309,7 +309,7 @@ class ValueClob(lobData: LobData, octetLen: Long, charLen: Long) : ValueLob(lobD
         if (lobData is LobDataDatabase && lobData.lobId == (lobData2 as LobDataDatabase).lobId) return 0
         if (lobData is LobDataFetchOnDemand && lobData.lobId == (lobData2 as LobDataFetchOnDemand).lobId) return 0
 
-        return ValueClob.compare(this, v2)
+        return compare(this, v2)
     }
 
     /**

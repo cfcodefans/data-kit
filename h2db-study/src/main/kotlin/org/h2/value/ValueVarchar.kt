@@ -59,6 +59,28 @@ class ValueVarchar(value: String) : ValueStringBase(value) {
             }
             return if (valueType == VARCHAR) this as ValueVarchar else get(getString()!!, provider)
         }
+
+        fun Value.convertToVarcharIgnoreCase(targetType: TypeInfo, conversionMode: Int, column: Any): Value {
+            val valueType = getValueType()
+            when (valueType) {
+                BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
+            }
+
+            if (conversionMode == CONVERT_TO)
+                return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
+
+            val s = getString()
+            val p = MathUtils.convertLongToInt(targetType.precision)
+
+            if (s!!.length > p) {
+                if (conversionMode == CAST_TO) {
+                    return ValueVarcharIgnoreCase.get(s.substring(0, p))
+                }
+                throw getValueTooLongException(targetType, column)
+            }
+
+            return if (valueType == VARCHAR_IGNORECASE) this else ValueVarcharIgnoreCase.get(getString())
+        }
     }
 
     override fun getValueType(): Int = VARCHAR
