@@ -56,10 +56,16 @@ class ValueTinyint(val value: Byte) : Value() {
         fun Value.convertToTinyint(column: Any?): ValueTinyint = when (getValueType()) {
             TINYINT -> this as ValueTinyint
             CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN -> ValueTinyint[getByte()]
-            SMALLINT, ENUM, INTEGER -> ValueTinyint[Value.convertToByte(getInt().toLong(), column)]
-            BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueTinyint.get(Value.convertToByte(getLong(), column))
-            NUMERIC, DECFLOAT -> ValueTinyint[Value.convertToByte(Value.convertToLong(getBigDecimal(), column), column)]
-            REAL, DOUBLE -> ValueTinyint[Value.convertToByte(Value.convertToLong(getDouble(), column), column)]
+            SMALLINT, ENUM, INTEGER -> ValueTinyint[convertToByte(getInt().toLong(), column)]
+
+            BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY,
+            INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND,
+            INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
+            INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND,
+            INTERVAL_MINUTE_TO_SECOND -> get(convertToByte(getLong(), column))
+
+            NUMERIC, DECFLOAT -> ValueTinyint[convertToByte(convertToLong(getBigDecimal(), column), column)]
+            REAL, DOUBLE -> ValueTinyint[convertToByte(convertToLong(getDouble(), column), column)]
             BINARY, VARBINARY -> {
                 val bytes = getBytesNoCopy()!!
                 if (bytes.size == 1) ValueTinyint[bytes[0]]
