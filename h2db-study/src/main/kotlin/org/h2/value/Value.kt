@@ -20,6 +20,7 @@ import org.h2.value.ValueChar.Companion.convertToChar
 import org.h2.value.ValueClob.Companion.convertToClob
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
 import org.h2.value.ValueEnum.Companion.convertToEnum
+import org.h2.value.ValueTimestamp.Companion.convertToTimestamp
 import org.h2.value.ValueTinyint.Companion.convertToTinyint
 import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
 import org.h2.value.ValueVarchar.Companion.convertToVarchar
@@ -37,7 +38,7 @@ import kotlin.math.roundToLong
  * This is the base class for all value classes.
  * It provides conversion and comparison methods.
  */
-abstract class Value : VersionedValue(), HasSQL, Typed {
+abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
     companion object {
         /**
          * The data type is unknown at this time.
@@ -1139,44 +1140,6 @@ abstract class Value : VersionedValue(), HasSQL, Typed {
         return v
     }
 
-    private fun convertToTimestamp(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int): ValueTimestamp? {
-        var v: ValueTimestamp
-        when (getValueType()) {
-            TIMESTAMP -> v = this as ValueTimestamp
-            TIME -> v = ValueTimestamp.fromDateValueAndNanos(provider.currentTimestamp().dateValue, (this as ValueTime).nanos)
-            TIME_TZ -> v = ValueTimestamp.fromDateValueAndNanos(provider.currentTimestamp().dateValue, getLocalTimeNanos(provider))
-            DATE ->             // Scale is always 0
-                return ValueTimestamp.fromDateValueAndNanos((this as ValueDate).dateValue, 0)
-            TIMESTAMP_TZ -> {
-                val ts = this as ValueTimestampTimeZone
-                val timeNanos = ts.timeNanos
-                var epochSeconds = DateTimeUtils.getEpochSeconds(ts.dateValue, timeNanos, ts.timeZoneOffsetSeconds)
-                epochSeconds += provider.currentTimeZone().getTimeZoneOffsetUTC(epochSeconds).toLong()
-                v = ValueTimestamp.fromDateValueAndNanos(DateTimeUtils.dateValueFromLocalSeconds(epochSeconds),
-                        DateTimeUtils.nanosFromLocalSeconds(epochSeconds) + timeNanos % DateTimeUtils.NANOS_PER_SECOND)
-            }
-            VARCHAR, VARCHAR_IGNORECASE, CHAR -> v = ValueTimestamp.parse(getString()!!.trim { it <= ' ' }, provider)
-            else -> throw getDataConversionError(TIMESTAMP)
-        }
-
-        if (conversionMode != CONVERT_TO) {
-            val targetScale: Int = targetType.scale
-            if (targetScale < ValueTimestamp.MAXIMUM_SCALE) {
-                var dv = v.dateValue
-                val n = v.timeNanos
-                var n2 = DateTimeUtils.convertScale(n, targetScale,
-                        if (dv == DateTimeUtils.MAX_DATE_VALUE) DateTimeUtils.NANOS_PER_DAY else Long.MAX_VALUE)
-                if (n2 != n) {
-                    if (n2 >= DateTimeUtils.NANOS_PER_DAY) {
-                        n2 -= DateTimeUtils.NANOS_PER_DAY
-                        dv = DateTimeUtils.incrementDateValue(dv)
-                    }
-                    v = ValueTimestamp.fromDateValueAndNanos(dv, n2)
-                }
-            }
-        }
-        return v
-    }
 
     /**
      * Convert a value to the specified type without taking scale and precision

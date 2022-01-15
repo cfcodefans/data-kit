@@ -555,7 +555,7 @@ object StringUtils {
             // Ensure that character is valid and that multiplication by 10 will
             // be performed without overflow
             if (ch < '0' || ch > '9' || result > 214748364) throw NumberFormatException(s.substring(start, end))
-            result = result * 10 + ch.toInt() - '0'.toInt()
+            result = result * 10 + ch.code - '0'.code
             // Overflow
             if (result < 0) throw NumberFormatException(s.substring(start, end))
         }
@@ -612,5 +612,18 @@ object StringUtils {
                     .append(HEX[(x shr 4.let { i -= it; i }).toInt() and 0xf])
         }
         return builder
+    }
+
+    /**
+     * Append a zero-padded number to a string builder.
+     *
+     * @param builder the string builder
+     * @param length the number of characters to append
+     * @param positiveValue the number to append
+     * @return the specified string builder
+     */
+    fun appendZeroPadded(builder: StringBuilder, length: Int, positiveValue: Long): StringBuilder? {
+        val s = positiveValue.toString()
+        return builder.append(s.padEnd(length - s.length, '0'))
     }
 }
