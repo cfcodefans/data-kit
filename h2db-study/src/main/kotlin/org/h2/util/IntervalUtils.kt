@@ -324,17 +324,17 @@ object IntervalUtils {
         }
     }
 
-    private fun intervalToAbsolute(interval: ValueInterval, multiplier: BigInteger, totalMultiplier: BigInteger): BigInteger? {
-        return intervalToAbsolute(interval, multiplier)!!.multiply(totalMultiplier)
+    private fun intervalToAbsolute(interval: ValueInterval, multiplier: BigInteger, totalMultiplier: BigInteger): BigInteger {
+        return intervalToAbsolute(interval, multiplier).multiply(totalMultiplier)
     }
 
-    private fun intervalToAbsolute(interval: ValueInterval, multiplier: BigInteger): BigInteger? {
+    private fun intervalToAbsolute(interval: ValueInterval, multiplier: BigInteger): BigInteger {
         return BigInteger.valueOf(interval.leading)
                 .multiply(multiplier)
                 .add(BigInteger.valueOf(interval.remaining))
     }
 
-    private fun intervalFromAbsolute(qualifier: IntervalQualifier, absolute: BigInteger, divisor: BigInteger): ValueInterval? {
+    fun intervalFromAbsolute(qualifier: IntervalQualifier, absolute: BigInteger, divisor: BigInteger): ValueInterval {
         val dr = absolute.divideAndRemainder(divisor)
         return ValueInterval.from(qualifier, absolute.signum() < 0, leadingExact(dr[0]), Math.abs(dr[1].toLong()))
     }
@@ -448,34 +448,25 @@ object IntervalUtils {
     /**
      * Returns years value of interval, if any.
      *
-     * @param qualifier
-     * qualifier
-     * @param negative
-     * whether interval is negative
-     * @param leading
-     * value of leading field
-     * @param remaining
-     * values of all remaining fields
-     * @return years, or 0
+     * @param qualifier  qualifier
+     * @param negative whether interval is negative
+     * @param leading value of leading field
+     * @param remaining values of all remaining fields
+     * @return minutes, or 0
      */
-    fun yearsFromInterval(qualifier: IntervalQualifier, negative: Boolean, leading: Long, remaining: Long): Long {
-        return if (qualifier == YEAR || qualifier == YEAR_TO_MONTH) {
-            if (negative) -leading else leading
-        } else 0
-    }
+    fun yearsFromInterval(qualifier: IntervalQualifier, negative: Boolean, leading: Long, remaining: Long): Long =
+            if (qualifier == YEAR || qualifier == YEAR_TO_MONTH) {
+                if (negative) -leading else leading
+            } else 0
 
     /**
      * Returns months value of interval, if any.
      *
-     * @param qualifier
-     * qualifier
-     * @param negative
-     * whether interval is negative
-     * @param leading
-     * value of leading field
-     * @param remaining
-     * values of all remaining fields
-     * @return months, or 0
+     * @param qualifier  qualifier
+     * @param negative whether interval is negative
+     * @param leading value of leading field
+     * @param remaining values of all remaining fields
+     * @return minutes, or 0
      */
     fun monthsFromInterval(qualifier: IntervalQualifier, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
         MONTH -> leading
@@ -486,15 +477,11 @@ object IntervalUtils {
     /**
      * Returns days value of interval, if any.
      *
-     * @param qualifier
-     * qualifier
-     * @param negative
-     * whether interval is negative
-     * @param leading
-     * value of leading field
-     * @param remaining
-     * values of all remaining fields
-     * @return days, or 0
+     * @param qualifier  qualifier
+     * @param negative whether interval is negative
+     * @param leading value of leading field
+     * @param remaining values of all remaining fields
+     * @return minutes, or 0
      */
     fun daysFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long =
             when (qualifier) {
@@ -505,15 +492,11 @@ object IntervalUtils {
     /**
      * Returns hours value of interval, if any.
      *
-     * @param qualifier
-     * qualifier
-     * @param negative
-     * whether interval is negative
-     * @param leading
-     * value of leading field
-     * @param remaining
-     * values of all remaining fields
-     * @return hours, or 0
+     * @param qualifier  qualifier
+     * @param negative whether interval is negative
+     * @param leading value of leading field
+     * @param remaining values of all remaining fields
+     * @return minutes, or 0
      */
     fun hoursFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
         HOUR, HOUR_TO_MINUTE, HOUR_TO_SECOND -> leading
@@ -526,14 +509,10 @@ object IntervalUtils {
     /**
      * Returns minutes value of interval, if any.
      *
-     * @param qualifier
-     * qualifier
-     * @param negative
-     * whether interval is negative
-     * @param leading
-     * value of leading field
-     * @param remaining
-     * values of all remaining fields
+     * @param qualifier  qualifier
+     * @param negative whether interval is negative
+     * @param leading value of leading field
+     * @param remaining values of all remaining fields
      * @return minutes, or 0
      */
     fun minutesFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
@@ -548,14 +527,10 @@ object IntervalUtils {
     /**
      * Returns nanoseconds value of interval, if any.
      *
-     * @param qualifier
-     * qualifier
-     * @param negative
-     * whether interval is negative
-     * @param leading
-     * value of leading field
-     * @param remaining
-     * values of all remaining fields
+     * @param qualifier qualifier
+     * @param negative whether interval is negative
+     * @param leading value of leading field
+     * @param remaining values of all remaining fields
      * @return nanoseconds, or 0
      */
     fun nanosFromInterval(qualifier: IntervalQualifier?, negative: Boolean, leading: Long, remaining: Long): Long = when (qualifier) {
@@ -565,4 +540,31 @@ object IntervalUtils {
         else -> 0
     }.let { if (negative) -it else it }
 
+    /**
+     * Converts interval value to an absolute value.
+     *
+     * @param interval
+     * the interval value
+     * @return absolute value in months for year-month intervals, in nanoseconds
+     * for day-time intervals
+     */
+    fun intervalToAbsolute(interval: ValueInterval): BigInteger {
+        val r: BigInteger = when (interval.getQualifier()) {
+            YEAR -> BigInteger.valueOf(interval.leading).multiply(MONTHS_PER_YEAR_BI)
+            MONTH -> BigInteger.valueOf(interval.leading)
+            DAY -> BigInteger.valueOf(interval.leading).multiply(NANOS_PER_DAY_BI)
+            HOUR -> BigInteger.valueOf(interval.leading).multiply(NANOS_PER_HOUR_BI)
+            MINUTE -> BigInteger.valueOf(interval.leading).multiply(NANOS_PER_MINUTE_BI)
+            SECOND -> intervalToAbsolute(interval, NANOS_PER_SECOND_BI)
+            YEAR_TO_MONTH -> intervalToAbsolute(interval, MONTHS_PER_YEAR_BI)
+            DAY_TO_HOUR -> intervalToAbsolute(interval, HOURS_PER_DAY_BI, NANOS_PER_HOUR_BI)
+            DAY_TO_MINUTE -> intervalToAbsolute(interval, MINUTES_PER_DAY_BI, NANOS_PER_MINUTE_BI)
+            DAY_TO_SECOND -> intervalToAbsolute(interval, NANOS_PER_DAY_BI)
+            HOUR_TO_MINUTE -> intervalToAbsolute(interval, MINUTES_PER_HOUR_BI, NANOS_PER_MINUTE_BI)
+            HOUR_TO_SECOND -> intervalToAbsolute(interval, NANOS_PER_HOUR_BI)
+            MINUTE_TO_SECOND -> intervalToAbsolute(interval, NANOS_PER_MINUTE_BI)
+            else -> throw IllegalArgumentException()
+        }
+        return if (interval.isNegative()) r.negate() else r
+    }
 }

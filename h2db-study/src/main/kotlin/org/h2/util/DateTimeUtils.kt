@@ -390,13 +390,11 @@ object DateTimeUtils {
 
         val m = FRACTIONAL_SECONDS_TABLE[scale]
         val mod = nanosOfDay % m
-        if (mod >= m ushr 1) {
-            nanosOfDay += m.toLong()
-        }
+        if (mod >= m ushr 1) nanosOfDay += m.toLong()
+
         var r = nanosOfDay - mod
-        if (r >= range) {
-            r = range - m
-        }
+        if (r >= range) r = range - m
+
         return r
     }
 
@@ -421,7 +419,7 @@ object DateTimeUtils {
      * @param provider the cast information provider, or `null`
      * @return parsed time with time zone
      */
-    fun parseTimeWithTimeZone(s: String, provider: CastDataProvider?): ValueTimeTimeZone? {
+    fun parseTimeWithTimeZone(s: String, provider: CastDataProvider?): ValueTimeTimeZone {
         val timeEnd: Int
         val tz: TimeZoneProvider
         if (s.endsWith("Z")) {
@@ -429,14 +427,11 @@ object DateTimeUtils {
             timeEnd = s.length - 1
         } else {
             var timeZoneStart = s.indexOf('+', 1)
-            if (timeZoneStart < 0) {
-                timeZoneStart = s.indexOf('-', 1)
-            }
+            if (timeZoneStart < 0) timeZoneStart = s.indexOf('-', 1)
+
             if (timeZoneStart >= 0) {
                 tz = TimeZoneProvider.ofId(s.substring(timeZoneStart))
-                if (s[timeZoneStart - 1] == ' ') {
-                    timeZoneStart--
-                }
+                if (s[timeZoneStart - 1] == ' ') timeZoneStart--
                 timeEnd = timeZoneStart
             } else {
                 timeZoneStart = s.indexOf(' ', 1)
@@ -707,6 +702,27 @@ object DateTimeUtils {
             nanos = nanos % 1000000000 + nanosFromLocalSeconds(seconds)
         }
         return ValueTimestamp.fromDateValueAndNanos(dateValue, nanos)
+    }
+
+    /**
+     * Return the previous date value.
+     *
+     * @param dateValue
+     * the date value
+     * @return the previous date value
+     */
+    fun decrementDateValue(dateValue: Long): Long {
+        if (dayFromDateValue(dateValue) > 1) return dateValue - 1
+
+        var year = yearFromDateValue(dateValue)
+        var month = monthFromDateValue(dateValue)
+        if (month > 1) {
+            month--
+        } else {
+            month = 12
+            year--
+        }
+        return dateValue(year.toLong(), month, getDaysInMonth(year, month))
     }
 
     /**
