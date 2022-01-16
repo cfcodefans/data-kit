@@ -1,18 +1,23 @@
 package org.h2.value
 
+import com.google.common.base.Objects
+import org.h2.api.Interval
 import org.h2.api.IntervalQualifier
+import org.h2.engine.CastDataProvider
 import org.h2.message.DbException
+import org.h2.util.DateTimeUtils
 import org.h2.util.IntervalUtils
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * Implementation of the INTERVAL data type.
  */
-class ValueInterval(
-    private val valueType: Int = 0,
-    val negative: Boolean = false,
-    val leading: Long = 0,
-    val remaining: Long = 0,
-) : Value() {
+class ValueInterval private constructor(private val valueType: Int = 0,
+                                        val negative: Boolean = false,
+                                        val leading: Long = 0,
+                                        val remaining: Long = 0) : Value() {
+
     companion object {
         /**
          * The default leading field precision for intervals.
@@ -43,16 +48,12 @@ class ValueInterval(
          * @param remaining values of all remaining fields
          * @return interval value
          */
-        fun from(qualifier: IntervalQualifier, negative: Boolean, leading: Long, remaining: Long): ValueInterval? {
+        fun from(qualifier: IntervalQualifier, negative: Boolean, leading: Long, remaining: Long): ValueInterval {
             var negative = IntervalUtils.validateInterval(qualifier, negative, leading, remaining)
-            return cache(
-                ValueInterval(
-                    qualifier.ordinal + INTERVAL_YEAR,
+            return cache(ValueInterval(qualifier.ordinal + INTERVAL_YEAR,
                     negative,
                     leading,
-                    remaining
-                )
-            ) as ValueInterval
+                    remaining)) as ValueInterval
         }
 
         /**
@@ -63,50 +64,174 @@ class ValueInterval(
          *              interval does not have seconds.
          * @return display size
          */
-        fun getDisplaySize(type: Int, precision: Int, scale: Int): Int {
-            return when (type) {
-                INTERVAL_YEAR, INTERVAL_HOUR -> 17 + precision
-                INTERVAL_MONTH -> 18 + precision
-                INTERVAL_DAY -> 16 + precision
-                INTERVAL_MINUTE -> 19 + precision
-                INTERVAL_SECOND -> if (scale > 0) 20 + precision + scale else 19 + precision
-                INTERVAL_YEAR_TO_MONTH -> 29 + precision
-                INTERVAL_DAY_TO_HOUR -> 27 + precision
-                INTERVAL_DAY_TO_MINUTE -> 32 + precision
-                INTERVAL_DAY_TO_SECOND -> if (scale > 0) 36 + precision + scale else 35 + precision
-                INTERVAL_HOUR_TO_MINUTE -> 30 + precision
-                INTERVAL_HOUR_TO_SECOND -> if (scale > 0) 34 + precision + scale else 33 + precision
-                INTERVAL_MINUTE_TO_SECOND -> if (scale > 0) 33 + precision + scale else 32 + precision
-                else -> throw DbException.getUnsupportedException(type.toString())
-            }
+        fun getDisplaySize(type: Int, precision: Int, scale: Int): Int = when (type) {
+            INTERVAL_YEAR, INTERVAL_HOUR -> 17 + precision
+            INTERVAL_MONTH -> 18 + precision
+            INTERVAL_DAY -> 16 + precision
+            INTERVAL_MINUTE -> 19 + precision
+            INTERVAL_SECOND -> if (scale > 0) 20 + precision + scale else 19 + precision
+            INTERVAL_YEAR_TO_MONTH -> 29 + precision
+            INTERVAL_DAY_TO_HOUR -> 27 + precision
+            INTERVAL_DAY_TO_MINUTE -> 32 + precision
+            INTERVAL_DAY_TO_SECOND -> if (scale > 0) 36 + precision + scale else 35 + precision
+            INTERVAL_HOUR_TO_MINUTE -> 30 + precision
+            INTERVAL_HOUR_TO_SECOND -> if (scale > 0) 34 + precision + scale else 33 + precision
+            INTERVAL_MINUTE_TO_SECOND -> if (scale > 0) 33 + precision + scale else 32 + precision
+            else -> throw DbException.getUnsupportedException(type.toString())
         }
+
+        private val MULTIPLIERS = longArrayOf( // INTERVAL_SECOND
+                DateTimeUtils.NANOS_PER_SECOND,  // INTERVAL_YEAR_TO_MONTH
+                12,  // INTERVAL_DAY_TO_HOUR
+                24,  // INTERVAL_DAY_TO_MINUTE
+                (24 * 60).toLong(),  // INTERVAL_DAY_TO_SECOND
+                DateTimeUtils.NANOS_PER_DAY,  // INTERVAL_HOUR_TO_MINUTE:
+                60,  // INTERVAL_HOUR_TO_SECOND
+                DateTimeUtils.NANOS_PER_HOUR,  // INTERVAL_MINUTE_TO_SECOND
+                DateTimeUtils.NANOS_PER_MINUTE //
+        )
     }
 
-    private var type: TypeInfo? = null
-    override fun getType(): TypeInfo {
-        var type = type
-        if (type == null) {
+    override val type: TypeInfo = TypeInfo.getTypeInfo(valueType)
+
+    override fun getValueType(): Int = valueType
+
+    override fun getMemory(): Int = 48// Java 11 with -XX:-UseCompressedOops
+
+    /**
+     * Check if the precision is smaller or equal than the given precision.
+     *
+     * @param prec the maximum precision
+     * @return true if the precision of this value is smaller or equal to the given precision
+     */
+    fun checkPrecision(prec: Long): Boolean {
+        if (prec >= MAXIMUM_PRECISION) return true
+
+        val l = leading
+        var p: Long = 1
+        var precision: Long = 0
+        while (l >= p) {
+            if (++precision > prec) return false
+            p *= 10
+        }
+        return true
+    }
+
+    fun setPrecisionAndScale(targetType: TypeInfo, column: Any?): ValueInterval {
+        val targetScale: Int = targetType.scale
+        var v = this
+        if (targetScale < MAXIMUM_SCALE) run {
+            val range: Long = when (valueType) {
+                INTERVAL_SECOND -> DateTimeUtils.NANOS_PER_SECOND
+                INTERVAL_DAY_TO_SECOND -> DateTimeUtils.NANOS_PER_DAY
+                INTERVAL_HOUR_TO_SECOND -> DateTimeUtils.NANOS_PER_HOUR
+                INTERVAL_MINUTE_TO_SECOND -> DateTimeUtils.NANOS_PER_MINUTE
+                else -> return@run
+            }
             var l = leading
-            var precision = 0
-            while (l > 0) {
-                precision++
-                l /= 10
+            var r = DateTimeUtils.convertScale(nanosOfDay = remaining,
+                    scale = targetScale,
+                    range = if (l == 999999999999999999L) range else Long.MAX_VALUE)
+            if (r != remaining) {
+                if (r >= range) {
+                    l++
+                    r -= range
+                }
+                v = from(v.getQualifier(), v.isNegative(), l, r)
             }
-            if (precision == 0) {
-                precision = 1
-            }
-            type = TypeInfo(
-                valueType,
-                precision.toLong(), 0,
-                getDisplaySize(valueType, MAXIMUM_PRECISION, MAXIMUM_SCALE), null
-            )
-            this.type = type
         }
-        return type
+        if (!v.checkPrecision(targetType.precision)) {
+            throw v.getValueTooLongException(targetType, column)
+        }
+        return v
     }
 
-    override fun getValueType(): Int {
-        TODO("Not yet implemented")
+    /**
+     * Returns the interval qualifier.
+     * @return the interval qualifier
+     */
+    fun getQualifier(): IntervalQualifier = IntervalQualifier.valueOf(valueType - INTERVAL_YEAR)
+
+    /**
+     * Returns where the interval is negative.
+     *
+     * @return where the interval is negative
+     */
+    fun isNegative(): Boolean = negative
+
+    override fun getString(): String = IntervalUtils.appendInterval(StringBuilder(), getQualifier(), negative, leading, remaining).toString()
+
+    override fun getLong(): Long {
+        var l = leading
+        if (valueType >= INTERVAL_SECOND
+                && remaining != 0L
+                && remaining >= MULTIPLIERS[valueType - INTERVAL_SECOND] shr 1) {
+            l++
+        }
+        return if (negative) -l else l
     }
 
+    override fun getBigDecimal(): BigDecimal {
+        if (valueType < INTERVAL_SECOND || remaining == 0L) return BigDecimal.valueOf(if (negative) -leading else leading)
+
+        val m = BigDecimal.valueOf(MULTIPLIERS[valueType - INTERVAL_SECOND])
+        val bd = BigDecimal.valueOf(leading)
+                .add(BigDecimal.valueOf(remaining).divide(m, m.precision(), RoundingMode.HALF_DOWN)) //
+                .stripTrailingZeros()
+        return if (negative) bd.negate() else bd
+    }
+
+    override fun getFloat(): Float {
+        return if (valueType < INTERVAL_SECOND || remaining == 0L) {
+            if (negative) (-leading).toFloat() else leading.toFloat()
+        } else getBigDecimal().toFloat()
+    }
+
+    override fun getDouble(): Double {
+        return if (valueType < INTERVAL_SECOND || remaining == 0L) {
+            if (negative) (-leading).toDouble() else leading.toDouble()
+        } else getBigDecimal().toDouble()
+    }
+
+    /**
+     * Returns the interval.
+     *
+     * @return the interval
+     */
+    fun getInterval(): Interval = Interval(getQualifier(), negative, leading, remaining)
+
+    override fun hashCode(): Int = Objects.hashCode(valueType, negative, leading, remaining)
+
+    override fun equals(other: Any?): Boolean = (this === other)
+            || (other is ValueInterval
+            && valueType == other.valueType
+            && negative == other.negative
+            && leading == other.leading
+            && remaining == other.remaining)
+
+    override fun compareTypeSafe(v: Value, mode: CompareMode?, provider: CastDataProvider?): Int {
+        val other = v as ValueInterval
+        if (negative != other.negative) {
+            return if (negative) -1 else 1
+        }
+        var cmp = leading.compareTo(other.leading)
+        if (cmp == 0) {
+            cmp = remaining.compareTo(other.remaining)
+        }
+        return if (negative) -cmp else cmp
+    }
+
+    override fun getSignum(): Int = if (negative) -1 else if (leading == 0L && remaining == 0L) 0 else 1
+
+    override fun add(v: Value): Value {
+        return IntervalUtils.intervalFromAbsolute(getQualifier(),
+                IntervalUtils.intervalToAbsolute(this).add(IntervalUtils.intervalToAbsolute(v as ValueInterval)))
+    }
+
+    override fun subtract(v: Value): Value {
+        return IntervalUtils.intervalFromAbsolute(getQualifier(),
+                IntervalUtils.intervalToAbsolute(this).subtract(IntervalUtils.intervalToAbsolute(v as ValueInterval)))
+    }
+
+    override fun negate(): Value = if (leading == 0L && remaining == 0L) this else cache(ValueInterval(valueType, !negative, leading, remaining))
 }

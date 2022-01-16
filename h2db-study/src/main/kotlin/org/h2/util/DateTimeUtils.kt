@@ -1,6 +1,14 @@
 package org.h2.util
 
+import org.h2.api.ErrorCode
+import org.h2.engine.CastDataProvider
+import org.h2.message.DbException
 import org.h2.util.StringUtils.appendTwoDigits
+import org.h2.util.StringUtils.parseUInt31
+import org.h2.value.Value
+import org.h2.value.ValueTimeTimeZone
+import org.h2.value.ValueTimestamp
+import org.h2.value.ValueTimestampTimeZone
 import java.util.Date
 import java.util.TimeZone
 
@@ -88,6 +96,15 @@ object DateTimeUtils {
      */
     private val FRACTIONAL_SECONDS_TABLE = intArrayOf(1000000000, 100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10, 1)
 
+    //    @Volatile
+    private val LOCAL: TimeZoneProvider by lazy { TimeZoneProvider.getDefault() }
+
+    /**
+     * Get the time zone provider for the default time zone.
+     * @return the time zone provider for the default time zone
+     */
+    fun getTimeZone(): TimeZoneProvider = LOCAL
+
     /**
      * Parse nanoseconds.
      *
@@ -119,7 +136,7 @@ object DateTimeUtils {
      * @param nanos nanoseconds of second
      * @return the specified string builder
      */
-    fun appendNanos(builder: StringBuilder, nanos: Int): StringBuilder? {
+    fun appendNanos(builder: StringBuilder, nanos: Int): StringBuilder {
         if (nanos <= 0) return builder
 
         var nanos = nanos
@@ -290,9 +307,7 @@ object DateTimeUtils {
      * @return number of days in the specified month
      */
     fun getDaysInMonth(year: Int, month: Int): Int {
-        if (month != 2) {
-            return NORMAL_DAYS_PER_MONTH[month]
-        }
+        if (month != 2) return NORMAL_DAYS_PER_MONTH[month]
         return if (year and 3 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
     }
 
@@ -375,13 +390,11 @@ object DateTimeUtils {
 
         val m = FRACTIONAL_SECONDS_TABLE[scale]
         val mod = nanosOfDay % m
-        if (mod >= m ushr 1) {
-            nanosOfDay += m.toLong()
-        }
+        if (mod >= m ushr 1) nanosOfDay += m.toLong()
+
         var r = nanosOfDay - mod
-        if (r >= range) {
-            r = range - m
-        }
+        if (r >= range) r = range - m
+
         return r
     }
 
@@ -400,6 +413,43 @@ object DateTimeUtils {
     }
 
     /**
+     * Parses TIME WITH TIME ZONE value from the specified string.
+     *
+     * @param s string to parse
+     * @param provider the cast information provider, or `null`
+     * @return parsed time with time zone
+     */
+    fun parseTimeWithTimeZone(s: String, provider: CastDataProvider?): ValueTimeTimeZone {
+        val timeEnd: Int
+        val tz: TimeZoneProvider
+        if (s.endsWith("Z")) {
+            tz = TimeZoneProvider.UTC
+            timeEnd = s.length - 1
+        } else {
+            var timeZoneStart = s.indexOf('+', 1)
+            if (timeZoneStart < 0) timeZoneStart = s.indexOf('-', 1)
+
+            if (timeZoneStart >= 0) {
+                tz = TimeZoneProvider.ofId(s.substring(timeZoneStart))
+                if (s[timeZoneStart - 1] == ' ') timeZoneStart--
+                timeEnd = timeZoneStart
+            } else {
+                timeZoneStart = s.indexOf(' ', 1)
+                if (timeZoneStart > 0) {
+                    tz = TimeZoneProvider.ofId(s.substring(timeZoneStart + 1))
+                    timeEnd = timeZoneStart
+                } else {
+                    throw DbException.get(ErrorCode.INVALID_DATETIME_CONSTANT_2, "TIME WITH TIME ZONE", s)
+                }
+            }
+            if (!tz.hasFixedOffset()) {
+                throw DbException.get(ErrorCode.INVALID_DATETIME_CONSTANT_2, "TIME WITH TIME ZONE", s)
+            }
+        }
+        return ValueTimeTimeZone.fromNanos(parseTimeNanos(s, 0, timeEnd), tz.getTimeZoneOffsetUTC(0L))
+    }
+
+    /**
      * Calculate the normalized nanos of day.
      *
      * @param nanos the nanoseconds (may be negative or larger than one day)
@@ -415,8 +465,7 @@ object DateTimeUtils {
     /**
      * Return the next date value.
      *
-     * @param dateValue
-     * the date value
+     * @param dateValue the date value
      * @return the next date value
      */
     fun incrementDateValue(dateValue: Long): Long {
@@ -434,5 +483,298 @@ object DateTimeUtils {
             year++
         }
         return dateValue(year.toLong(), month, 1)
+    }
+
+    /**
+     * Verify if the specified date is valid.
+     *
+     * @param year the year
+     * @param month the month (January is 1)
+     * @param day the day (1 is the first of the month)
+     * @return true if it is valid
+     */
+    fun isValidDate(year: Int, month: Int, day: Int): Boolean {
+        return month >= 1 && month <= 12 && day >= 1 && day <= getDaysInMonth(year, month)
+    }
+
+    /**
+     * Parse a date string. The format is: [+|-]year-month-day  or [+|-]yyyyMMdd.
+     *
+     * @param s the string to parse
+     * @param start the parse index start
+     * @param end the parse index end
+     * @return the date value
+     * @throws IllegalArgumentException if there is a problem
+     */
+    open fun parseDateValue(s: String, start: Int, end: Int): Long {
+        var start = start
+        if (s[start] == '+') { // +year
+            start++
+        }
+        // start at position 1 to support "-year"
+        var yEnd = s.indexOf('-', start + 1)
+        val mStart: Int
+        val mEnd: Int
+        val dStart: Int
+        if (yEnd > 0) {
+            // Standard [+|-]year-month-day format
+            mStart = yEnd + 1
+            mEnd = s.indexOf('-', mStart)
+            require(mEnd > mStart) { s }
+            dStart = mEnd + 1
+        } else {
+            // Additional [+|-]yyyyMMdd format for compatibility
+            dStart = end - 2
+            mEnd = dStart
+            mStart = mEnd - 2
+            yEnd = mStart
+            // Accept only 3 or more digits in year for now
+            require(yEnd >= start + 3) { s }
+        }
+        val year = s.substring(start, yEnd).toInt()
+        val month = parseUInt31(s, mStart, mEnd)
+        val day = parseUInt31(s, dStart, end)
+        require(DateTimeUtils.isValidDate(year, month, day)) { "$year-$month-$day" }
+        return dateValue(year.toLong(), month, day)
+    }
+
+    /**
+     * Parse a time string. The format is: hour:minute[:second[.nanos]],
+     * hhmm[ss[.nanos]], or hour.minute.second[.nanos].
+     *
+     * @param s the string to parse
+     * @param start the parse index start
+     * @param end the parse index end
+     * @return the time in nanoseconds
+     * @throws IllegalArgumentException if there is a problem
+     */
+    fun parseTimeNanos(s: String, start: Int, end: Int): Long {
+        val hour: Int
+        val minute: Int
+        val second: Int
+        val nanos: Int
+        var hEnd = s.indexOf(':', start)
+        val mStart: Int
+        var mEnd: Int
+        val sStart: Int
+        val sEnd: Int
+        if (hEnd > 0) {
+            mStart = hEnd + 1
+            mEnd = s.indexOf(':', mStart)
+            if (mEnd >= mStart) {
+                // Standard hour:minute:second[.nanos] format
+                sStart = mEnd + 1
+                sEnd = s.indexOf('.', sStart)
+            } else {
+                // Additional hour:minute format for compatibility
+                mEnd = end
+                sEnd = -1
+                sStart = sEnd
+            }
+        } else {
+            val t = s.indexOf('.', start)
+            if (t < 0) {
+                // Additional hhmm[ss] format for compatibility
+                mStart = start + 2
+                hEnd = mStart
+                mEnd = mStart + 2
+                val len = end - start
+                if (len == 6) {
+                    sStart = mEnd
+                    sEnd = -1
+                } else if (len == 4) {
+                    sEnd = -1
+                    sStart = sEnd
+                } else {
+                    throw IllegalArgumentException(s)
+                }
+            } else if (t >= start + 6) {
+                // Additional hhmmss.nanos format for compatibility
+                require(t - start == 6) { s }
+                mStart = start + 2
+                hEnd = mStart
+                sStart = mStart + 2
+                mEnd = sStart
+                sEnd = t
+            } else {
+                // Additional hour.minute.second[.nanos] IBM DB2 time format
+                hEnd = t
+                mStart = hEnd + 1
+                mEnd = s.indexOf('.', mStart)
+                require(mEnd > mStart) { s }
+                sStart = mEnd + 1
+                sEnd = s.indexOf('.', sStart)
+            }
+        }
+        hour = parseUInt31(s, start, hEnd)
+        require(hour < 24) { s }
+        minute = parseUInt31(s, mStart, mEnd)
+        if (sStart > 0) {
+            if (sEnd < 0) {
+                second = parseUInt31(s, sStart, end)
+                nanos = 0
+            } else {
+                second = parseUInt31(s, sStart, sEnd)
+                nanos = parseNanos(s, sEnd + 1, end)
+            }
+        } else {
+            nanos = 0
+            second = nanos
+        }
+        require(!(minute >= 60 || second >= 60)) { s }
+        return ((hour * 60L + minute) * 60 + second) * NANOS_PER_SECOND + nanos
+    }
+
+    /**
+     * Parses timestamp value from the specified string.
+     *
+     * @param s string to parse
+     * @param provider the cast information provider, may be {@code null} for Standard-compliant literals
+     * @param withTimeZone if {@code true} return {@link ValueTimestampTimeZone} instead of {@link ValueTimestamp}
+     * @return parsed timestamp
+     */
+    fun parseTimestamp(s: String, provider: CastDataProvider?, withTimeZone: Boolean): Value {
+        var dateEnd: Int = s.indexOf(' ')
+        if (dateEnd < 0) {// ISO 8601 compatibility
+            dateEnd = s.indexOf('T')
+            if (dateEnd < 0 && provider?.mode?.allowDB2TimestampFormat == true) {
+                // DB2 also allows dash between date and time
+                dateEnd = s.indexOf('-', s.indexOf('-', s.indexOf('-') + 1) + 1)
+            }
+        }
+        val timeStart: Int
+        if (dateEnd < 0) {
+            dateEnd = s.length
+            timeStart = -1
+        } else {
+            timeStart = dateEnd + 1
+        }
+        var dateValue = parseDateValue(s, 0, dateEnd)
+        var nanos: Long
+        var tz: TimeZoneProvider? = null
+        if (timeStart < 0) {
+            nanos = 0
+        } else {
+            dateEnd++
+            val timeEnd: Int
+            if (s.endsWith("Z")) {
+                tz = TimeZoneProvider.UTC
+                timeEnd = s.length - 1
+            } else {
+                var timeZoneStart = s.indexOf('+', dateEnd)
+                if (timeZoneStart < 0) {
+                    timeZoneStart = s.indexOf('-', dateEnd)
+                }
+                if (timeZoneStart >= 0) {
+                    // Allow [timeZoneName] part after time zone offset
+                    var offsetEnd = s.indexOf('[', timeZoneStart + 1)
+                    if (offsetEnd < 0) {
+                        offsetEnd = s.length
+                    }
+                    tz = TimeZoneProvider.ofId(s.substring(timeZoneStart, offsetEnd))
+                    if (s[timeZoneStart - 1] == ' ') {
+                        timeZoneStart--
+                    }
+                    timeEnd = timeZoneStart
+                } else {
+                    timeZoneStart = s.indexOf(' ', dateEnd)
+                    if (timeZoneStart > 0) {
+                        tz = TimeZoneProvider.ofId(s.substring(timeZoneStart + 1))
+                        timeEnd = timeZoneStart
+                    } else {
+                        timeEnd = s.length
+                    }
+                }
+            }
+            nanos = parseTimeNanos(s, dateEnd, timeEnd)
+        }
+
+        if (withTimeZone) {
+            if (tz == null) tz = provider?.currentTimeZone() ?: getTimeZone()
+            val tzSeconds: Int = if (tz !== TimeZoneProvider.UTC) tz.getTimeZoneOffsetUTC(tz.getEpochSecondsFromLocal(dateValue, nanos)) else 0
+            return ValueTimestampTimeZone.fromDateValueAndNanos(dateValue, nanos, tzSeconds)
+        }
+
+        if (tz != null) {
+            var seconds = tz.getEpochSecondsFromLocal(dateValue, nanos)
+            seconds += (provider?.currentTimeZone() ?: getTimeZone()).getTimeZoneOffsetUTC(seconds).toLong()
+            dateValue = dateValueFromLocalSeconds(seconds)
+            nanos = nanos % 1000000000 + nanosFromLocalSeconds(seconds)
+        }
+        return ValueTimestamp.fromDateValueAndNanos(dateValue, nanos)
+    }
+
+    /**
+     * Return the previous date value.
+     *
+     * @param dateValue
+     * the date value
+     * @return the previous date value
+     */
+    fun decrementDateValue(dateValue: Long): Long {
+        if (dayFromDateValue(dateValue) > 1) return dateValue - 1
+
+        var year = yearFromDateValue(dateValue)
+        var month = monthFromDateValue(dateValue)
+        if (month > 1) {
+            month--
+        } else {
+            month = 12
+            year--
+        }
+        return dateValue(year.toLong(), month, getDaysInMonth(year, month))
+    }
+
+    /**
+     * Append a date to the string builder.
+     *
+     * @param builder the target string builder
+     * @param dateValue the date value
+     * @return the specified string builder
+     */
+    fun appendDate(builder: StringBuilder, dateValue: Long): StringBuilder {
+        var y = yearFromDateValue(dateValue)
+        if (y < 1000 && y > -1000) {
+            if (y < 0) {
+                builder.append('-')
+                y = -y
+            }
+            StringUtils.appendZeroPadded(builder, 4, y.toLong())
+        } else {
+            builder.append(y)
+        }
+        builder.append('-').appendTwoDigits(monthFromDateValue(dateValue)).append('-')
+        return builder.appendTwoDigits(dayFromDateValue(dateValue))
+    }
+
+    /**
+     * Append a time to the string builder.
+     *
+     * @param builder the target string builder
+     * @param nanos the time in nanoseconds
+     * @return the specified string builder
+     */
+    fun appendTime(builder: StringBuilder, nanos: Long): StringBuilder {
+        var nanos = nanos
+        if (nanos < 0) {
+            builder.append('-')
+            nanos = -nanos
+        }
+        /*
+         * nanos now either in range from 0 to Long.MAX_VALUE or equals to
+         * Long.MIN_VALUE. We need to divide nanos by 1,000,000,000 with
+         * unsigned division to get correct result. The simplest way to do this
+         * with such constraints is to divide -nanos by -1,000,000,000.
+         */
+        var s = -nanos / -1000000000
+        nanos -= s * 1000000000
+        var m = (s / 60).toInt()
+        s -= (m * 60).toLong()
+        val h = m / 60
+        m -= h * 60
+        builder.appendTwoDigits(h).append(':')
+        builder.appendTwoDigits(m).append(':')
+        builder.appendTwoDigits(s.toInt())
+        return appendNanos(builder, nanos.toInt())
     }
 }
