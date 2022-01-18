@@ -94,6 +94,10 @@ class ValueInterval private constructor(private val valueType: Int = 0,
 
     override val type: TypeInfo = TypeInfo.getTypeInfo(valueType)
 
+    override fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder {
+        return IntervalUtils.appendInterval(builder, getQualifier(), negative, leading, remaining)
+    }
+
     override fun getValueType(): Int = valueType
 
     override fun getMemory(): Int = 48// Java 11 with -XX:-UseCompressedOops
@@ -140,9 +144,8 @@ class ValueInterval private constructor(private val valueType: Int = 0,
                 v = from(v.getQualifier(), v.isNegative(), l, r)
             }
         }
-        if (!v.checkPrecision(targetType.precision)) {
-            throw v.getValueTooLongException(targetType, column)
-        }
+        if (!v.checkPrecision(targetType.precision)) throw v.getValueTooLongException(targetType, column)
+
         return v
     }
 
@@ -225,7 +228,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
 
     override fun add(v: Value): Value {
         return IntervalUtils.intervalFromAbsolute(getQualifier(),
-                IntervalUtils.intervalToAbsolute(this).add(IntervalUtils.intervalToAbsolute(v as ValueInterval)))
+                IntervalUtils.intervalToAbsolute(this).add(IntervalUtils.intervalToAbsolute((v as ValueInterval))))
     }
 
     override fun subtract(v: Value): Value {
