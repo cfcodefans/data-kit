@@ -138,14 +138,10 @@ open class TypeInfo(
          * Get the data type with parameters object for the given value type and the
          * specified parameters.
          *
-         * @param type
-         * the value type
-         * @param precision
-         * the precision or `-1L` for default
-         * @param scale
-         * the scale or `-1` for default
-         * @param extTypeInfo
-         * the extended type information or null
+         * @param type the value type
+         * @param precision the precision or `-1L` for default
+         * @param scale the scale or `-1` for default
+         * @param extTypeInfo the extended type information or null
          * @return the data type with parameters object
          */
         fun getTypeInfo(type: Int, precision: Long, scale: Int, extTypeInfo: ExtTypeInfo?): TypeInfo? {
@@ -156,9 +152,7 @@ open class TypeInfo(
                 NULL, Value.BOOLEAN, Value.TINYINT, Value.SMALLINT, Value.INTEGER, Value.BIGINT, Value.DATE, Value.UUID -> return TYPE_INFOS_BY_VALUE_TYPE[type]
                 UNKNOWN -> return TYPE_UNKNOWN
                 Value.CHAR -> {
-                    if (precision < 1) return TYPE_CHAR
-                    if (precision > MAX_STRING_LENGTH) precision = MAX_STRING_LENGTH.toLong()
-                    return TypeInfo(Value.CHAR, precision)
+                    return if (precision < 1) TYPE_CHAR else TypeInfo(Value.CHAR, precision.coerceAtMost(MAX_STRING_LENGTH.toLong()))
                 }
                 Value.VARCHAR -> {
                     if (precision < 1 || precision >= MAX_STRING_LENGTH) {
@@ -167,49 +161,33 @@ open class TypeInfo(
                     }
                     return TypeInfo(Value.VARCHAR, precision)
                 }
-                Value.CLOB -> {
-                    return if (precision < 1) TYPE_CLOB else TypeInfo(Value.CLOB, precision)
-                }
+                Value.CLOB -> return if (precision < 1) TYPE_CLOB else TypeInfo(Value.CLOB, precision)
                 Value.VARCHAR_IGNORECASE -> {
                     if (precision < 1 || precision >= MAX_STRING_LENGTH) {
-                        if (precision != 0L) {
-                            return TYPE_VARCHAR_IGNORECASE
-                        }
+                        if (precision != 0L) return TYPE_VARCHAR_IGNORECASE
                         precision = 1
                     }
                     return TypeInfo(Value.VARCHAR_IGNORECASE, precision)
                 }
-                Value.BINARY -> {
-                    return TypeInfo(Value.BINARY, min(precision, MAX_STRING_LENGTH.toLong()))
-                }
+                Value.BINARY -> return TypeInfo(Value.BINARY, min(precision, MAX_STRING_LENGTH.toLong()))
                 Value.VARBINARY -> {
                     if (precision < 1 || precision >= MAX_STRING_LENGTH) {
-                        if (precision != 0L) {
-                            return TYPE_VARBINARY
-                        }
+                        if (precision != 0L) return TYPE_VARBINARY
                         precision = 1
                     }
                     return TypeInfo(Value.VARBINARY, precision)
                 }
-                Value.BLOB -> {
-                    return if (precision < 1) TYPE_BLOB else TypeInfo(Value.BLOB, precision)
-                }
+                Value.BLOB -> return if (precision < 1) TYPE_BLOB else TypeInfo(Value.BLOB, precision)
                 Value.NUMERIC -> {
                     return TypeInfo(Value.NUMERIC,
                             if (precision < 1) -1 else if (precision > MAX_NUMERIC_PRECISION) MAX_NUMERIC_PRECISION.toLong() else precision,
                             if (scale < 0) -1 else if (scale > ValueNumeric.MAXIMUM_SCALE) ValueNumeric.MAXIMUM_SCALE else scale,
                             extTypeInfo as? ExtTypeInfoNumeric)
                 }
-                Value.REAL -> {
-                    return if (precision in 1..24) {
-                        TypeInfo(Value.REAL, precision, -1, extTypeInfo)
-                    } else TypeInfo.TYPE_REAL
-                }
-                Value.DOUBLE -> {
-                    return if (precision == 0L || precision >= 25 && precision <= 53) {
-                        TypeInfo(Value.DOUBLE, precision, -1, extTypeInfo)
-                    } else TypeInfo.TYPE_DOUBLE
-                }
+                Value.REAL -> return if (precision in 1..24) TypeInfo(Value.REAL, precision, -1, extTypeInfo) else TypeInfo.TYPE_REAL
+                Value.DOUBLE -> return if (precision == 0L || precision >= 25 && precision <= 53) {
+                    TypeInfo(Value.DOUBLE, precision, -1, extTypeInfo)
+                } else TypeInfo.TYPE_DOUBLE
                 Value.DECFLOAT -> {
                     if (precision < 1) {
                         precision = -1L

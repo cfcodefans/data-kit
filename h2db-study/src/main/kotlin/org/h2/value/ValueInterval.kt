@@ -1,6 +1,7 @@
 package org.h2.value
 
 import com.google.common.base.Objects
+import org.h2.api.ErrorCode
 import org.h2.api.Interval
 import org.h2.api.IntervalQualifier
 import org.h2.engine.CastDataProvider
@@ -90,6 +91,123 @@ class ValueInterval private constructor(private val valueType: Int = 0,
                 DateTimeUtils.NANOS_PER_HOUR,  // INTERVAL_MINUTE_TO_SECOND
                 DateTimeUtils.NANOS_PER_MINUTE //
         )
+
+        fun Value.convertToIntervalYearMonth(targetType: TypeInfo, conversionMode: Int, column: Any): ValueInterval {
+            val v = convertToIntervalYearMonth(targetType.valueType, column)
+            if (conversionMode != CONVERT_TO) {
+                if (!v.checkPrecision(targetType.precision)) throw v.getValueTooLongException(targetType, column)
+            }
+            return v
+        }
+
+        val MONTH12_BD: BigDecimal = BigDecimal.valueOf(12)
+
+        private fun Value.convertToIntervalYearMonth(targetType: Int, column: Any): ValueInterval {
+            var leading: Long
+            when (getValueType()) {
+                TINYINT, SMALLINT, INTEGER -> leading = getInt().toLong()
+                BIGINT -> leading = getLong()
+                REAL, DOUBLE -> {
+                    if (targetType == INTERVAL_YEAR_TO_MONTH) {
+                        return IntervalUtils.intervalFromAbsolute(
+                                IntervalQualifier.YEAR_TO_MONTH,
+                                getBigDecimal().multiply(MONTH12_BD).setScale(0, RoundingMode.HALF_UP).toBigInteger())
+                    }
+                    leading = convertToLong(getDouble(), column)
+                }
+                NUMERIC, DECFLOAT -> {
+                    if (targetType == INTERVAL_YEAR_TO_MONTH) {
+                        return IntervalUtils.intervalFromAbsolute(IntervalQualifier.YEAR_TO_MONTH,
+                                getBigDecimal().multiply(MONTH12_BD).setScale(0, RoundingMode.HALF_UP).toBigInteger())
+                    }
+                    leading = convertToLong(getBigDecimal(), column)
+                }
+                VARCHAR, VARCHAR_IGNORECASE, CHAR -> {
+                    val s: String? = getString()
+                    return try {
+                        IntervalUtils
+                                .parseFormattedInterval(IntervalQualifier.valueOf(targetType - INTERVAL_YEAR), s!!)
+                                .convertTo(targetType) as ValueInterval
+                    } catch (e: Exception) {
+                        throw DbException.get(ErrorCode.INVALID_DATETIME_CONSTANT_2, e, "INTERVAL", s)
+                    }
+                }
+                INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_YEAR_TO_MONTH -> return IntervalUtils.intervalFromAbsolute(
+                        IntervalQualifier.valueOf(targetType - INTERVAL_YEAR),
+                        IntervalUtils.intervalToAbsolute((this as ValueInterval)))
+                else -> throw getDataConversionError(targetType)
+            }
+            var negative = false
+            if (leading < 0) {
+                negative = true
+                leading = -leading
+            }
+            return from(IntervalQualifier.valueOf(targetType - INTERVAL_YEAR), negative, leading, 0L)
+        }
+
+        internal fun Value.convertToIntervalDayTime(targetType: TypeInfo, conversionMode: Int, column: Any): ValueInterval? {
+            var v = convertToIntervalDayTime(targetType.valueType, column)
+            if (conversionMode != CONVERT_TO) {
+                v = v!!.setPrecisionAndScale(targetType, column)
+            }
+            return v
+        }
+
+        private fun Value.convertToIntervalDayTime(bigDecimal: BigDecimal, targetType: Int): ValueInterval? {
+            val multiplier: Long = when (targetType) {
+                INTERVAL_SECOND -> DateTimeUtils.NANOS_PER_SECOND
+                INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND -> DateTimeUtils.NANOS_PER_DAY
+                INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND -> DateTimeUtils.NANOS_PER_HOUR
+                INTERVAL_MINUTE_TO_SECOND -> DateTimeUtils.NANOS_PER_MINUTE
+                else -> throw getDataConversionError(targetType)
+            }
+            return IntervalUtils.intervalFromAbsolute(
+                    IntervalQualifier.valueOf(targetType - INTERVAL_YEAR),
+                    bigDecimal
+                            .multiply(BigDecimal.valueOf(multiplier))
+                            .setScale(0, RoundingMode.HALF_UP)
+                            .toBigInteger())
+        }
+
+        private fun Value.convertToIntervalDayTime(targetType: Int, column: Any): ValueInterval? {
+            var leading: Long
+            when (getValueType()) {
+                TINYINT, SMALLINT, INTEGER -> leading = getInt().toLong()
+                BIGINT -> leading = getLong()
+                REAL, DOUBLE -> {
+                    if (targetType > INTERVAL_MINUTE) {
+                        return convertToIntervalDayTime(getBigDecimal(), targetType)
+                    }
+                    leading = convertToLong(getDouble(), column)
+                }
+                NUMERIC, DECFLOAT -> {
+                    if (targetType > INTERVAL_MINUTE) {
+                        return convertToIntervalDayTime(getBigDecimal(), targetType)
+                    }
+                    leading = convertToLong(getBigDecimal(), column)
+                }
+                VARCHAR, VARCHAR_IGNORECASE, CHAR -> {
+                    val s: String = getString()!!
+                    return try {
+                        IntervalUtils
+                                .parseFormattedInterval(IntervalQualifier.valueOf(targetType - INTERVAL_YEAR), s)
+                                .convertTo(targetType) as ValueInterval
+                    } catch (e: java.lang.Exception) {
+                        throw DbException.get(ErrorCode.INVALID_DATETIME_CONSTANT_2, e, "INTERVAL", s)
+                    }
+                }
+                INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND ->
+                    return IntervalUtils.intervalFromAbsolute(IntervalQualifier.valueOf(targetType - INTERVAL_YEAR),
+                        IntervalUtils.intervalToAbsolute((this as ValueInterval)))
+                else -> throw getDataConversionError(targetType)
+            }
+            var negative = false
+            if (leading < 0) {
+                negative = true
+                leading = -leading
+            }
+            return from(IntervalQualifier.valueOf(targetType - INTERVAL_YEAR), negative, leading, 0L)
+        }
     }
 
     override val type: TypeInfo = TypeInfo.getTypeInfo(valueType)
