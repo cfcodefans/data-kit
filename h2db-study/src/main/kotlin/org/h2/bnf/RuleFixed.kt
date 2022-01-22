@@ -152,7 +152,7 @@ open class RuleFixed(val type: Int) : Rule {
 
         if (s != sentence.query) {
             // can not always remove spaces here, because a repeat
-            // rule for a-z would remove multiple words
+            // rule for a-z would remove multiple words,
             // but we have to remove spaces after '||'
             // and after ']'
             if (removeTrailingSpaces) {

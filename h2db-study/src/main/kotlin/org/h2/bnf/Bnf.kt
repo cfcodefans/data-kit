@@ -28,7 +28,7 @@ open class Bnf(
     var index: Int = 0,
     var lastRepeat: Rule? = null,
     var statements: ArrayList<RuleHead>? = null,
-    var currentTopic: String? = null,
+    var currentTopic: String? = null
 ) {
 
 
