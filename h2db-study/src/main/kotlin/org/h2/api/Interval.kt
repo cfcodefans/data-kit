@@ -40,7 +40,7 @@ class Interval(val qualifier: IntervalQualifier,
          */
         fun ofYears(years: Long): Interval = Interval(qualifier = YEAR,
                 negative = years < 0,
-                leading = abs(years),
+                leading = kotlin.math.abs(years),
                 remaining = 0)
 
         /**
@@ -50,7 +50,7 @@ class Interval(val qualifier: IntervalQualifier,
          * months, |months|&lt;10<sup>18</sup>
          * @return INTERVAL MONTH
          */
-        fun ofMonths(months: Long): Interval = Interval(MONTH, months < 0, abs(months), 0)
+        fun ofMonths(months: Long): Interval = Interval(MONTH, months < 0, kotlin.math.abs(months), 0)
 
         /**
          * Creates a new INTERVAL DAY.

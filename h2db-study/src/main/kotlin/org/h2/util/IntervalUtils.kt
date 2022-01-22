@@ -2,7 +2,19 @@ package org.h2.util
 
 import org.h2.api.ErrorCode
 import org.h2.api.IntervalQualifier
-import org.h2.api.IntervalQualifier.*
+import org.h2.api.IntervalQualifier.DAY
+import org.h2.api.IntervalQualifier.DAY_TO_HOUR
+import org.h2.api.IntervalQualifier.DAY_TO_MINUTE
+import org.h2.api.IntervalQualifier.DAY_TO_SECOND
+import org.h2.api.IntervalQualifier.HOUR
+import org.h2.api.IntervalQualifier.HOUR_TO_MINUTE
+import org.h2.api.IntervalQualifier.HOUR_TO_SECOND
+import org.h2.api.IntervalQualifier.MINUTE
+import org.h2.api.IntervalQualifier.MINUTE_TO_SECOND
+import org.h2.api.IntervalQualifier.MONTH
+import org.h2.api.IntervalQualifier.SECOND
+import org.h2.api.IntervalQualifier.YEAR
+import org.h2.api.IntervalQualifier.YEAR_TO_MONTH
 import org.h2.message.DbException
 import org.h2.util.DateTimeUtils.NANOS_PER_DAY
 import org.h2.util.DateTimeUtils.NANOS_PER_MINUTE
@@ -334,9 +346,38 @@ object IntervalUtils {
                 .add(BigInteger.valueOf(interval.remaining))
     }
 
+    /**
+     * Converts absolute value to an interval value.
+     *
+     * @param qualifier the qualifier of interval
+     * @param absolute absolute value in months for year-month intervals, in nanoseconds for day-time intervals
+     * @return the interval value
+     */
+    fun intervalFromAbsolute(qualifier: IntervalQualifier?, absolute: BigInteger): ValueInterval {
+        val negative: Boolean = absolute.signum() < 0
+
+        return when (qualifier) {
+            YEAR -> ValueInterval.from(qualifier, negative, leadingExact(absolute.divide(MONTHS_PER_YEAR_BI)), 0)
+            MONTH -> ValueInterval.from(qualifier, negative, leadingExact(absolute), 0)
+            DAY -> ValueInterval.from(qualifier, negative, leadingExact(absolute.divide(NANOS_PER_DAY_BI)), 0)
+            HOUR -> ValueInterval.from(qualifier, negative, leadingExact(absolute.divide(NANOS_PER_HOUR_BI)), 0)
+            MINUTE -> ValueInterval.from(qualifier, negative, leadingExact(absolute.divide(NANOS_PER_MINUTE_BI)), 0)
+            SECOND -> intervalFromAbsolute(qualifier, absolute, NANOS_PER_SECOND_BI)
+
+            YEAR_TO_MONTH -> intervalFromAbsolute(qualifier, absolute, MONTHS_PER_YEAR_BI)
+            DAY_TO_HOUR -> intervalFromAbsolute(qualifier, absolute.divide(NANOS_PER_HOUR_BI), HOURS_PER_DAY_BI)
+            DAY_TO_MINUTE -> intervalFromAbsolute(qualifier, absolute.divide(NANOS_PER_MINUTE_BI), MINUTES_PER_DAY_BI)
+            DAY_TO_SECOND -> intervalFromAbsolute(qualifier, absolute, NANOS_PER_DAY_BI)
+            HOUR_TO_MINUTE -> intervalFromAbsolute(qualifier, absolute.divide(NANOS_PER_MINUTE_BI), MINUTES_PER_HOUR_BI)
+            HOUR_TO_SECOND -> intervalFromAbsolute(qualifier, absolute, NANOS_PER_HOUR_BI)
+            MINUTE_TO_SECOND -> intervalFromAbsolute(qualifier, absolute, NANOS_PER_MINUTE_BI)
+            else -> throw IllegalArgumentException()
+        }
+    }
+
     fun intervalFromAbsolute(qualifier: IntervalQualifier, absolute: BigInteger, divisor: BigInteger): ValueInterval {
         val dr = absolute.divideAndRemainder(divisor)
-        return ValueInterval.from(qualifier, absolute.signum() < 0, leadingExact(dr[0]), Math.abs(dr[1].toLong()))
+        return ValueInterval.from(qualifier, absolute.signum() < 0, leadingExact(dr[0]), abs(dr[1].toLong()))
     }
 
     private fun leadingExact(absolute: BigInteger): Long {

@@ -18,6 +18,9 @@ import org.h2.value.ValueClob.Companion.convertToClob
 import org.h2.value.ValueDate.Companion.convertToDate
 import org.h2.value.ValueDecfloat.Companion.convertToDecfloat
 import org.h2.value.ValueEnum.Companion.convertToEnum
+import org.h2.value.ValueInterval.Companion.convertToIntervalDayTime
+import org.h2.value.ValueInterval.Companion.convertToIntervalYearMonth
+import org.h2.value.ValueJavaObject.Companion.convertToJavaObject
 import org.h2.value.ValueTime.Companion.convertToTime
 import org.h2.value.ValueTimeTimeZone.Companion.convertToTimeTimeZone
 import org.h2.value.ValueTimestamp.Companion.convertToTimestamp
@@ -980,8 +983,8 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_YEAR_TO_MONTH -> convertToIntervalYearMonth(targetType, conversionMode, column)
             INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> convertToIntervalDayTime(targetType, conversionMode, column)
             JAVA_OBJECT -> convertToJavaObject(targetType, conversionMode, column)
-            ENUM -> convertToEnum(targetType.getExtTypeInfo() as ExtTypeInfoEnum?, provider)
-            GEOMETRY -> convertToGeometry(targetType.getExtTypeInfo() as ExtTypeInfoGeometry?)
+            ENUM -> convertToEnum(targetType.extTypeInfo as ExtTypeInfoEnum, provider)
+            GEOMETRY -> convertToGeometry(targetType.extTypeInfo as ExtTypeInfoGeometry?)
             JSON -> convertToJson(targetType, conversionMode, column)
             UUID -> convertToUuid()
             ARRAY -> convertToArray(targetType, provider, conversionMode, column)
