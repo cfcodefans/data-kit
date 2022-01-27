@@ -59,8 +59,15 @@ object DateTimeUtils {
      */
     const val SECONDS_PER_DAY = (24 * 60 * 60).toLong()
 
-    private const val SHIFT_YEAR: Int = 9
-    private const val SHIFT_MONTH: Int = 5
+    /**
+     * The offset of year bits in date values.
+     */
+    const val SHIFT_YEAR = 9
+
+    /**
+     * The offset of month bits in date values.
+     */
+    const val SHIFT_MONTH = 5
 
     /**
      * Minimum possible date value.

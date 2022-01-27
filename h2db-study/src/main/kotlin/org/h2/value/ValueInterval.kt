@@ -92,7 +92,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
                 DateTimeUtils.NANOS_PER_MINUTE //
         )
 
-        fun Value.convertToIntervalYearMonth(targetType: TypeInfo, conversionMode: Int, column: Any): ValueInterval {
+        fun Value.convertToIntervalYearMonth(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueInterval {
             val v = convertToIntervalYearMonth(targetType.valueType, column)
             if (conversionMode != CONVERT_TO) {
                 if (!v.checkPrecision(targetType.precision)) throw v.getValueTooLongException(targetType, column)
@@ -102,7 +102,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
 
         val MONTH12_BD: BigDecimal = BigDecimal.valueOf(12)
 
-        private fun Value.convertToIntervalYearMonth(targetType: Int, column: Any): ValueInterval {
+        private fun Value.convertToIntervalYearMonth(targetType: Int, column: Any?): ValueInterval {
             var leading: Long
             when (getValueType()) {
                 TINYINT, SMALLINT, INTEGER -> leading = getInt().toLong()
@@ -145,7 +145,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
             return from(IntervalQualifier.valueOf(targetType - INTERVAL_YEAR), negative, leading, 0L)
         }
 
-        internal fun Value.convertToIntervalDayTime(targetType: TypeInfo, conversionMode: Int, column: Any): ValueInterval? {
+        internal fun Value.convertToIntervalDayTime(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueInterval? {
             var v = convertToIntervalDayTime(targetType.valueType, column)
             if (conversionMode != CONVERT_TO) {
                 v = v!!.setPrecisionAndScale(targetType, column)
@@ -169,7 +169,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
                             .toBigInteger())
         }
 
-        private fun Value.convertToIntervalDayTime(targetType: Int, column: Any): ValueInterval? {
+        private fun Value.convertToIntervalDayTime(targetType: Int, column: Any?): ValueInterval? {
             var leading: Long
             when (getValueType()) {
                 TINYINT, SMALLINT, INTEGER -> leading = getInt().toLong()

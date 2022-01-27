@@ -17,7 +17,7 @@ class ValueEnum(val enumerators: ExtTypeInfoEnum, label: String, ordinal: Int) :
          * @param provider the cast information provider
          * @return the ENUM value
          */
-        fun Value.convertToEnum(extTypeInfo: ExtTypeInfoEnum, provider: CastDataProvider): ValueEnum = when (getValueType()) {
+        fun Value.convertToEnum(extTypeInfo: ExtTypeInfoEnum, provider: CastDataProvider?): ValueEnum = when (getValueType()) {
             ENUM -> {
                 val v = this as ValueEnum
                 if (extTypeInfo == v.enumerators) v else extTypeInfo.getValue(v.getString(), provider)

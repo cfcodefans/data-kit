@@ -53,7 +53,7 @@ class ValueVarbinary(value: ByteArray) : ValueBytesBase(value) {
          */
         operator fun get(b: ByteArray): ValueVarbinary = if (b.isEmpty()) EMPTY else getNoCopy(Utils.cloneByteArray(b)!!)
 
-        internal fun Value.convertToVarbinary(targetType: TypeInfo, conversionMode: Int, column: Any): ValueVarbinary {
+        internal fun Value.convertToVarbinary(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueVarbinary {
             val v: ValueVarbinary = if (getValueType() == VARBINARY) {
                 this as ValueVarbinary
             } else {

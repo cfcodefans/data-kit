@@ -133,7 +133,7 @@ class ValueBlob(lobData: LobData, octetLength: Long) : ValueLob(
             return 0
         }
 
-        fun Value.convertToBlob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBlob {
+        fun Value.convertToBlob(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueBlob {
             val v: ValueBlob = getValueType().let { vt ->
                 if (vt == BLOB) return@let (this as ValueBlob)
 

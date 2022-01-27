@@ -27,20 +27,19 @@ object JTSUtils {
     /**
      * Converter output target that creates a JTS Geometry.
      */
-    class GeometryTarget(private val dimensionSystem: Int, private var factory: GeometryFactory? = nul) : GeometryUtils.Target() {
+    class GeometryTarget(private val dimensionSystem: Int, private var factory: GeometryFactory? = null) : GeometryUtils.Target() {
 
         private var type = 0
         private var coordinates: CoordinateSequence? = null
         private var innerCoordinates: Array<CoordinateSequence?> = emptyArray()
         private var innerOffset = 0
-        private var subgeometries: Array<out Geometry?> = emptyArray()
+        private var subgeometries: Array<Geometry?> = emptyArray()
 
         /**
          * Creates a new instance of JTS Geometry target.
          *
          * @param dimensionSystem dimension system to use
          */
-
         override fun init(srid: Int) {
             factory = GeometryFactory(PrecisionModel(), srid,
                     if (dimensionSystem and GeometryUtils.DIMENSION_SYSTEM_XYM != 0) PackedCoordinateSequenceFactory.DOUBLE_FACTORY else CoordinateArraySequenceFactory.instance())
