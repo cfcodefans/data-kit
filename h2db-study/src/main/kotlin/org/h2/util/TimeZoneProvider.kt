@@ -1,6 +1,7 @@
 package org.h2.util
 
 import org.h2.util.DateTimeUtils.getEpochSeconds
+import java.time.ZoneId
 
 /**
  * Provides access to time zone API.
@@ -69,12 +70,103 @@ abstract class TimeZoneProvider {
         /**
          * A small cache for timezone providers.
          */
-        var CACHE: Array<TimeZoneProvider>
+        lateinit var CACHE: Array<TimeZoneProvider?>
 
         /**
          * The number of cache elements (needs to be a power of 2).
          */
         private const val CACHE_SIZE = 32
+
+        /**
+         * Returns the time zone provider with the specified name.
+         *
+         * @param id  the ID of the time zone
+         * @return the time zone provider with the specified name
+         * @throws RuntimeException if time zone with specified ID isn't known
+         */
+        @Throws(RuntimeException::class)
+        open fun ofId(id: String): TimeZoneProvider? {
+            val length = id.length
+            if (length == 1 && id[0] == 'Z') return UTC
+
+            var index = 0
+            if (id.startsWith("GMT") || id.startsWith("UTC")) {
+                if (length == 3) return UTC
+                index = 3
+            }
+            if (length > index) {
+                var negative = id[index] == '-'
+                var c = if (length > index + 1) id[++index] else id[index]
+                if (index != 3 && c >= '0' && c <= '9') {
+                    var hour = c - '0'
+                    if (++index < length) {
+                        c = id[index]
+                        if (c >= '0' && c <= '9') {
+                            hour = hour * 10 + c.code - '0'.code
+                            index++
+                        }
+                    }
+                    if (index == length) {
+                        val offset = hour * 3600
+                        return TimeZoneProvider.ofOffset(if (negative) -offset else offset)
+                    }
+                    if (id[index] == ':') {
+                        if (++index < length) {
+                            c = id[index]
+                            if (c >= '0' && c <= '9') {
+                                var minute = c - '0'
+                                if (++index < length) {
+                                    c = id[index]
+                                    if (c >= '0' && c <= '9') {
+                                        minute = minute * 10 + c.code - '0'.code
+                                        index++
+                                    }
+                                }
+                                if (index == length) {
+                                    val offset = (hour * 60 + minute) * 60
+                                    return TimeZoneProvider.ofOffset(if (negative) -offset else offset)
+                                }
+                                if (id[index] == ':') {
+                                    if (++index < length) {
+                                        c = id[index]
+                                        if (c >= '0' && c <= '9') {
+                                            var second = c - '0'
+                                            if (++index < length) {
+                                                c = id[index]
+                                                if (c >= '0' && c <= '9') {
+                                                    second = second * 10 + c.code - '0'.code
+                                                    index++
+                                                }
+                                            }
+                                            if (index == length) {
+                                                val offset = (hour * 60 + minute) * 60 + second
+                                                return TimeZoneProvider.ofOffset(if (negative) -offset else offset)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                require(index <= 0) { id }
+            }
+            val hash = id.hashCode() and CACHE_SIZE - 1
+            var cache: Array<TimeZoneProvider?> = CACHE
+            if (cache != null) {
+                val provider = cache[hash]
+                if (provider != null && provider.getId() == id) {
+                    return provider
+                }
+            }
+            val provider: TimeZoneProvider = WithTimeZone(ZoneId.of(id, ZoneId.SHORT_IDS))
+            if (cache == null) {
+                cache = arrayOfNulls(CACHE_SIZE)
+                CACHE = cache
+            }
+            cache[hash] = provider
+            return provider
+        }
 
         /**
          * Time zone provider with offset.
