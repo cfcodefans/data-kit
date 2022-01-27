@@ -30,7 +30,6 @@ object JTSUtils {
          *
          * @param dimensionSystem dimension system to use
          */
-
         override fun init(srid: Int) {
             factory = GeometryFactory(
                 PrecisionModel(), srid,

@@ -50,7 +50,7 @@ class ValueBinary(value: ByteArray) : ValueBytesBase(value) {
          */
         operator fun get(b: ByteArray): ValueBinary = getNoCopy(Utils.cloneByteArray(b)!!)
 
-        fun Value.convertToBinary(targetType: TypeInfo, conversionMode: Int, column: Any): ValueBinary {
+        fun Value.convertToBinary(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueBinary {
             var v: ValueBinary = if (getValueType() == BINARY) {
                 this as ValueBinary
             } else {

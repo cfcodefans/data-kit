@@ -178,7 +178,7 @@ class ValueClob(lobData: LobData, octetLen: Long, charLen: Long) : ValueLob(lobD
             }
         }
 
-        internal fun Value.convertToClob(targetType: TypeInfo, conversionMode: Int, column: Any): ValueClob {
+        internal fun Value.convertToClob(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueClob {
             var v: ValueClob = when (getValueType()) {
                 CLOB -> this as ValueClob
                 JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)

@@ -5,7 +5,6 @@ import org.h2.engine.CastDataProvider
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
 import org.h2.util.Bits
-import org.h2.util.DateTimeUtils
 import org.h2.util.HasSQL
 import org.h2.util.Typed
 import org.h2.value.TypeInfo.Companion.getTypeInfo
@@ -947,7 +946,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param column the column (if any), used to improve the error message if conversion fails
      * @return the converted value
      */
-    fun convertTo(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): Value {
+    fun convertTo(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): Value? {
         val valueType = getValueType()
         val targetValueType: Int = targetType.valueType
 
@@ -981,7 +980,11 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             TIMESTAMP -> convertToTimestamp(targetType, provider, conversionMode)
             TIMESTAMP_TZ -> convertToTimestampTimeZone(targetType, provider, conversionMode)
             INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_YEAR_TO_MONTH -> convertToIntervalYearMonth(targetType, conversionMode, column)
-            INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> convertToIntervalDayTime(targetType, conversionMode, column)
+            INTERVAL_DAY, INTERVAL_HOUR,
+            INTERVAL_MINUTE, INTERVAL_SECOND,
+            INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
+            INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE,
+            INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> convertToIntervalDayTime(targetType, conversionMode, column)
             JAVA_OBJECT -> convertToJavaObject(targetType, conversionMode, column)
             ENUM -> convertToEnum(targetType.extTypeInfo as ExtTypeInfoEnum, provider)
             GEOMETRY -> convertToGeometry(targetType.extTypeInfo as ExtTypeInfoGeometry?)
@@ -993,7 +996,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         }
     }
 
-    private fun convertToNumeric(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): ValueNumeric {
+    private fun convertToNumeric(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any?): ValueNumeric {
         var v: ValueNumeric
         when (getValueType()) {
             NUMERIC -> v = this as ValueNumeric
@@ -1072,6 +1075,17 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
     }
 
     /**
+     * Convert a value to the specified type without taking scale and precision into account.
+     *
+     * @param targetType the type of the returned value
+     * @param provider the cast information provider
+     * @return the converted value
+     */
+    fun convertTo(targetType: TypeInfo?, provider: CastDataProvider?): Value {
+        return convertTo(targetType!!, provider!!, CONVERT_TO, null)
+    }
+
+    /**
      * Convert a value to the specified type without taking scale and precision
      * into account.
      *
@@ -1079,6 +1093,17 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @return the converted value
      */
     fun convertTo(targetType: Int): Value = convertTo(targetType, null)
+
+    /**
+     * Convert a value to the specified type without taking scale and precision
+     * into account.
+     *
+     * @param targetType the type of the returned value
+     * @return the converted value
+     */
+    fun convertTo(targetType: TypeInfo?): Value? {
+        return convertTo(targetType!!, null, CONVERT_TO, null)
+    }
 
     /**
      * Create an exception meaning the specified operation is not supported for

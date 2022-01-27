@@ -1,12 +1,14 @@
 package org.h2.value
 
 import org.h2.api.ErrorCode
+import org.h2.api.H2Type
 import org.h2.api.Interval
 import org.h2.api.IntervalQualifier
 import org.h2.api.TimestampWithTimeZone
+import org.h2.engine.Constants
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
-import org.h2.util.JSR310
+import org.h2.util.JSR310Utils
 import org.h2.util.JdbcUtils
 import java.math.BigDecimal
 import java.sql.*
@@ -16,137 +18,221 @@ import java.sql.*
  *  and can convert between Java objects and Values.
  */
 open class DataType(
-    /**
-     * The value type of this data type.
-     */
-    val type: Int = 0,
-    /**
-     * The data type name.
-     */
-    val name: String? = null,
-    /**
-     * The SQL type.
-     */
-    val sqlType: Int = 0,
-    /**
-     * How closely the data type maps to the corresponding JDBC SQL type (low is best).
-     */
-    val sqlTypePos: Int = 0,
-    /**
-     * The maxium supported precision.
-     */
-    val maxPrecision: Long = 0L,
-    /**
-     * The lowest possible scale.
-     */
-    val minScale: Int = 0,
-    /**
-     * The highest possible scale.
-     */
-    val maxScale: Int = 0,
-    /**
-     * If this is a numeric type.
-     */
-    val decimal: Boolean = false,
-    /**
-     * The prefix required for the SQL literal representation.
-     */
-    val prefix: String? = null,
-    /**
-     * The suffix required for the SQL literal representation.
-     */
-    val suffix: String? = null,
-    /**
-     * The list of parameters used in the column definition.
-     */
-    val params: String? = null,
-    /**
-     * If this is an autoincrement type.
-     */
-    val autoIncrement: Boolean = false,
-    /**
-     * If this data type is case sensitive.
-     */
-    val caseSensitive: Boolean = false,
-    /**
-     * If the precision parameter is supported.
-     */
-    val supportsPrecision: Boolean = false,
-    /**
-     * If the scale parameter is supported.
-     */
-    val supportsScale: Boolean = false,
-    /**
-     * The default precision.
-     */
-    val defaultPrecision: Long = 0L,
-    /**
-     * The default scale.
-     */
-    val defaultScale: Int = 0,
-    /**
-     * If this data type should not be listed in the database meta data.
-     */
-    val hidden: Boolean = false,
-) {
+        /**
+         * The value type of this data type.
+         */
+        var type: Int = 0,
+        /**
+         * The SQL type.
+         */
+        var sqlType: Int = 0,
+        /**
+         * The minimum supported precision.
+         */
+        var minPrecision: Long = 0,
+        /**
+         * The maxium supported precision.
+         */
+        var maxPrecision: Long = 0L,
+        /**
+         * The lowest possible scale.
+         */
+        var minScale: Int = 0,
+        /**
+         * The highest possible scale.
+         */
+        var maxScale: Int = 0,
+        /**
+         * The prefix required for the SQL literal representation.
+         */
+        var prefix: String? = null,
+        /**
+         * The suffix required for the SQL literal representation.
+         */
+        var suffix: String? = null,
+        /**
+         * The list of parameters used in the column definition.
+         */
+        var params: String? = null,
+        /**
+         * If this data type is case sensitive.
+         */
+        var caseSensitive: Boolean = false,
+        /**
+         * If the precision parameter is supported.
+         */
+        var supportsPrecision: Boolean = false,
+        /**
+         * If the scale parameter is supported.
+         */
+        var supportsScale: Boolean = false,
+        /**
+         * The default precision.
+         */
+        var defaultPrecision: Long = 0L,
+        /**
+         * The default scale.
+         */
+        var defaultScale: Int = 0,
+        /**
+         * If precision and scale have non-standard default values.
+         */
+        var specialPrecisionScale: Boolean = false) {
 
     companion object {
+        init {
+            DataType(defaultPrecision = ValueNull.PRECISION.toLong(),
+                    maxPrecision = ValueNull.PRECISION.toLong(),
+                    minPrecision = ValueNull.PRECISION.toLong()).let { dataType ->
+                add(Value.NULL, Types.NULL, dataType, "NULL")
+                add(Value.CHAR, Types.CHAR, createString(true, true),
+                        "CHARACTER", "CHAR", "NCHAR", "NATIONAL CHARACTER", "NATIONAL CHAR")
+                add(Value.VARCHAR, Types.VARCHAR, createString(true, false),
+                        "CHARACTER VARYING", "VARCHAR", "CHAR VARYING",
+                        "NCHAR VARYING", "NATIONAL CHARACTER VARYING", "NATIONAL CHAR VARYING",
+                        "VARCHAR2", "NVARCHAR", "NVARCHAR2",
+                        "VARCHAR_CASESENSITIVE", "TID",
+                        "LONGVARCHAR", "LONGNVARCHAR")
+                add(Value.CLOB, Types.CLOB, createLob(true),
+                        "CHARACTER LARGE OBJECT", "CLOB", "CHAR LARGE OBJECT", "TINYTEXT", "TEXT", "MEDIUMTEXT",
+                        "LONGTEXT", "NTEXT", "NCLOB", "NCHAR LARGE OBJECT", "NATIONAL CHARACTER LARGE OBJECT")
+                add(Value.VARCHAR_IGNORECASE, Types.VARCHAR, createString(false, false), "VARCHAR_IGNORECASE")
+                add(Value.BINARY, Types.BINARY, createBinary(true), "BINARY")
+                add(Value.VARBINARY, Types.VARBINARY, createBinary(false),
+                        "BINARY VARYING", "VARBINARY", "RAW", "BYTEA", "LONG RAW", "LONGVARBINARY")
+                add(Value.BLOB, Types.BLOB, DataType.createLob(false),
+                        "BINARY LARGE OBJECT", "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB", "IMAGE")
+                add(Value.BOOLEAN, Types.BOOLEAN, createNumeric(ValueBoolean.PRECISION.toLong(), 0), "BOOLEAN", "BIT", "BOOL")
+                add(Value.TINYINT, Types.TINYINT, createNumeric(ValueTinyint.PRECISION.toLong(), 0), "TINYINT")
+                add(Value.SMALLINT, Types.SMALLINT, createNumeric(ValueSmallint.PRECISION.toLong(), 0), "SMALLINT", "INT2")
+                add(Value.INTEGER, Types.INTEGER, createNumeric(ValueInteger.PRECISION.toLong(), 0),
+                        "INTEGER", "INT", "MEDIUMINT", "INT4", "SIGNED", "SERIAL"
+                )
+                add(Value.BIGINT, Types.BIGINT, createNumeric(ValueBigint.PRECISION.toLong(), 0),
+                        "BIGINT", "INT8", "LONG", "IDENTITY", "BIGSERIAL")
+            }
+
+            DataType(minPrecision = 1,
+                    defaultPrecision = Constants.MAX_NUMERIC_PRECISION.toLong(),
+                    maxPrecision = Constants.MAX_NUMERIC_PRECISION.toLong(),
+                    defaultScale = ValueNumeric.DEFAULT_SCALE,
+                    maxScale = ValueNumeric.MAXIMUM_SCALE,
+                    minScale = 0,
+                    params = "PRECISION,SCALE",
+                    supportsPrecision = true,
+                    supportsScale = true).let { dataType ->
+                add(Value.NUMERIC,
+                        Types.NUMERIC,
+                        dataType,
+                        "NUMERIC", "DECIMAL", "DEC", "NUMBER")
+                add(Value.REAL,
+                        Types.REAL,
+                        createNumeric(ValueReal.PRECISION.toLong(), 0),
+                        "REAL", "FLOAT4")
+                add(Value.DOUBLE,
+                        Types.DOUBLE,
+                        createNumeric(ValueDouble.PRECISION.toLong(), 0),
+                        "DOUBLE PRECISION", "DOUBLE", "FLOAT8")
+                add(Value.DOUBLE, Types.FLOAT, createNumeric(ValueDouble.PRECISION.toLong(), 0), "FLOAT")
+            }
+
+            DataType(minPrecision = 1,
+                    defaultPrecision = Constants.MAX_NUMERIC_PRECISION.toLong(),
+                    maxPrecision = Constants.MAX_NUMERIC_PRECISION.toLong(),
+                    params = "PRECISION",
+                    supportsPrecision = true).let { dataType ->
+
+                add(Value.DECFLOAT, Types.NUMERIC, dataType, "DECFLOAT")
+                add(Value.DATE,
+                        Types.DATE,
+                        createDate(ValueDate.PRECISION, ValueDate.PRECISION, "DATE", false, 0, 0)!!,
+                        "DATE")
+                add(Value.TIME,
+                        Types.TIME,
+                        createDate(ValueTime.MAXIMUM_PRECISION, ValueTime.DEFAULT_PRECISION, "TIME", true, ValueTime.DEFAULT_SCALE, ValueTime.MAXIMUM_SCALE)!!,
+                        "TIME", "TIME WITHOUT TIME ZONE")
+                add(Value.TIME_TZ, Types.TIME_WITH_TIMEZONE, createDate(ValueTimeTimeZone.MAXIMUM_PRECISION, ValueTimeTimeZone.DEFAULT_PRECISION,
+                        "TIME WITH TIME ZONE", true, ValueTime.DEFAULT_SCALE, ValueTime.MAXIMUM_SCALE)!!,
+                        "TIME WITH TIME ZONE")
+                add(Value.TIMESTAMP, Types.TIMESTAMP,
+                        createDate(ValueTimestamp.MAXIMUM_PRECISION, ValueTimestamp.DEFAULT_PRECISION,
+                                "TIMESTAMP", true, ValueTimestamp.DEFAULT_SCALE, ValueTimestamp.MAXIMUM_SCALE)!!,
+                        "TIMESTAMP", "TIMESTAMP WITHOUT TIME ZONE", "DATETIME", "DATETIME2", "SMALLDATETIME")
+                add(Value.TIMESTAMP_TZ, Types.TIMESTAMP_WITH_TIMEZONE,
+                        createDate(ValueTimestampTimeZone.MAXIMUM_PRECISION, ValueTimestampTimeZone.DEFAULT_PRECISION,
+                                "TIMESTAMP WITH TIME ZONE", true, ValueTimestamp.DEFAULT_SCALE, ValueTimestamp.MAXIMUM_SCALE)!!,
+                        "TIMESTAMP WITH TIME ZONE")
+                for (i in Value.INTERVAL_YEAR..Value.INTERVAL_MINUTE_TO_SECOND) {
+                    addInterval(i)
+                }
+                add(Value.JAVA_OBJECT, Types.JAVA_OBJECT, createBinary(false), "JAVA_OBJECT", "OBJECT", "OTHER")
+            }
+
+            createString(false, false).let { dataType ->
+                dataType.supportsPrecision = false
+                dataType.params = "ELEMENT [,...]"
+                add(Value.ENUM, Types.OTHER, dataType, "ENUM")
+                add(Value.GEOMETRY, Types.OTHER, DataType.createGeometry(), "GEOMETRY")
+                add(Value.JSON, Types.OTHER, createString(true, false, "JSON '", "'"), "JSON")
+            }
+            DataType().let { dataType ->
+                dataType.prefix = "'".also { dataType.suffix = it }
+                dataType.defaultPrecision = ValueUuid.PRECISION.also { dataType.minPrecision = it.toLong() }.also { dataType.maxPrecision = it.toLong() }.toLong()
+                add(Value.UUID, Types.BINARY, dataType, "UUID")
+            }
+            DataType().let { dataType ->
+                dataType.prefix = "ARRAY["
+                dataType.suffix = "]"
+                dataType.params = "CARDINALITY"
+                dataType.supportsPrecision = true
+                dataType.defaultPrecision = Constants.MAX_ARRAY_CARDINALITY.also { dataType.maxPrecision = it.toLong() }.toLong()
+                add(Value.ARRAY, Types.ARRAY, dataType, "ARRAY")
+            }
+
+            DataType(prefix = "ROW(", suffix = ")", params = "NAME DATA_TYPE [,...]").let { dataType ->
+                add(Value.ROW, Types.OTHER, dataType, "ROW")
+            }
+        }
+
         /**
          * Get the data type object for the given value type.
+         *
          * @param type the value type
          * @return the data type object
          */
-        fun getDataType(type: Int): DataType {
+        fun getDataType(type: Int): DataType? {
             if (type == Value.UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?")
-            if (type >= Value.NULL && type < Value.TYPE_COUNT) {
-                val dt = TYPES_BY_VALUE_TYPE[type]
-                if (dt != null) return dt
-            }
-            if (JdbcUtils.customDataTypesHandler != null) {
-                val dt: DataType = JdbcUtils.customDataTypesHandler!!.getDataTypeById(type)
-                if (dt != null) return dt
-            }
-            return TYPES_BY_VALUE_TYPE[Value.NULL]!!
+            return if (type >= Value.NULL && type < Value.TYPE_COUNT) TYPES_BY_VALUE_TYPE[type] else TYPES_BY_VALUE_TYPE[Value.NULL]
         }
 
         fun addInterval(type: Int) {
             val qualifier: IntervalQualifier = IntervalQualifier.valueOf(type - Value.INTERVAL_YEAR)
             val dataType: DataType = DataType(prefix = "INTERVAL ",
-                suffix = ' ' + qualifier.name,
-                supportsPrecision = true,
-                defaultPrecision = ValueInterval.DEFAULT_PRECISION.toLong(),
-                maxPrecision = ValueInterval.MAXIMUM_PRECISION.toLong())
+                    suffix = ' ' + qualifier.toString(),
+                    supportsPrecision = true,
+                    defaultPrecision = ValueInterval.DEFAULT_PRECISION.toLong(),
+                    minPrecision = 1,
+                    maxPrecision = ValueInterval.MAXIMUM_PRECISION.toLong())
 
             if (qualifier.hasSeconds()) {
                 dataType.supportsScale = true
                 dataType.defaultScale = ValueInterval.DEFAULT_SCALE
+                dataType.maxScale = ValueInterval.MAXIMUM_SCALE
+                dataType.params = "PRECISION,SCALE"
+            } else {
+                dataType.params = "PRECISION"
             }
+            add(type, Types.OTHER, dataType, "INTERVAL ${qualifier.toString()}".intern())
         }
 
-        fun add(type: Int, sqlType: Int, dataType: DataType, names: Array<String>) {
-            for (i in names.indices) {
-                val dt: DataType = DataType(
-                    type = dataType.type,
-                    sqlType = sqlType,
-                    name = names[i],
-                    autoIncrement = dataType.autoIncrement,
-                    decimal = dataType.decimal,
-                    maxPrecision = dataType.maxPrecision,
-                    maxScale = dataType.maxScale,
-                    minScale = dataType.minScale,
-                    params = dataType.params,
-                    prefix = dataType.prefix,
-                    suffix = dataType.suffix,
-                    supportsPrecision = dataType.supportsPrecision,
-                    supportsScale = dataType.supportsScale,
-                    defaultPrecision = dataType.defaultPrecision,
-                    defaultScale = dataType.defaultScale,
-                    caseSensitive = dataType.caseSensitive,
-                    hidden = i > 0,
-                    sqlTypePos = TYPES.filter { it.sqlType == sqlType }.size)
-                TYPES_BY_NAME[dt.name!!] = dt
-                if (TYPES_BY_VALUE_TYPE[type] == null) TYPES_BY_VALUE_TYPE[type] = dt
-                TYPES.add(dt)
+        fun add(type: Int, sqlType: Int, dataType: DataType, vararg names: String) {
+            dataType.type = type
+            dataType.sqlType = sqlType
+            if (TYPES_BY_VALUE_TYPE[type] == null) {
+                TYPES_BY_VALUE_TYPE[type] = dataType
+            }
+            for (name in names) {
+                TYPES_BY_NAME[name] = dataType
             }
         }
 
@@ -157,14 +243,44 @@ open class DataType(
          * @param autoInc whether the data type is an auto-increment type
          * @return data type
          */
-        fun createNumeric(precision: Long, scale: Int, autoInc: Boolean): DataType =
-            DataType(defaultPrecision = precision,
-                maxPrecision = precision,
-                defaultScale = scale,
-                maxScale = scale,
-                minScale = scale,
-                decimal = true,
-                autoIncrement = autoInc)
+        fun createNumeric(precision: Long, scale: Int): DataType =
+                DataType(defaultPrecision = precision,
+                        minPrecision = precision,
+                        maxPrecision = precision,
+                        defaultScale = scale,
+                        maxScale = scale,
+                        minScale = scale)
+
+        /**
+         * Create a date-time data type.
+         *
+         * @param maxPrecision maximum supported precision
+         * @param precision default precision
+         * @param prefix the prefix for SQL literal representation
+         * @param supportsScale whether the scale parameter is supported
+         * @param scale default scale
+         * @param maxScale highest possible scale
+         * @return data type
+         */
+        fun createDate(maxPrecision: Int,
+                       precision: Int,
+                       prefix: String,
+                       supportsScale: Boolean,
+                       scale: Int,
+                       maxScale: Int): DataType? {
+            val dataType = DataType(prefix = "$prefix '",
+                    suffix = "'",
+                    maxPrecision = maxPrecision.toLong(),
+                    minPrecision = precision.toLong(),
+                    defaultPrecision = dataType.minPrecision)
+            if (supportsScale) {
+                dataType.params = "SCALE"
+                dataType.supportsScale = true
+                dataType.maxScale = maxScale
+                dataType.defaultScale = scale
+            }
+            return dataType
+        }
 
         /**
          * Create a numeric data type.
@@ -174,61 +290,133 @@ open class DataType(
          * @return data type
          */
         fun createNumeric(maxPrecision: Long, defaultPrecision: Long, defaultScale: Int): DataType = DataType(
-            maxPrecision = maxPrecision,
-            defaultPrecision = defaultPrecision,
-            defaultScale = defaultScale,
-            params = "PRECISION,SCALE",
-            supportsPrecision = true,
-            supportsScale = true,
-            maxScale = maxPrecision.toInt(),
-            decimal = true)
+                maxPrecision = maxPrecision,
+                defaultPrecision = defaultPrecision,
+                defaultScale = defaultScale,
+                params = "PRECISION,SCALE",
+                supportsPrecision = true,
+                supportsScale = true,
+                maxScale = maxPrecision.toInt(),
+                decimal = true)
 
         fun addDecimal() = add(type = Value.DECIMAL,
-            sqlType = Types.DECIMAL,
-            dataType = createNumeric(Integer.MAX_VALUE.toLong(),
-                ValueDecfloat.DEFAULT_PRECISION.toLong(),
-                ValueDecfloat.DEFAULT_SCALE),
-            names = arrayOf("DECIMAL", "DEC"))
+                sqlType = Types.DECIMAL,
+                dataType = createNumeric(Integer.MAX_VALUE.toLong(),
+                        ValueDecfloat.DEFAULT_PRECISION.toLong(),
+                        ValueDecfloat.DEFAULT_SCALE),
+                names = arrayOf("DECIMAL", "DEC"))
 
         fun addNumeric() = add(type = Value.DECIMAL,
-            sqlType = Types.NUMERIC,
-            dataType = createNumeric(Integer.MAX_VALUE.toLong(),
-                ValueDecfloat.DEFAULT_PRECISION.toLong(),
-                ValueDecfloat.DEFAULT_SCALE),
-            names = arrayOf("NUMERIC", "NUMBER"))
+                sqlType = Types.NUMERIC,
+                dataType = createNumeric(Integer.MAX_VALUE.toLong(),
+                        ValueDecfloat.DEFAULT_PRECISION.toLong(),
+                        ValueDecfloat.DEFAULT_SCALE),
+                names = arrayOf("NUMERIC", "NUMBER"))
+
+        /**
+         * Get the SQL type from the result set meta data for the given column. This
+         * method uses the SQL type and type name.
+         *
+         * @param meta the meta data
+         * @param columnIndex the column index (1, 2,...)
+         * @return the value type
+         * @throws SQLException on failure
+         */
+        @Throws(SQLException::class)
+        fun getValueTypeFromResultSet(meta: ResultSetMetaData, columnIndex: Int): Int {
+            return convertSQLTypeToValueType(
+                    meta.getColumnType(columnIndex),
+                    meta.getColumnTypeName(columnIndex))
+        }
+
+        private fun createString(caseSensitive: Boolean, fixedLength: Boolean): DataType {
+            return createString(caseSensitive, fixedLength, "'", "'")
+        }
+
+        private fun createBinary(fixedLength: Boolean): DataType {
+            return createString(false, fixedLength, "X'", "'")
+        }
+
+        private fun createString(caseSensitive: Boolean, fixedLength: Boolean, prefix: String, suffix: String): DataType {
+            return DataType(prefix = prefix,
+                    suffix = suffix,
+                    params = "LENGTH",
+                    caseSensitive = caseSensitive,
+                    supportsPrecision = true,
+                    minPrecision = 1,
+                    maxPrecision = Constants.MAX_STRING_LENGTH.toLong(),
+                    defaultPrecision = if (fixedLength) 1 else Constants.MAX_STRING_LENGTH.toLong())
+        }
+
+        private fun createLob(clob: Boolean): DataType {
+            val t = if (clob) createString(true, false) else createBinary(false)
+            t.maxPrecision = Long.MAX_VALUE
+            t.defaultPrecision = Long.MAX_VALUE
+            return t
+        }
+
+        /**
+         * Check whether the specified column needs the binary representation.
+         *
+         * @param meta
+         * metadata
+         * @param column
+         * column index
+         * @return `true` if column needs the binary representation,
+         * `false` otherwise
+         * @throws SQLException
+         * on SQL exception
+         */
+        @Throws(SQLException::class)
+        fun isBinaryColumn(meta: ResultSetMetaData, column: Int): Boolean = when (meta.getColumnType(column)) {
+            Types.BINARY -> meta.getColumnTypeName(column) != "UUID"
+            Types.LONGVARBINARY, Types.VARBINARY, Types.JAVA_OBJECT, Types.BLOB -> true
+            else -> false
+        }
+
+        /**
+         * Convert a SQL type to a value type.
+         *
+         * @param sqlType the SQL type
+         * @return the value type
+         */
+        fun convertSQLTypeToValueType(sqlType: SQLType?): Int = when (sqlType) {
+            is H2Type -> sqlType.getVendorTypeNumber()
+            is JDBCType -> convertSQLTypeToValueType(sqlType.getVendorTypeNumber())
+            else -> throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, if (sqlType == null) "<null>" else DataType.unknownSqlTypeToString(StringBuilder(), sqlType).toString())
+        }
 
         /**
          * Convert a SQL type to a value type
          * @param sqlType the SQL type
          * @return the value type
          */
-        fun convertSQLTypeToValueType(sqlType: Int): Int {
-            return when (sqlType) {
-                Types.CHAR, Types.NCHAR -> Value.STRING_FIXED
-                Types.VARCHAR, Types.LONGNVARCHAR, Types.NVARCHAR, Types.LONGVARCHAR -> Value.STRING
-                Types.NUMERIC, Types.DECIMAL -> Value.DECIMAL
-                Types.BIT, Types.BOOLEAN -> Value.BOOLEAN
-                Types.INTEGER -> Value.INT
-                Types.SMALLINT -> Value.SHORT
-                Types.TINYINT -> Value.BYTE
-                Types.BIGINT -> Value.LONG
-                Types.REAL -> Value.FLOAT
-                Types.DOUBLE, Types.FLOAT -> Value.DOUBLE
-                Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Value.BYTES
-                Types.OTHER, Types.JAVA_OBJECT -> Value.JAVA_OBJECT
-                Types.DATE -> Value.DATE
-                Types.TIME -> Value.TIME
-                Types.TIMESTAMP -> Value.TIMESTAMP
-                Types.TIME_WITH_TIMEZONE -> Value.TIME_TZ
-                Types.TIMESTAMP_WITH_TIMEZONE -> Value.TIMESTAMP_TZ
-                Types.BLOB -> Value.BLOB
-                Types.CLOB, Types.NCLOB -> Value.BLOB
-                Types.NULL -> Value.NULL
-                Types.ARRAY -> Value.ARRAY
-                DataType.TYPE_RESULT_SET -> Value.RESULT_SET
-                else -> throw DbException.get(
+        fun convertSQLTypeToValueType(sqlType: Int): Int = when (sqlType) {
+            Types.CHAR, Types.NCHAR -> Value.CHAR
+            Types.VARCHAR, Types.LONGVARCHAR, Types.NVARCHAR, Types.LONGNVARCHAR -> Value.VARCHAR
+            Types.NUMERIC, Types.DECIMAL -> Value.NUMERIC
+            Types.BIT, Types.BOOLEAN -> Value.BOOLEAN
+            Types.INTEGER -> Value.INTEGER
+            Types.SMALLINT -> Value.SMALLINT
+            Types.TINYINT -> Value.TINYINT
+            Types.BIGINT -> Value.BIGINT
+            Types.REAL -> Value.REAL
+            Types.DOUBLE, Types.FLOAT -> Value.DOUBLE
+            Types.BINARY -> Value.BINARY
+            Types.VARBINARY, Types.LONGVARBINARY -> Value.VARBINARY
+            Types.OTHER -> Value.UNKNOWN
+            Types.JAVA_OBJECT -> Value.JAVA_OBJECT
+            Types.DATE -> Value.DATE
+            Types.TIME -> Value.TIME
+            Types.TIMESTAMP -> Value.TIMESTAMP
+            Types.TIME_WITH_TIMEZONE -> Value.TIME_TZ
+            Types.TIMESTAMP_WITH_TIMEZONE -> Value.TIMESTAMP_TZ
+            Types.BLOB -> Value.BLOB
+            Types.CLOB, Types.NCLOB -> Value.CLOB
+            Types.NULL -> Value.NULL
+            Types.ARRAY -> Value.ARRAY
+            else -> throw DbException.get(
                     ErrorCode.UNKNOWN_DATA_TYPE_1, Integer.toString(sqlType))
-            }
         }
 
         /**
@@ -257,15 +445,15 @@ open class DataType(
                 Value.TIME -> Time::class.java.name       // "java.sql.Time";
 
                 Value.TIME_TZ -> {
-                    if (JSR310.PRESENT) { // "java.time.OffsetTime";
-                        JSR310.OFFSET_TIME!!.getName()
+                    if (JSR310Utils.PRESENT) { // "java.time.OffsetTime";
+                        JSR310Utils.OFFSET_TIME!!.getName()
                     } else String::class.java.name // "java.lang.String";
                 }
                 Value.DATE -> Date::class.java.name // "java.sql.Date";
                 Value.TIMESTAMP -> Timestamp::class.java.name  // "java.sql.Timestamp";
                 Value.TIMESTAMP_TZ -> {
-                    if (SysProperties.RETURN_OFFSET_DATE_TIME && JSR310.PRESENT) { // "java.time.OffsetDateTime";
-                        JSR310.OFFSET_DATE_TIME!!.getName()
+                    if (SysProperties.RETURN_OFFSET_DATE_TIME && JSR310Utils.PRESENT) { // "java.time.OffsetDateTime";
+                        JSR310Utils.OFFSET_DATE_TIME!!.getName()
                     } else TimestampWithTimeZone::class.java.name // "org.h2.api.TimestampWithTimeZone";
                 }
                 Value.BYTES, Value.UUID, Value.JSON -> ByteArray::class.java.name  // "[B", not "byte[]";
@@ -283,7 +471,7 @@ open class DataType(
                 Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_SECOND, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_DAY_TO_SECOND, Value.INTERVAL_HOUR_TO_MINUTE, Value.INTERVAL_HOUR_TO_SECOND, Value.INTERVAL_MINUTE_TO_SECOND ->             // "org.h2.api.Interval"
                     Interval::class.java.name
                 else -> return JdbcUtils.customDataTypesHandler?.getDataTypeClassName(type)
-                    ?: throw DbException.throwInternalError("type=$type")
+                        ?: throw DbException.throwInternalError("type=$type")
             }
         }
 
@@ -344,5 +532,26 @@ open class DataType(
          * Mapping from value type numbers to DataType.
          */
         val TYPES_BY_VALUE_TYPE: Array<DataType?> = arrayOfNulls<DataType?>(Value.TYPE_COUNT)
+
+        /**
+         * Check if the given value type is a year-month interval type.
+         *
+         * @param type the value type
+         * @return true if the value type is a year-month interval type
+         */
+        fun isYearMonthIntervalType(type: Int): Boolean = type == Value.INTERVAL_YEAR
+                || type == Value.INTERVAL_MONTH
+                || type == Value.INTERVAL_YEAR_TO_MONTH
+
+        /**
+         * Check if the given value type is a large object (BLOB or CLOB).
+         *
+         * @param type the value type
+         * @return true if the value type is a lob type
+         */
+        fun isLargeObject(type: Int): Boolean {
+            return type == Value.BLOB || type == Value.CLOB
+        }
+
     }
 }

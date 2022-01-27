@@ -43,7 +43,7 @@ class ValueVarchar(value: String) : ValueStringBase(value) {
             // return new ValueString(s.intern());
         }
 
-        fun Value.convertToVarchar(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any): Value {
+        fun Value.convertToVarchar(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any?): Value {
             val valueType = getValueType()
             when (valueType) {
                 BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
@@ -60,7 +60,7 @@ class ValueVarchar(value: String) : ValueStringBase(value) {
             return if (valueType == VARCHAR) this as ValueVarchar else get(getString()!!, provider)
         }
 
-        fun Value.convertToVarcharIgnoreCase(targetType: TypeInfo, conversionMode: Int, column: Any): Value {
+        fun Value.convertToVarcharIgnoreCase(targetType: TypeInfo, conversionMode: Int, column: Any?): Value {
             val valueType = getValueType()
             when (valueType) {
                 BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
