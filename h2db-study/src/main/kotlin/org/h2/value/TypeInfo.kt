@@ -355,4 +355,11 @@ open class TypeInfo(
         }
         return builder
     }
+
+    /**
+     * Returns the precision, or `-1L` if not specified in data type definition.
+     *
+     * @return the precision, or `-1L` if not specified in data type definition
+     */
+    open fun getDeclaredPrecision(): Long = precision
 }
