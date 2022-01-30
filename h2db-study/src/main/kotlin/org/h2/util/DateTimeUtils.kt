@@ -9,8 +9,7 @@ import org.h2.value.Value
 import org.h2.value.ValueTimeTimeZone
 import org.h2.value.ValueTimestamp
 import org.h2.value.ValueTimestampTimeZone
-import java.util.Date
-import java.util.TimeZone
+import java.util.*
 
 /**
  * This utility class contians time conversion functions.
@@ -196,6 +195,34 @@ object DateTimeUtils {
             }
         }
         return builder
+    }
+
+    /**
+     * Generates time zone name for the specified offset in seconds.
+     *
+     * @param offsetSeconds time zone offset in seconds
+     * @return time zone name
+     */
+    fun timeZoneNameFromOffsetSeconds(offsetSeconds: Int): String? {
+        if (offsetSeconds == 0) return "UTC"
+
+        var offsetSeconds = offsetSeconds
+        val b = StringBuilder(12) .append("GMT")
+        if (offsetSeconds < 0) {
+            b.append('-')
+            offsetSeconds = -offsetSeconds
+        } else {
+            b.append('+')
+        }
+        b.appendTwoDigits(offsetSeconds / 3600).append(':')
+        offsetSeconds %= 3600
+        b.appendTwoDigits(offsetSeconds / 60)
+        offsetSeconds %= 60
+        if (offsetSeconds != 0) {
+            b.append(':')
+            b.appendTwoDigits(offsetSeconds)
+        }
+        return b.toString()
     }
 
     /**
