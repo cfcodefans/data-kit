@@ -2,16 +2,16 @@ package org.h2.value
 
 import org.h2.api.ErrorCode
 import org.h2.api.H2Type
-import org.h2.api.Interval
 import org.h2.api.IntervalQualifier
-import org.h2.api.TimestampWithTimeZone
 import org.h2.engine.Constants
-import org.h2.engine.SysProperties
+import org.h2.engine.Mode
 import org.h2.message.DbException
-import org.h2.util.JSR310Utils
-import org.h2.util.JdbcUtils
-import java.math.BigDecimal
-import java.sql.*
+import org.h2.util.StringUtils
+import java.sql.JDBCType
+import java.sql.ResultSetMetaData
+import java.sql.SQLException
+import java.sql.SQLType
+import java.sql.Types
 
 /**
  *  This class contains meta data information about data types,
@@ -80,6 +80,16 @@ open class DataType(
         var specialPrecisionScale: Boolean = false) {
 
     companion object {
+        /**
+         * The map of types.
+         */
+        private val TYPES_BY_NAME = HashMap<String, DataType>(128)
+
+        /**
+         * Mapping from Value type numbers to DataType.
+         */
+        private val TYPES_BY_VALUE_TYPE = arrayOfNulls<DataType>(Value.TYPE_COUNT)
+
         init {
             DataType(defaultPrecision = ValueNull.PRECISION.toLong(),
                     maxPrecision = ValueNull.PRECISION.toLong(),
@@ -106,8 +116,7 @@ open class DataType(
                 add(Value.TINYINT, Types.TINYINT, createNumeric(ValueTinyint.PRECISION.toLong(), 0), "TINYINT")
                 add(Value.SMALLINT, Types.SMALLINT, createNumeric(ValueSmallint.PRECISION.toLong(), 0), "SMALLINT", "INT2")
                 add(Value.INTEGER, Types.INTEGER, createNumeric(ValueInteger.PRECISION.toLong(), 0),
-                        "INTEGER", "INT", "MEDIUMINT", "INT4", "SIGNED", "SERIAL"
-                )
+                        "INTEGER", "INT", "MEDIUMINT", "INT4", "SIGNED", "SERIAL")
                 add(Value.BIGINT, Types.BIGINT, createNumeric(ValueBigint.PRECISION.toLong(), 0),
                         "BIGINT", "INT8", "LONG", "IDENTITY", "BIGSERIAL")
             }
@@ -189,26 +198,13 @@ open class DataType(
                 add(Value.ARRAY, Types.ARRAY, dataType, "ARRAY")
             }
 
-            DataType(prefix = "ROW(", suffix = ")", params = "NAME DATA_TYPE [,...]").let { dataType ->
-                add(Value.ROW, Types.OTHER, dataType, "ROW")
-            }
-        }
-
-        /**
-         * Get the data type object for the given value type.
-         *
-         * @param type the value type
-         * @return the data type object
-         */
-        fun getDataType(type: Int): DataType? {
-            if (type == Value.UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?")
-            return if (type >= Value.NULL && type < Value.TYPE_COUNT) TYPES_BY_VALUE_TYPE[type] else TYPES_BY_VALUE_TYPE[Value.NULL]
+            add(Value.ROW, Types.OTHER, DataType(prefix = "ROW(", suffix = ")", params = "NAME DATA_TYPE [,...]"), "ROW")
         }
 
         fun addInterval(type: Int) {
             val qualifier: IntervalQualifier = IntervalQualifier.valueOf(type - Value.INTERVAL_YEAR)
             val dataType: DataType = DataType(prefix = "INTERVAL ",
-                    suffix = ' ' + qualifier.toString(),
+                    suffix = " $qualifier",
                     supportsPrecision = true,
                     defaultPrecision = ValueInterval.DEFAULT_PRECISION.toLong(),
                     minPrecision = 1,
@@ -228,28 +224,22 @@ open class DataType(
         fun add(type: Int, sqlType: Int, dataType: DataType, vararg names: String) {
             dataType.type = type
             dataType.sqlType = sqlType
-            if (TYPES_BY_VALUE_TYPE[type] == null) {
-                TYPES_BY_VALUE_TYPE[type] = dataType
-            }
-            for (name in names) {
-                TYPES_BY_NAME[name] = dataType
-            }
+            if (TYPES_BY_VALUE_TYPE[type] == null) TYPES_BY_VALUE_TYPE[type] = dataType
+            for (name in names) TYPES_BY_NAME[name] = dataType
         }
 
         /**
          * Create a width numeric data type without parameters.
          * @param precision precision
          * @param scale scale
-         * @param autoInc whether the data type is an auto-increment type
          * @return data type
          */
-        fun createNumeric(precision: Long, scale: Int): DataType =
-                DataType(defaultPrecision = precision,
-                        minPrecision = precision,
-                        maxPrecision = precision,
-                        defaultScale = scale,
-                        maxScale = scale,
-                        minScale = scale)
+        private fun createNumeric(precision: Long, scale: Int): DataType = DataType(defaultPrecision = precision,
+                minPrecision = precision,
+                maxPrecision = precision,
+                defaultScale = scale,
+                maxScale = scale,
+                minScale = scale)
 
         /**
          * Create a date-time data type.
@@ -267,12 +257,12 @@ open class DataType(
                        prefix: String,
                        supportsScale: Boolean,
                        scale: Int,
-                       maxScale: Int): DataType? {
+                       maxScale: Int): DataType {
             val dataType = DataType(prefix = "$prefix '",
                     suffix = "'",
                     maxPrecision = maxPrecision.toLong(),
                     minPrecision = precision.toLong(),
-                    defaultPrecision = dataType.minPrecision)
+                    defaultPrecision = precision.toLong())
             if (supportsScale) {
                 dataType.params = "SCALE"
                 dataType.supportsScale = true
@@ -296,22 +286,7 @@ open class DataType(
                 params = "PRECISION,SCALE",
                 supportsPrecision = true,
                 supportsScale = true,
-                maxScale = maxPrecision.toInt(),
-                decimal = true)
-
-        fun addDecimal() = add(type = Value.DECIMAL,
-                sqlType = Types.DECIMAL,
-                dataType = createNumeric(Integer.MAX_VALUE.toLong(),
-                        ValueDecfloat.DEFAULT_PRECISION.toLong(),
-                        ValueDecfloat.DEFAULT_SCALE),
-                names = arrayOf("DECIMAL", "DEC"))
-
-        fun addNumeric() = add(type = Value.DECIMAL,
-                sqlType = Types.NUMERIC,
-                dataType = createNumeric(Integer.MAX_VALUE.toLong(),
-                        ValueDecfloat.DEFAULT_PRECISION.toLong(),
-                        ValueDecfloat.DEFAULT_SCALE),
-                names = arrayOf("NUMERIC", "NUMBER"))
+                maxScale = maxPrecision.toInt())
 
         /**
          * Get the SQL type from the result set meta data for the given column. This
@@ -324,9 +299,26 @@ open class DataType(
          */
         @Throws(SQLException::class)
         fun getValueTypeFromResultSet(meta: ResultSetMetaData, columnIndex: Int): Int {
-            return convertSQLTypeToValueType(
-                    meta.getColumnType(columnIndex),
-                    meta.getColumnTypeName(columnIndex))
+            return convertSQLTypeToValueType(meta.getColumnType(columnIndex), meta.getColumnTypeName(columnIndex))
+        }
+
+        /**
+         * Convert a SQL type to a value type using SQL type name, in order to
+         * manage SQL type extension mechanism.
+         *
+         * @param sqlType the SQL type
+         * @param sqlTypeName the SQL type name
+         * @return the value type
+         */
+        fun convertSQLTypeToValueType(sqlType: Int, sqlTypeName: String): Int {
+            when (sqlType) {
+                Types.BINARY -> if (sqlTypeName.equals("UUID", ignoreCase = true)) return Value.UUID
+                Types.OTHER -> {
+                    val type = TYPES_BY_NAME[StringUtils.toUpperEnglish(sqlTypeName)]
+                    if (type != null) return type.type
+                }
+            }
+            return convertSQLTypeToValueType(sqlType)
         }
 
         private fun createString(caseSensitive: Boolean, fixedLength: Boolean): DataType {
@@ -355,17 +347,45 @@ open class DataType(
             return t
         }
 
+        private fun createGeometry(): DataType = DataType(prefix = "'",
+                suffix = "'",
+                params = "TYPE,SRID",
+                maxPrecision = Long.MAX_VALUE,
+                defaultPrecision = Long.MAX_VALUE)
+
+        /**
+         * Get the data type object for the given value type.
+         *
+         * @param type the value type
+         * @return the data type object
+         */
+        fun getDataType(type: Int): DataType? {
+            if (type == Value.UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?")
+            return if (type >= Value.NULL && type < Value.TYPE_COUNT) TYPES_BY_VALUE_TYPE[type] else TYPES_BY_VALUE_TYPE[Value.NULL]
+        }
+
+        /**
+         * Convert a value type to a SQL type.
+         *
+         * @param type the type
+         * @return the SQL type
+         */
+        fun convertTypeToSQLType(type: TypeInfo): Int {
+            val valueType: Int = type.valueType
+            when (valueType) {
+                Value.NUMERIC -> return if (type.extTypeInfo != null) Types.DECIMAL else Types.NUMERIC
+                Value.REAL, Value.DOUBLE -> if (type.getDeclaredPrecision() >= 0) return Types.FLOAT
+            }
+            return getDataType(valueType)!!.sqlType
+        }
+
         /**
          * Check whether the specified column needs the binary representation.
          *
-         * @param meta
-         * metadata
-         * @param column
-         * column index
-         * @return `true` if column needs the binary representation,
-         * `false` otherwise
-         * @throws SQLException
-         * on SQL exception
+         * @param meta metadata
+         * @param column column index
+         * @return `true` if column needs the binary representation, `false` otherwise
+         * @throws SQLException on SQL exception
          */
         @Throws(SQLException::class)
         fun isBinaryColumn(meta: ResultSetMetaData, column: Int): Boolean = when (meta.getColumnType(column)) {
@@ -415,123 +435,92 @@ open class DataType(
             Types.CLOB, Types.NCLOB -> Value.CLOB
             Types.NULL -> Value.NULL
             Types.ARRAY -> Value.ARRAY
-            else -> throw DbException.get(
-                    ErrorCode.UNKNOWN_DATA_TYPE_1, Integer.toString(sqlType))
+            else -> throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, sqlType.toString())
         }
 
         /**
-         * Get the name of the Java class for the given value type.
-         *
-         * @param type the value type
-         * @param forResultSet return mapping for result set
-         * @return the class name
-         */
-        fun getTypeClassName(type: Int, forResultSet: Boolean): String? {
-            return when (type) {
-                Value.BOOLEAN -> Boolean::class.java.name   // "java.lang.Boolean";
-                Value.BYTE -> {
-                    if (forResultSet && !SysProperties.OLD_RESULT_SET_GET_OBJECT) {
-                        Int::class.java.name // "java.lang.Integer";
-                    } else Byte::class.java.name  // "java.lang.Byte";
-                }
-                Value.SHORT -> {
-                    if (forResultSet && !SysProperties.OLD_RESULT_SET_GET_OBJECT) { // "java.lang.Integer";
-                        Int::class.java.name
-                    } else Short::class.java.name // "java.lang.Short";
-                }
-                Value.INT -> Int::class.java.name // "java.lang.Integer";
-                Value.LONG -> Long::class.java.name           // "java.lang.Long";
-                Value.DECIMAL -> BigDecimal::class.java.name          // "java.math.BigDecimal";
-                Value.TIME -> Time::class.java.name       // "java.sql.Time";
-
-                Value.TIME_TZ -> {
-                    if (JSR310Utils.PRESENT) { // "java.time.OffsetTime";
-                        JSR310Utils.OFFSET_TIME!!.getName()
-                    } else String::class.java.name // "java.lang.String";
-                }
-                Value.DATE -> Date::class.java.name // "java.sql.Date";
-                Value.TIMESTAMP -> Timestamp::class.java.name  // "java.sql.Timestamp";
-                Value.TIMESTAMP_TZ -> {
-                    if (SysProperties.RETURN_OFFSET_DATE_TIME && JSR310Utils.PRESENT) { // "java.time.OffsetDateTime";
-                        JSR310Utils.OFFSET_DATE_TIME!!.getName()
-                    } else TimestampWithTimeZone::class.java.name // "org.h2.api.TimestampWithTimeZone";
-                }
-                Value.BYTES, Value.UUID, Value.JSON -> ByteArray::class.java.name  // "[B", not "byte[]";
-                Value.STRING, Value.STRING_IGNORECASE, Value.STRING_FIXED, Value.ENUM -> String::class.java.name   // "java.lang.String";
-                Value.BLOB -> Blob::class.java.name // "java.sql.Blob";
-                Value.CLOB -> Clob::class.java.name // "java.sql.Clob";
-                Value.DOUBLE -> Double::class.java.name  // "java.lang.Double";
-                Value.FLOAT -> Float::class.java.name // "java.lang.Float";
-                Value.NULL -> null
-                Value.JAVA_OBJECT -> Any::class.java.name      // "java.lang.Object";
-                Value.UNKNOWN -> Any::class.java.name // anything
-                Value.ARRAY -> java.sql.Array::class.java.name
-                Value.RESULT_SET -> ResultSet::class.java.name
-                Value.GEOMETRY -> if (GEOMETRY_CLASS != null) GEOMETRY_CLASS_NAME else String::class.java.name
-                Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_SECOND, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_DAY_TO_SECOND, Value.INTERVAL_HOUR_TO_MINUTE, Value.INTERVAL_HOUR_TO_SECOND, Value.INTERVAL_MINUTE_TO_SECOND ->             // "org.h2.api.Interval"
-                    Interval::class.java.name
-                else -> return JdbcUtils.customDataTypesHandler?.getDataTypeClassName(type)
-                        ?: throw DbException.throwInternalError("type=$type")
-            }
-        }
-
-        /**
-         * Get the SQL type from the result set meta data for the given column. This
-         * method uses the SQL type and type name.
-         *
-         * @param meta the meta data
-         * @param columnIndex the column index (1, 2,...)
-         * @return the value type
-         */
-        @Throws(SQLException::class)
-        fun getValueTypeFromResultSet(meta: ResultSetMetaData, columnIndex: Int): Int {
-            return convertSQLTypeToValueType(meta.getColumnType(columnIndex), meta.getColumnTypeName(columnIndex))
-        }
-
-        /**
-         * Convert a SQL type to a value type using SQL type name, in order to
-         * manage SQL type extension mechanism.
+         * Convert a SQL type to a debug string.
          *
          * @param sqlType the SQL type
-         * @param sqlTypeName the SQL type name
-         * @return the value type
+         * @return the textual representation
          */
-        fun convertSQLTypeToValueType(sqlType: Int, sqlTypeName: String): Int {
-            when (sqlType) {
-                Types.BINARY -> if (sqlTypeName.equals("UUID", ignoreCase = true)) return Value.UUID
-                Types.OTHER, Types.JAVA_OBJECT -> when {
-                    sqlTypeName.equals("geometry", ignoreCase = true) -> return Value.GEOMETRY
-                    sqlTypeName.equals("json", ignoreCase = true) -> return Value.JSON
-                }
-            }
-            return convertSQLTypeToValueType(sqlType)
+        fun sqlTypeToString(sqlType: SQLType?): String = when (sqlType) {
+            null -> "null"
+            is JDBCType -> "JDBCType.${sqlType.getName()}"
+            is H2Type -> sqlType.toString()
+            else -> unknownSqlTypeToString(StringBuilder("/* "), sqlType).append(" */ null").toString()
+        }
+
+
+        private fun unknownSqlTypeToString(builder: StringBuilder, sqlType: SQLType): StringBuilder =
+                builder.append(StringUtils.quoteJavaString(sqlType.vendor))
+                        .append('/')
+                        .append(StringUtils.quoteJavaString(sqlType.name))
+                        .append(" [")
+                        .append(sqlType.vendorTypeNumber)
+                        .append(']')
+
+        /**
+         * Get a data type object from a type name.
+         *
+         * @param s the type name
+         * @param mode database mode
+         * @return the data type object
+         */
+        fun getTypeByName(s: String?, mode: Mode): DataType? = mode.typeByNameMap[s] ?: TYPES_BY_NAME[s]
+
+        /**
+         * Returns whether columns with the specified data type may have an index.
+         *
+         * @param type the data type
+         * @return whether an index is allowed
+         */
+        fun isIndexable(type: TypeInfo): Boolean = when (type.valueType) {
+            Value.UNKNOWN, Value.NULL, Value.BLOB, Value.CLOB -> false
+            Value.ARRAY -> isIndexable(type.extTypeInfo as TypeInfo)
+            Value.ROW -> !(type.extTypeInfo as ExtTypeInfoRow).fields.any { !isIndexable(it.value) }
+            else -> true
         }
 
         /**
-         * This constant is used to represent the type of a ResultSet. There is
-         * no equivalent java.sql.Types value, but Oracle uses it to represent
-         * a ResultSet (OracleTypes.CURSOR = -10)
+         * Returns whether values of the specified data types have
+         * session-independent compare results.
+         *
+         * @param type1 the first data type
+         * @param type2 the second data type
+         * @return are values have session-independent compare results
          */
-        const val TYPE_RESULT_SET: Int = -10
+        fun areStableComparable(type1: TypeInfo, type2: TypeInfo): Boolean {
+            val t1: Int = type1.valueType
+            val t2: Int = type2.valueType
+            return when (t1) {
+                Value.UNKNOWN, Value.NULL, Value.BLOB, Value.CLOB, Value.ROW -> false
+                Value.DATE, Value.TIMESTAMP -> t2 == Value.DATE || t2 == Value.TIMESTAMP // DATE is equal to TIMESTAMP at midnight
+                Value.TIME, Value.TIME_TZ, Value.TIMESTAMP_TZ -> t1 == t2 // Conversions depend on current timestamp and time zone
+                Value.ARRAY -> if (t2 != Value.ARRAY) false else areStableComparable(type1.extTypeInfo as TypeInfo, type2.extTypeInfo as TypeInfo)
+                else -> when (t2) {
+                    Value.UNKNOWN, Value.NULL, Value.BLOB, Value.CLOB, Value.ROW -> false
+                    else -> true
+                }
+            }
+        }
 
         /**
-         * The Geometry class. This object is null if the jts jar file
-         * is not in the classpath
+         * Check if the given value type is a date-time type (TIME, DATE, TIMESTAMP,
+         * TIMESTAMP_TZ).
+         *
+         * @param type the value type
+         * @return true if the value type is a date-time type
          */
-        var GEOMETRY_CLASS: Class<*>? = null
-        const val GEOMETRY_CLASS_NAME: String = "org.locationtech.jts.geom.Geometry"
+        fun isDateTimeType(type: Int): Boolean = type >= Value.DATE && type <= Value.TIMESTAMP_TZ
 
         /**
-         * The list of types. An ArrayList so that Tomcat doesn't set it to null
-         * when clearing references.
+         * Check if the given value type is an interval type.
+         *
+         * @param type the value type
+         * @return true if the value type is an interval type
          */
-        val TYPES: ArrayList<DataType> = ArrayList(96)
-        val TYPES_BY_NAME: HashMap<String, DataType> = HashMap(128)
-
-        /**
-         * Mapping from value type numbers to DataType.
-         */
-        val TYPES_BY_VALUE_TYPE: Array<DataType?> = arrayOfNulls<DataType?>(Value.TYPE_COUNT)
+        fun isIntervalType(type: Int): Boolean = type >= Value.INTERVAL_YEAR && type <= Value.INTERVAL_MINUTE_TO_SECOND
 
         /**
          * Check if the given value type is a year-month interval type.
@@ -549,9 +538,93 @@ open class DataType(
          * @param type the value type
          * @return true if the value type is a lob type
          */
-        fun isLargeObject(type: Int): Boolean {
-            return type == Value.BLOB || type == Value.CLOB
+        fun isLargeObject(type: Int): Boolean = type == Value.BLOB || type == Value.CLOB
+
+
+        /**
+         * Check if the given value type is a numeric type.
+         *
+         * @param type the value type
+         * @return true if the value type is a numeric type
+         */
+        fun isNumericType(type: Int): Boolean = type >= Value.TINYINT && type <= Value.DECFLOAT
+
+        /**
+         * Check if the given value type is a binary string type.
+         *
+         * @param type the value type
+         * @return true if the value type is a binary string type
+         */
+        fun isBinaryStringType(type: Int): Boolean = type >= Value.BINARY && type <= Value.BLOB
+
+        /**
+         * Check if the given value type is a character string type.
+         *
+         * @param type the value type
+         * @return true if the value type is a character string type
+         */
+        fun isCharacterStringType(type: Int): Boolean = type >= Value.CHAR && type <= Value.VARCHAR_IGNORECASE
+
+        /**
+         * Check if the given value type is a String (VARCHAR,...).
+         *
+         * @param type the value type
+         * @return true if the value type is a String type
+         */
+        fun isStringType(type: Int): Boolean = type == Value.VARCHAR || type == Value.CHAR || type == Value.VARCHAR_IGNORECASE
+
+        /**
+         * Check if the given value type is a binary string type or a compatible
+         * special data type such as Java object, UUID, geometry object, or JSON.
+         *
+         * @param type the value type
+         * @return true if the value type is a binary string type or a compatible special data type
+         */
+        fun isBinaryStringOrSpecialBinaryType(type: Int): Boolean = when (type) {
+            Value.VARBINARY, Value.BINARY, Value.BLOB, Value.JAVA_OBJECT, Value.UUID, Value.GEOMETRY, Value.JSON -> true
+            else -> false
         }
 
+        /**
+         * Check if the given type has total ordering.
+         *
+         * @param type the value type
+         * @return true if the value type has total ordering
+         */
+        fun hasTotalOrdering(type: Int): Boolean = when (type) {
+            Value.BOOLEAN, Value.TINYINT, Value.SMALLINT, Value.INTEGER, Value.BIGINT, Value.DOUBLE, Value.REAL, Value.TIME, Value.DATE, Value.TIMESTAMP, Value.VARBINARY, Value.JAVA_OBJECT, Value.UUID, Value.GEOMETRY, Value.ENUM, Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_SECOND, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_DAY_TO_SECOND, Value.INTERVAL_HOUR_TO_MINUTE, Value.INTERVAL_HOUR_TO_SECOND, Value.INTERVAL_MINUTE_TO_SECOND, Value.BINARY -> true
+            else -> false
+        }
+
+        /**
+         * Performs saturated addition of precision values.
+         *
+         * @param p1 the first summand
+         * @param p2 the second summand
+         * @return the sum of summands, or [Long.MAX_VALUE] if either argument
+         * is negative or sum is out of range
+         */
+        fun addPrecision(p1: Long, p2: Long): Long {
+            val sum = p1 + p2
+            return if (p1 or p2 or sum < 0) Long.MAX_VALUE else sum
+        }
+
+        /**
+         * Get the default value in the form of a Java object for the given Java class.
+         *
+         * @param clazz the Java class
+         * @return the default object
+         */
+        fun getDefaultForPrimitiveType(clazz: Class<*>): Any? = when (clazz) {
+            java.lang.Boolean.TYPE -> java.lang.Boolean.FALSE
+            java.lang.Byte.TYPE -> 0.toByte()
+            Character.TYPE -> 0.toChar()
+            java.lang.Short.TYPE -> 0.toShort()
+            Integer.TYPE -> 0
+            java.lang.Long.TYPE -> 0L
+            java.lang.Float.TYPE -> 0f
+            java.lang.Double.TYPE -> 0.0
+            else -> throw DbException.getInternalError("primitive=$clazz")
+        }
     }
 }
