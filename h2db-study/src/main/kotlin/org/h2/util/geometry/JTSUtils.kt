@@ -3,21 +3,11 @@ package org.h2.util.geometry
 import org.h2.message.DbException
 import org.h2.util.geometry.EWKBUtils.EWKBTarget
 import org.h2.util.geometry.GeometryUtils.DimensionSystemTarget
-import org.locationtech.jts.geom.CoordinateSequence
-import org.locationtech.jts.geom.Geometry
-import org.locationtech.jts.geom.GeometryCollection
-import org.locationtech.jts.geom.GeometryFactory
-import org.locationtech.jts.geom.LineString
-import org.locationtech.jts.geom.LinearRing
-import org.locationtech.jts.geom.MultiLineString
-import org.locationtech.jts.geom.MultiPoint
-import org.locationtech.jts.geom.MultiPolygon
-import org.locationtech.jts.geom.Point
-import org.locationtech.jts.geom.Polygon
-import org.locationtech.jts.geom.PrecisionModel
+import org.locationtech.jts.geom.*
 import org.locationtech.jts.geom.impl.CoordinateArraySequenceFactory
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory
 import java.io.ByteArrayOutputStream
+import java.lang.Double.isNaN
 
 /**
  * Utilities for Geometry data type from JTS library.
@@ -41,8 +31,10 @@ object JTSUtils {
          * @param dimensionSystem dimension system to use
          */
         override fun init(srid: Int) {
-            factory = GeometryFactory(PrecisionModel(), srid,
-                    if (dimensionSystem and GeometryUtils.DIMENSION_SYSTEM_XYM != 0) PackedCoordinateSequenceFactory.DOUBLE_FACTORY else CoordinateArraySequenceFactory.instance())
+            factory = GeometryFactory(
+                PrecisionModel(), srid,
+                if (dimensionSystem and GeometryUtils.DIMENSION_SYSTEM_XYM != 0) PackedCoordinateSequenceFactory.DOUBLE_FACTORY else CoordinateArraySequenceFactory.instance()
+            )
         }
 
         override fun startPoint() {
@@ -70,13 +62,13 @@ object JTSUtils {
 
         override fun startCollection(type: Int, numItems: Int) {
             this.type = type
-            when (type) {
-                GeometryUtils.MULTI_POINT -> subgeometries = arrayOfNulls<Point>(numItems)
-                GeometryUtils.MULTI_LINE_STRING -> subgeometries = arrayOfNulls<LineString>(numItems)
-                GeometryUtils.MULTI_POLYGON -> subgeometries = arrayOfNulls<Polygon>(numItems)
-                GeometryUtils.GEOMETRY_COLLECTION -> subgeometries = arrayOfNulls(numItems)
+            subgeometries = when (type) {
+                GeometryUtils.MULTI_POINT -> arrayOfNulls<Point>(numItems)
+                GeometryUtils.MULTI_LINE_STRING -> arrayOfNulls<LineString>(numItems)
+                GeometryUtils.MULTI_POLYGON -> arrayOfNulls<Polygon>(numItems)
+                GeometryUtils.GEOMETRY_COLLECTION -> arrayOfNulls<Geometry>(numItems)
                 else -> throw IllegalArgumentException()
-            }
+            } as Array<Geometry?>
         }
 
         override fun startCollectionItem(index: Int, total: Int): GeometryUtils.Target {
@@ -118,10 +110,10 @@ object JTSUtils {
 
         override fun addCoordinate(x: Double, y: Double, z: Double, m: Double, index: Int, total: Int) {
             if (type == GeometryUtils.POINT
-                    && java.lang.Double.isNaN(x)
-                    && java.lang.Double.isNaN(y)
-                    && java.lang.Double.isNaN(z)
-                    && java.lang.Double.isNaN(m)) {
+                && isNaN(x)
+                && isNaN(y)
+                && isNaN(z)
+                && isNaN(m) ) {
                 coordinates = createCoordinates(0)
                 return
             }
@@ -323,24 +315,30 @@ object JTSUtils {
     }
 
 
-    private fun addCoordinate(sequence: CoordinateSequence,
-                              target: GeometryUtils.Target,
-                              index: Int,
-                              total: Int) {
-        addCoordinate(sequence,
-                target,
-                index,
-                total,
-                GeometryUtils.toCanonicalDouble(sequence.getX(index)),
-                GeometryUtils.toCanonicalDouble(sequence.getY(index)))
+    private fun addCoordinate(
+        sequence: CoordinateSequence,
+        target: GeometryUtils.Target,
+        index: Int,
+        total: Int
+    ) {
+        addCoordinate(
+            sequence,
+            target,
+            index,
+            total,
+            GeometryUtils.toCanonicalDouble(sequence.getX(index)),
+            GeometryUtils.toCanonicalDouble(sequence.getY(index))
+        )
     }
 
-    private fun addCoordinate(sequence: CoordinateSequence,
-                              target: GeometryUtils.Target,
-                              index: Int,
-                              total: Int,
-                              x: Double,
-                              y: Double) {
+    private fun addCoordinate(
+        sequence: CoordinateSequence,
+        target: GeometryUtils.Target,
+        index: Int,
+        total: Int,
+        x: Double,
+        y: Double
+    ) {
         val z = GeometryUtils.toCanonicalDouble(sequence.getZ(index))
         val m = GeometryUtils.toCanonicalDouble(sequence.getM(index))
         target.addCoordinate(x, y, z, m, index, total)

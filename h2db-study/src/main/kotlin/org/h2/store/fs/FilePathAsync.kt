@@ -19,17 +19,23 @@ import java.util.concurrent.Future
 class FileAsync(val name: String) : FileBase() {
     companion object {
         private val R = arrayOf<OpenOption>(StandardOpenOption.READ)
-        private val W = arrayOf<OpenOption>(StandardOpenOption.READ,
+        private val W = arrayOf<OpenOption>(
+            StandardOpenOption.READ,
             StandardOpenOption.WRITE,
-            StandardOpenOption.CREATE)
-        private val RWS = arrayOf<OpenOption>(StandardOpenOption.READ,
+            StandardOpenOption.CREATE
+        )
+        private val RWS = arrayOf<OpenOption>(
+            StandardOpenOption.READ,
             StandardOpenOption.WRITE,
             StandardOpenOption.CREATE,
-            StandardOpenOption.SYNC)
-        private val RWD = arrayOf<OpenOption>(StandardOpenOption.READ,
+            StandardOpenOption.SYNC
+        )
+        private val RWD = arrayOf<OpenOption>(
+            StandardOpenOption.READ,
             StandardOpenOption.WRITE,
             StandardOpenOption.CREATE,
-            StandardOpenOption.DSYNC)
+            StandardOpenOption.DSYNC
+        )
 
         @JvmStatic
         @Throws(IOException::class)
@@ -62,7 +68,8 @@ class FileAsync(val name: String) : FileBase() {
                 "rws" -> RWS
                 "rwd" -> RWD
                 else -> throw IllegalArgumentException(mode)
-            })
+            }
+        )
     }
 
     @Throws(IOException::class)
@@ -82,10 +89,9 @@ class FileAsync(val name: String) : FileBase() {
     }
 
     @Throws(IOException::class)
-    override fun position(pos: Long): FileChannel {
+    override fun position(pos: Long): FileChannel = apply {
         if (pos < 0) throw java.lang.IllegalArgumentException("pos is minus")
         position = pos
-        return this
     }
 
     @Throws(IOException::class)
@@ -99,10 +105,9 @@ class FileAsync(val name: String) : FileBase() {
     }
 
     @Throws(IOException::class)
-    override fun truncate(newLen: Long): FileChannel {
+    override fun truncate(newLen: Long): FileChannel = apply {
         channel.truncate(newLen)
         if (newLen < position) position = newLen
-        return this
     }
 
     @Throws(IOException::class)
