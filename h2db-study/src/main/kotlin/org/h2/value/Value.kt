@@ -1009,7 +1009,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                 if (scale < 0 || scale > ValueNumeric.MAXIMUM_SCALE
                         || conversionMode != CONVERT_TO
                         && scale != targetScale
-                        && (scale >= targetScale || !provider.mode.convertOnlyToSmallerScale)) {
+                        && (scale >= targetScale || !provider.getMode().convertOnlyToSmallerScale)) {
                     value = ValueNumeric.setScale(value, targetScale)
                 }
                 if (conversionMode != CONVERT_TO && value.precision() > targetType.precision - targetScale + value.scale()) {
@@ -1024,7 +1024,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         val targetScale: Int = targetType.scale
         val value = v.bigDecimal
         val scale = value.scale()
-        if (scale != targetScale && (scale >= targetScale || !provider.mode.convertOnlyToSmallerScale)) {
+        if (scale != targetScale && (scale >= targetScale || !provider.getMode().convertOnlyToSmallerScale)) {
             v = ValueNumeric.get(ValueNumeric.setScale(value, targetScale))
         }
         val bd = v.bigDecimal
@@ -1149,7 +1149,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      */
     open fun containsNull(): Boolean = false
 
-    private fun compareToNotNullable(v: Value, provider: CastDataProvider, compareMode: CompareMode): Int {
+    private fun compareToNotNullable(v: Value, provider: CastDataProvider?, compareMode: CompareMode?): Int {
         var v = v
         var l = this
         val leftType = l.getValueType()
@@ -1202,5 +1202,22 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         return if (this === ValueNull.INSTANCE || v === ValueNull.INSTANCE)
             Int.MIN_VALUE
         else compareToNotNullable(v, provider, compareMode)
+    }
+
+    /**
+     * Compare this value against another value using the specified compare
+     * mode.
+     *
+     * @param v the other value
+     * @param provider the cast information provider
+     * @param compareMode the compare mode
+     * @return 0 if both values are equal, -1 if this value is smaller, and
+     * 1 otherwise
+     */
+    fun compareTo(v: Value, provider: CastDataProvider?, compareMode: CompareMode?): Int {
+        if (this === v) return 0
+        if (this === ValueNull.INSTANCE) return -1
+        else if (v === ValueNull.INSTANCE) return 1
+        return compareToNotNullable(v, provider, compareMode!!)
     }
 }
