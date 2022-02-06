@@ -8,10 +8,10 @@ import org.h2.message.DbException
 /**
  * Base class for ARRAY and ROW values.
  */
-class ValueCollectionBase(val values: Array<Value>?) : Value() {
+abstract class ValueCollectionBase(val values: Array<Value?>) : Value() {
     private var hash: Int = 0
 
-    fun getList(): Array<Value>? = values
+    fun getList(): Array<Value?>? = values
 
     override fun hashCode(): Int {
         if (hash != 0) return hash
@@ -22,9 +22,9 @@ class ValueCollectionBase(val values: Array<Value>?) : Value() {
         return h
     }
 
-    override fun containsNull(): Boolean = values?.any { it.containsNull() } == true
+    override fun containsNull(): Boolean = values?.any { it?.containsNull() == true }
 
-    override fun getMemory(): Int = (72 + values!!.size * Constants.MEMORY_POINTER) + values.sumOf { it.getMemory() }
+    override fun getMemory(): Int = (72 + values.size * Constants.MEMORY_POINTER) + values.sumOf { it!!.getMemory() }
 
     override fun compareWithNull(v: Value, forEquality: Boolean, provider: CastDataProvider?, compareMode: CompareMode?): Int {
         if (v === ValueNull.INSTANCE) return Int.MIN_VALUE
@@ -49,8 +49,8 @@ class ValueCollectionBase(val values: Array<Value>?) : Value() {
         if (forEquality) {
             var hasNull = false
             for (i in 0 until leftLength) {
-                val v1:Value = leftArray[i]
-                val v2:Value = rightArray[i]
+                val v1: Value = leftArray[i]!!
+                val v2: Value = rightArray[i]!!
                 val comp: Int = v1.compareWithNull(v2, forEquality, provider, compareMode)
                 if (comp != 0) {
                     if (comp != Int.MIN_VALUE) return comp
@@ -61,13 +61,13 @@ class ValueCollectionBase(val values: Array<Value>?) : Value() {
         }
         val len = Math.min(leftLength, rightLength)
         for (i in 0 until len) {
-            val v1 = leftArray[i]
-            val v2 = rightArray[i]
+            val v1 = leftArray[i]!!
+            val v2 = rightArray[i]!!
             val comp: Int = v1.compareWithNull(v2, forEquality, provider, compareMode)
             if (comp != 0) {
                 return comp
             }
         }
-        return Integer.compare(leftLength, rightLength)
+        return leftLength.compareTo(rightLength)
     }
 }

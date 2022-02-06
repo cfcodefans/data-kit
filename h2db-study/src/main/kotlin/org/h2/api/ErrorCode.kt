@@ -278,6 +278,40 @@ object ErrorCode {
     const val IDENTICAL_EXPRESSIONS_SHOULD_BE_USED: Int = 42131
 
     /**
+     * The error with code `42602` is thrown when
+     * invalid name of identifier is used.
+     * Example:
+     * <pre>
+     * statement.enquoteIdentifier("\"", true);
+    </pre> *
+     */
+    const val INVALID_NAME_1 = 42602
+
+    /**
+     * The error with code `42622` is thrown when
+     * name of identifier is too long.
+     * Example:
+     * <pre>
+     * char[] c = new char[1000];
+     * Arrays.fill(c, 'A');
+     * statement.executeQuery("SELECT 1 " + new String(c));
+    </pre> *
+     */
+    const val NAME_TOO_LONG_2 = 42622
+
+    // 54: program limit exceeded
+    /**
+     * The error with code `54011` is thrown when
+     * too many columns were specified in a table, select statement,
+     * or row value.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(C1 INTEGER, C2 INTEGER, ..., C20000 INTEGER);
+    </pre> *
+     */
+    const val TOO_MANY_COLUMNS_1 = 54011
+
+    /**
      * The error with code <code>50000</code> is thrown when
      * something unexpected occurs, for example an internal stack
      * overflow. For details about the problem, see the cause of the

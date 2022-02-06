@@ -1,5 +1,7 @@
 package org.h2.util
 
+import org.h2.util.StringUtils.quoteIdentifier
+
 object ParserUtil {
     /**
      * A keyword.
@@ -354,11 +356,8 @@ object ParserUtil {
             return false
         }
         val len: Int = s.length
-        for (i in 1..len) {
-            val c: Char = s[i]
-            if (partFlags ushr Character.getType(c) and 1 == 0 && c != '_') {
-                return false
-            }
+        for (c in s) {
+            if (partFlags ushr Character.getType(c) and 1 == 0 && c != '_') return false
         }
         return getSaveTokenType(s, !databaseToUpper, 0, len, true) == IDENTIFIER
     }
@@ -553,6 +552,24 @@ object ParserUtil {
         //First letter was already checked
         return end - start == len
                 && expected.regionMatches(1, s, start + 1, len, ignoreCase)
+    }
+
+    /**
+     * Add double quotes around an identifier if required and appends it to the
+     * specified string builder.
+     *
+     * @param builder string builder to append to
+     * @param s the identifier
+     * @param sqlFlags formatting flags
+     * @return the specified builder
+     */
+    fun quoteIdentifier(builder: StringBuilder, s: String?, sqlFlags: Int): StringBuilder {
+        if (s == null) return builder.append("\"\"")
+
+        return if (sqlFlags and HasSQL.QUOTE_ONLY_WHEN_REQUIRED != 0
+                && isSimpleIdentifier(s, false, false))
+            builder.append(s)
+        else quoteIdentifier(builder, s)
     }
 
     /**

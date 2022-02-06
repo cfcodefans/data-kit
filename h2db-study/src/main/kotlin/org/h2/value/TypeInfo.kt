@@ -6,7 +6,6 @@ import org.h2.engine.Constants
 import org.h2.engine.Constants.MAX_NUMERIC_PRECISION
 import org.h2.engine.Constants.MAX_STRING_LENGTH
 import org.h2.message.DbException
-import org.h2.util.Typed
 import org.h2.value.Value.Companion.NULL
 import org.h2.value.Value.Companion.UNKNOWN
 import kotlin.math.min
@@ -285,6 +284,112 @@ open class TypeInfo(
                 }
                 else -> return TYPE_NULL
             }
+        }
+
+
+        /**
+         * Get the higher data type of all values.
+         *
+         * @param values the values
+         * @return the higher data type
+         */
+        open fun getHigherType(values: Array<Typed?>): TypeInfo? {
+            if (values.isEmpty()) return TYPE_NULL
+
+            var type: TypeInfo? = values[0].type
+            var hasUnknown = false
+            var hasNull = false
+            when (type.getValueType()) {
+                UNKNOWN -> hasUnknown = true
+                NULL -> hasNull = true
+            }
+            for (i in 1 until values.size) {
+                val t: TypeInfo = values[i].getType()
+                when (t.getValueType()) {
+                    UNKNOWN -> hasUnknown = true
+                    NULL -> hasNull = true
+                    else -> type = getHigherType(type!!, t)
+                }
+            }
+            if (type.getValueType() <= NULL && hasUnknown) {
+                throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, if (hasNull) "NULL, ?" else "?")
+            }
+            return type
+        }
+
+        /**
+         * Get the higher data type of two data types. If values need to be
+         * converted to match the other operands data type, the value with the lower
+         * order is converted to the value with the higher order.
+         *
+         * @param type1 the first data type
+         * @param type2 the second data type
+         * @return the higher data type of the two
+         */
+        fun getHigherType(type1: TypeInfo, type2: TypeInfo): TypeInfo? {
+            var type1 = type1
+            var type2 = type2
+            var t1: Int = type1.getValueType()
+            var t2: Int = type2.getValueType()
+            val dataType: Int
+            if (t1 == t2) {
+                if (t1 == UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, ?")
+                dataType = t1
+            } else {
+                if (t1 < t2) {
+                    val t = t1
+                    t1 = t2
+                    t2 = t
+                    val type = type1
+                    type1 = type2
+                    type2 = type
+                }
+                if (t1 == UNKNOWN) {
+                    if (t2 == NULL) {
+                        throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, NULL")
+                    }
+                    return type2
+                } else if (t2 == UNKNOWN) {
+                    if (t1 == NULL) {
+                        throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "NULL, ?")
+                    }
+                    return type1
+                }
+                if (t2 == NULL) {
+                    return type1
+                }
+                dataType = Value.getHigherOrderKnown(t1, t2)
+            }
+
+            val precision: Long
+            when (dataType) {
+                Value.NUMERIC -> {
+                    type1 = type1.toNumericType()
+                    type2 = type2.toNumericType()
+                    var precision1: Long = type1.getPrecision()
+                    var precision2: Long = type2.getPrecision()
+                    val scale1: Int = type1.getScale()
+                    val scale2: Int = type2.getScale()
+                    val scale: Int
+                    if (scale1 < scale2) {
+                        precision1 += (scale2 - scale1).toLong()
+                        scale = scale2
+                    } else {
+                        precision2 += (scale1 - scale2).toLong()
+                        scale = scale1
+                    }
+                    return getTypeInfo(Value.NUMERIC, Math.max(precision1, precision2), scale, null)
+                }
+                Value.REAL, Value.DOUBLE -> precision = -1L
+                Value.ARRAY -> return TypeInfo.getHigherArray(type1, type2, TypeInfo.dimensions(type1), TypeInfo.dimensions(type2))
+                Value.ROW -> return TypeInfo.getHigherRow(type1, type2)
+                else -> precision = Math.max(type1.getPrecision(), type2.getPrecision())
+            }
+            val ext1 = type1.extTypeInfo
+            return getTypeInfo(dataType,  //
+                    precision,  //
+                    Math.max(type1.getScale(), type2.getScale()),  //
+                    if (dataType == t1 && ext1 != null) ext1 else if (dataType == t2) type2.extTypeInfo else null)
         }
     }
 

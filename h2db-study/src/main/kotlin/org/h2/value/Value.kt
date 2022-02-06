@@ -8,6 +8,7 @@ import org.h2.util.Bits
 import org.h2.util.HasSQL
 import org.h2.util.Typed
 import org.h2.value.TypeInfo.Companion.getTypeInfo
+import org.h2.value.ValueArray.Companion.convertToArray
 import org.h2.value.ValueBigint.Companion.convertToBigint
 import org.h2.value.ValueBinary.Companion.convertToBinary
 import org.h2.value.ValueBlob.Companion.convertToBlob
@@ -20,6 +21,7 @@ import org.h2.value.ValueEnum.Companion.convertToEnum
 import org.h2.value.ValueInterval.Companion.convertToIntervalDayTime
 import org.h2.value.ValueInterval.Companion.convertToIntervalYearMonth
 import org.h2.value.ValueJavaObject.Companion.convertToJavaObject
+import org.h2.value.ValueRow.Companion.convertToRow
 import org.h2.value.ValueTime.Companion.convertToTime
 import org.h2.value.ValueTimeTimeZone.Companion.convertToTimeTimeZone
 import org.h2.value.ValueTimestamp.Companion.convertToTimestamp
@@ -562,15 +564,15 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         fun getHigherOrderKnown(t1: Int, t2: Int): Int {
             val g1 = GROUPS[t1].toInt()
             val g2 = GROUPS[t2].toInt()
-            when (g1) {
-                GROUP_BOOLEAN -> if (g2 == GROUP_BINARY_STRING) throw getDataTypeCombinationException(BOOLEAN, t2)
-                GROUP_NUMERIC -> return getHigherNumeric(t1, t2, g2)
-                GROUP_DATETIME -> return getHigherDateTime(t1, t2, g2)
-                GROUP_INTERVAL_YM -> return getHigherIntervalYearMonth(t1, t2, g2)
-                GROUP_INTERVAL_DT -> return getHigherIntervalDayTime(t1, t2, g2)
-                GROUP_OTHER -> return getHigherOther(t1, t2, g2)
+            return when (g1) {
+                GROUP_BOOLEAN -> if (g2 == GROUP_BINARY_STRING) throw getDataTypeCombinationException(BOOLEAN, t2) else t1
+                GROUP_NUMERIC -> getHigherNumeric(t1, t2, g2)
+                GROUP_DATETIME -> getHigherDateTime(t1, t2, g2)
+                GROUP_INTERVAL_YM -> getHigherIntervalYearMonth(t1, t2, g2)
+                GROUP_INTERVAL_DT -> getHigherIntervalDayTime(t1, t2, g2)
+                GROUP_OTHER -> getHigherOther(t1, t2, g2)
+                else -> t1
             }
-            return t1
         }
 
         /**
@@ -711,6 +713,16 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      */
     fun getDataConversionError(targetType: Int): DbException {
         throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, "${getTypeName(getValueType())} to ${getTypeName(targetType)}")
+    }
+
+    /**
+     * Creates new instance of the DbException for data conversion error.
+     *
+     * @param targetType target data type.
+     * @return instance of the DbException.
+     */
+    fun getDataConversionError(targetType: TypeInfo): DbException {
+        throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, "${getTypeName(getValueType())} to ${targetType.getTraceSQL()}")
     }
 
     @Throws(DbException::class)
@@ -1066,12 +1078,25 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param provider the cast information provider
      * @return the converted value
      */
-    fun convertTo(targetType: Int, provider: CastDataProvider?): Value {
-        return when (targetType) {
-            ARRAY -> convertToAnyArray(provider)
-            ROW -> convertToAnyRow()
-            else -> convertTo(getTypeInfo(targetType), provider, CONVERT_TO, null)
-        }
+    fun convertTo(targetType: Int, provider: CastDataProvider?): Value = when (targetType) {
+        ARRAY -> convertToAnyArray(provider)
+        ROW -> convertToAnyRow()
+        else -> convertTo(getTypeInfo(targetType), provider, CONVERT_TO, null)
+    }
+
+
+    /**
+     * Cast a value to the specified type. The scale is set if applicable. The
+     * value is truncated to the required precision.
+     *
+     * @param targetType
+     * the type of the returned value
+     * @param provider
+     * the cast information provider
+     * @return the converted value
+     */
+    fun castTo(targetType: TypeInfo?, provider: CastDataProvider?): Value? {
+        return convertTo(targetType!!, provider, CAST_TO, null)
     }
 
     /**
@@ -1081,7 +1106,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param provider the cast information provider
      * @return the converted value
      */
-    fun convertTo(targetType: TypeInfo?, provider: CastDataProvider?): Value {
+    fun convertTo(targetType: TypeInfo?, provider: CastDataProvider?): Value? {
         return convertTo(targetType!!, provider!!, CONVERT_TO, null)
     }
 
@@ -1112,9 +1137,9 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param op the operation
      * @return the exception
      */
-    @Throws(DbException::class)
-    protected fun getUnsupportedExceptionForOperation(op: String): DbException =
-            DbException.getUnsupportedException("${DataType.getDataType(getValueType()).name.toString()} $op")
+    protected fun getUnsupportedExceptionForOperation(op: String): DbException {
+        return DbException.getUnsupportedException("${getTypeName(getValueType())} $op")
+    }
 
 
     /**
