@@ -99,7 +99,20 @@ class ValueArray(val componentType: TypeInfo, list: Array<Value?>, provider: Cas
             }
             return v
         }
+
+        /**
+         * Convert this value to any ARRAY data type.
+         *
+         * @param provider the cast information provider
+         * @return a row value
+         */
+        fun Value.convertToAnyArray(provider: CastDataProvider?): ValueArray = if (getValueType() == ARRAY)
+            this as ValueArray
+        else ValueArray[this.getType(), arrayOf(this), provider]
+
+
     }
+
 
     override var type: TypeInfo? = null
         get() {

@@ -13,7 +13,7 @@ class ValueRow private constructor(type: TypeInfo?, list: Array<Value?>) : Value
     override var type: TypeInfo? = null
         get() {
             if (field == null) {
-                field = TypeInfo.getTypeInfo(ROW, 0, 0, ExtTypeInfoRow(values as Array<out Typed>))
+                field = TypeInfo.getTypeInfo(ROW, 0, 0, ExtTypeInfoRow(values as Array<Typed>))
             }
             return field
         }
@@ -24,7 +24,7 @@ class ValueRow private constructor(type: TypeInfo?, list: Array<Value?>) : Value
             throw DbException.get(ErrorCode.TOO_MANY_COLUMNS_1, "" + Constants.MAX_COLUMNS)
         }
         if (type != null) {
-            if (type.valueType != ROW || (type.extTypeInfo as ExtTypeInfoRow).fields.size != degree)
+            if (type.valueType != ROW || (type.extTypeInfo as ExtTypeInfoRow).getFields().size != degree)
                 throw DbException.getInternalError()
             this.type = type
         }
@@ -68,14 +68,40 @@ class ValueRow private constructor(type: TypeInfo?, list: Array<Value?>) : Value
             if (ext != null) {
                 val values: Array<Value?> = vr.values
                 val len: Int = values.size
-                val fields = ext.fields
+                val fields = ext.getFields()
                 if (len != fields.size) throw getDataConversionError(targetType)
 
-
+                val iter = fields.iterator()
+                var i = 0 //TODO, ugly and cumbersome
+                loop@ while (i < len) {
+                    val v1 = values[i]!!
+                    val componentType = iter.next().value
+                    val v2 = v1.convertTo(componentType, provider, conversionMode, column)
+                    if (v1 !== v2) {
+                        val newValues = arrayOfNulls<Value>(len)
+                        System.arraycopy(values, 0, newValues, 0, i)
+                        newValues[i] = v2
+                        while (++i < len) {
+                            newValues[i] = values[i]!!.convertTo(componentType, provider, conversionMode, column)
+                        }
+                        vr = ValueRow[targetType, newValues]
+                        break@loop
+                    }
+                    i++
+                }
             }
 
             return vr
         }
+
+        /**
+         * Convert this value to any ROW data type.
+         *
+         * @return a row value
+         */
+        fun Value.convertToAnyRow(): ValueRow = if (getValueType() == ROW)
+            this as ValueRow
+        else ValueRow[arrayOf(this)]
     }
 
     override fun getValueType(): Int = ROW

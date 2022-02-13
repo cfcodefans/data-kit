@@ -8,6 +8,7 @@ import org.h2.util.Bits
 import org.h2.util.HasSQL
 import org.h2.util.Typed
 import org.h2.value.TypeInfo.Companion.getTypeInfo
+import org.h2.value.ValueArray.Companion.convertToAnyArray
 import org.h2.value.ValueArray.Companion.convertToArray
 import org.h2.value.ValueBigint.Companion.convertToBigint
 import org.h2.value.ValueBinary.Companion.convertToBinary
@@ -21,12 +22,14 @@ import org.h2.value.ValueEnum.Companion.convertToEnum
 import org.h2.value.ValueInterval.Companion.convertToIntervalDayTime
 import org.h2.value.ValueInterval.Companion.convertToIntervalYearMonth
 import org.h2.value.ValueJavaObject.Companion.convertToJavaObject
+import org.h2.value.ValueRow.Companion.convertToAnyRow
 import org.h2.value.ValueRow.Companion.convertToRow
 import org.h2.value.ValueTime.Companion.convertToTime
 import org.h2.value.ValueTimeTimeZone.Companion.convertToTimeTimeZone
 import org.h2.value.ValueTimestamp.Companion.convertToTimestamp
 import org.h2.value.ValueTimestampTimeZone.Companion.convertToTimestampTimeZone
 import org.h2.value.ValueTinyint.Companion.convertToTinyint
+import org.h2.value.ValueUuid.Companion.convertToUuid
 import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
 import org.h2.value.ValueVarchar.Companion.convertToVarchar
 import org.h2.value.ValueVarchar.Companion.convertToVarcharIgnoreCase
@@ -982,15 +985,15 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             SMALLINT -> convertToSmallint(column)
             INTEGER -> convertToInt(column)
             BIGINT -> convertToBigint(column)
-            NUMERIC -> convertToNumeric(targetType, provider, conversionMode, column)
+            NUMERIC -> convertToNumeric(targetType, provider!!, conversionMode, column)
             REAL -> convertToReal()
             DOUBLE -> convertToDouble()
             DECFLOAT -> convertToDecfloat(targetType, conversionMode)
-            DATE -> convertToDate(provider)
-            TIME -> convertToTime(targetType, provider, conversionMode)
-            TIME_TZ -> convertToTimeTimeZone(targetType, provider, conversionMode)
-            TIMESTAMP -> convertToTimestamp(targetType, provider, conversionMode)
-            TIMESTAMP_TZ -> convertToTimestampTimeZone(targetType, provider, conversionMode)
+            DATE -> convertToDate(provider!!)
+            TIME -> convertToTime(targetType, provider!!, conversionMode)
+            TIME_TZ -> convertToTimeTimeZone(targetType, provider!!, conversionMode)
+            TIMESTAMP -> convertToTimestamp(targetType, provider!!, conversionMode)
+            TIMESTAMP_TZ -> convertToTimestampTimeZone(targetType, provider!!, conversionMode)
             INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_YEAR_TO_MONTH -> convertToIntervalYearMonth(targetType, conversionMode, column)
             INTERVAL_DAY, INTERVAL_HOUR,
             INTERVAL_MINUTE, INTERVAL_SECOND,
@@ -1018,7 +1021,8 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                 var value = getBigDecimal()
                 val targetScale: Int = targetType.scale
                 val scale = value.scale()
-                if (scale < 0 || scale > ValueNumeric.MAXIMUM_SCALE
+                if (scale < 0
+                        || scale > ValueNumeric.MAXIMUM_SCALE
                         || conversionMode != CONVERT_TO
                         && scale != targetScale
                         && (scale >= targetScale || !provider.getMode().convertOnlyToSmallerScale)) {
@@ -1078,7 +1082,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param provider the cast information provider
      * @return the converted value
      */
-    fun convertTo(targetType: Int, provider: CastDataProvider?): Value = when (targetType) {
+    fun convertTo(targetType: Int, provider: CastDataProvider?): Value? = when (targetType) {
         ARRAY -> convertToAnyArray(provider)
         ROW -> convertToAnyRow()
         else -> convertTo(getTypeInfo(targetType), provider, CONVERT_TO, null)
@@ -1117,7 +1121,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param targetType the type of the returned value
      * @return the converted value
      */
-    fun convertTo(targetType: Int): Value = convertTo(targetType, null)
+    fun convertTo(targetType: Int): Value? = convertTo(targetType, null)
 
     /**
      * Convert a value to the specified type without taking scale and precision

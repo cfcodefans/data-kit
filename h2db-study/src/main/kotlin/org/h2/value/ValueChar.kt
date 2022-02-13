@@ -31,7 +31,7 @@ class ValueChar(value: String) : ValueStringBase(value) {
                 }
             } else {
                 val p = MathUtils.convertLongToInt(targetType.precision)
-                if (provider == null || provider.mode.charPadding == CharPadding.ALWAYS) {
+                if (provider == null || provider.getMode().charPadding == CharPadding.ALWAYS) {
                     if (newLength != p) {
                         if (newLength < p) return ValueChar[StringUtils.pad(s, p, null, true)!!]!!
 

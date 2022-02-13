@@ -33,7 +33,7 @@ class ValueVarchar(value: String) : ValueStringBase(value) {
          */
         fun get(s: String, provider: CastDataProvider?): Value {
             if (s.isEmpty()) {
-                return if (provider?.mode?.treatEmptyStringsAsNull == true) ValueNull.INSTANCE else EMPTY
+                return if (provider?.getMode()?.treatEmptyStringsAsNull == true) ValueNull.INSTANCE else EMPTY
             }
             val obj = ValueVarchar(StringUtils.cache(s)!!)
             return if (s.length > SysProperties.OBJECT_CACHE_MAX_PER_ELEMENT_SIZE) {
@@ -43,7 +43,7 @@ class ValueVarchar(value: String) : ValueStringBase(value) {
             // return new ValueString(s.intern());
         }
 
-        fun Value.convertToVarchar(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int, column: Any?): Value {
+        fun Value.convertToVarchar(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): Value {
             val valueType = getValueType()
             when (valueType) {
                 BLOB, JAVA_OBJECT -> throw getDataConversionError(targetType.valueType)
