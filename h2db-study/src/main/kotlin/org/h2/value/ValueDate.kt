@@ -61,7 +61,7 @@ class ValueDate(val dateValue: Long = 0) : Value() {
         }
     }
 
-    override val type: TypeInfo = TypeInfo.TYPE_DATE
+    override var type: TypeInfo? = TypeInfo.TYPE_DATE
 
     override fun getValueType(): Int = DATE
 

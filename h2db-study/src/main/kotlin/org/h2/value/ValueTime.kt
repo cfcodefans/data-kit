@@ -96,7 +96,7 @@ class ValueTime(
         }
     }
 
-    override val type: TypeInfo = TypeInfo.TYPE_TIME
+    override var type: TypeInfo? = TypeInfo.TYPE_TIME
 
     override fun getValueType(): Int = TIME
 

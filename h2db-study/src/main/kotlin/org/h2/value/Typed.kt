@@ -1,6 +1,4 @@
-package org.h2.util
-
-import org.h2.value.TypeInfo
+package org.h2.value
 
 /**
  * An object with data type.
@@ -8,8 +6,7 @@ import org.h2.value.TypeInfo
 interface Typed {
     /**
      * Returns the data type.
-     *
      * @return the data type
      */
-    var type: TypeInfo?
+    val type: TypeInfo?
 }
