@@ -42,7 +42,7 @@ interface HasSQL {
      *
      * @return the SQL expression
      */
-    fun getTraceSQL(): String? = getSQL(TRACE_SQL_FLAGS)
+    fun getTraceSQL(): String = getSQL(TRACE_SQL_FLAGS)
 
     /**
      * Appends the SQL statement of this object to the specified builder.

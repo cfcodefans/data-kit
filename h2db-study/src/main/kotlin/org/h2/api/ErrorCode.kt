@@ -816,6 +816,49 @@ object ErrorCode {
     const val ACCESS_DENIED_TO_CLASS_1: Int = 90134
 
     /**
+     * The error with code `90154` is thrown when trying to assign a
+     * value to a generated column.
+     *
+     * <pre>
+     * CREATE TABLE TEST(A INT, B INT GENERATED ALWAYS AS (A + 1));
+     * INSERT INTO TEST(A, B) VALUES (1, 1);
+    </pre> *
+     */
+    const val GENERATED_COLUMN_CANNOT_BE_ASSIGNED_1 = 90154
+
+    /**
+     * The error with code `90155` is thrown when trying to create a
+     * referential constraint that can update a referenced generated column.
+     *
+     * <pre>
+     * CREATE TABLE PARENT(ID INT PRIMARY KEY, K INT GENERATED ALWAYS AS (ID) UNIQUE);
+     * CREATE TABLE CHILD(ID INT PRIMARY KEY, P INT);
+     * ALTER TABLE CHILD ADD FOREIGN KEY(P) REFERENCES PARENT(K) ON DELETE SET NULL;
+    </pre> *
+     */
+    const val GENERATED_COLUMN_CANNOT_BE_UPDATABLE_BY_CONSTRAINT_2 = 90155
+
+
+    /**
+     * The error with code `90156` is thrown when trying to create a
+     * view or a table from a select and some expression doesn't have a column
+     * name or alias when it is required by a compatibility mode.
+     *
+     * <pre>
+     * SET MODE DB2;
+     * CREATE TABLE T1(A INT, B INT);
+     * CREATE TABLE T2 AS (SELECT A + B FROM T1) WITH DATA;
+    </pre> *
+     */
+    const val COLUMN_ALIAS_IS_NOT_SPECIFIED_1 = 90156
+
+    /**
+     * The error with code `90157` is thrown when the integer
+     * index that is used in the GROUP BY is not in the SELECT list
+     */
+    const val GROUP_BY_NOT_IN_THE_RESULT = 90157
+
+    /**
      * INTERNAL
      */
     @JvmStatic
