@@ -2,6 +2,7 @@ package org.h2.command
 
 import org.h2.expression.ParameterInterface
 import org.h2.result.ResultInterface
+import org.h2.result.ResultWithGeneratedKeys
 
 /**
  * Represents a SQL statement
@@ -564,4 +565,40 @@ interface CommandInterface : AutoCloseable {
      * @return the result
      */
     fun executeQuery(maxRows: Long, scrollable: Boolean): ResultInterface?
+
+    /**
+     * Execute the statement
+     *
+     * @param generatedKeysRequest
+     * `null` or `false` if generated keys are not
+     * needed, `true` if generated keys should be configured
+     * automatically, `int[]` to specify column indices to
+     * return generated keys from, or `String[]` to specify
+     * column names to return generated keys from
+     *
+     * @return the update count and generated keys, if any
+     */
+    fun executeUpdate(generatedKeysRequest: Any?): ResultWithGeneratedKeys?
+
+    /**
+     * Stop the command execution, release all locks and resources
+     */
+    fun stop()
+
+    /**
+     * Close the statement.
+     */
+    override fun close()
+
+    /**
+     * Cancel the statement if it is still processing.
+     */
+    fun cancel()
+
+    /**
+     * Get an empty result set containing the meta data of the result.
+     *
+     * @return the empty result
+     */
+    fun getMetaData(): ResultInterface?
 }

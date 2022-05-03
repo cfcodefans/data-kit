@@ -202,6 +202,22 @@ object ErrorCode {
      */
     const val ENUM_DUPLICATE = 22033
 
+    // 3B: savepoint exception
+    /**
+     * The error with code `40001` is thrown when
+     * the database engine has detected a deadlock. The transaction of this
+     * session has been rolled back to solve the problem. A deadlock occurs when
+     * a session tries to lock a table another session has locked, while the
+     * other session wants to lock a table the first session has locked. As an
+     * example, session 1 has locked table A, while session 2 has locked table
+     * B. If session 1 now tries to lock table B and session 2 tries to lock
+     * table A, a deadlock has occurred. Deadlocks that involve more than two
+     * sessions are also possible. To solve deadlock problems, an application
+     * should lock tables always in the same order, such as always lock table A
+     * before locking table B. For details, see [Wikipedia Deadlock](https://en.wikipedia.org/wiki/Deadlock).
+     */
+    const val DEADLOCK_1 = 40001
+
     /**
      * The error with code <code>42101</code> is thrown when
      * trying to create a table or view if an object with the name already
@@ -352,6 +368,18 @@ object ErrorCode {
      *     </pre>
      */
     const val LOCK_TIMEOUT_1: Int = 50200
+
+    /**
+     * The error with code `57014` is thrown when
+     * a statement was canceled using Statement.cancel() or
+     * when the query timeout has been reached.
+     * Examples:
+     * <pre>
+     * stat.setQueryTimeout(1);
+     * stat.cancel();
+    </pre> *
+     */
+    const val STATEMENT_WAS_CANCELED = 57014
 
     /**
      * The error with code <code>90000</code> is thrown when
@@ -762,6 +790,36 @@ object ErrorCode {
     const val OUT_OF_MEMORY: Int = 90108
 
     /**
+     * The error with code `90112` is thrown when a row was deleted
+     * twice while locking was disabled. This is an intern exception that should
+     * never be thrown to the application, because such deleted should be
+     * detected and the resulting exception ignored inside the database engine.
+     * <pre>
+     * Row not found when trying to delete from index UID_INDEX_0
+    </pre> *
+     */
+    const val ROW_NOT_FOUND_WHEN_DELETING_1 = 90112
+
+    /**
+     * The error with code `90131` is thrown when using multi version
+     * concurrency control, and trying to update the same row from within two
+     * connections at the same time, or trying to insert two rows with the same
+     * key from two connections. Example:
+     * <pre>
+     * jdbc:h2:~/test
+     * Session 1:
+     * CREATE TABLE TEST(ID INT);
+     * INSERT INTO TEST VALUES(1);
+     * SET AUTOCOMMIT FALSE;
+     * UPDATE TEST SET ID = 2;
+     * Session 2:
+     * SET AUTOCOMMIT FALSE;
+     * UPDATE TEST SET ID = 3;
+    </pre> *
+     */
+    const val CONCURRENT_UPDATE_1 = 90131
+
+    /**
      * The error with code <code>90140</code> is thrown when trying to update or
      * delete a row in a result set if the statement was not created with
      * updatable concurrency. Result sets are only updatable if the statement
@@ -816,7 +874,27 @@ object ErrorCode {
     const val ACCESS_DENIED_TO_CLASS_1: Int = 90134
 
     /**
+     * The error with code `90141` is thrown when
      * The error with code `90154` is thrown when trying to assign a
+     * trying to change the java object serializer while there was already data
+     * in the database. The serializer of the database must be set when the
+     * database is empty.
+     */
+    const val JAVA_OBJECT_SERIALIZER_CHANGE_WITH_DATA_TABLE = 90141
+
+    /**
+     * The error with code `90142` is thrown when
+     * trying to set zero for step size.
+     */
+    const val STEP_SIZE_MUST_NOT_BE_ZERO = 90142
+
+    /**
+     * The error with code `90143` is thrown when
+     * trying to fetch a row from the primary index and the row is not there.
+     */
+    const val ROW_NOT_FOUND_IN_PRIMARY_INDEX = 90143
+
+    /**
      * value to a generated column.
      *
      * <pre>

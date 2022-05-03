@@ -16,20 +16,19 @@ import java.util.*
  * It is made especially to support SQL grammar.
  */
 open class Bnf(
-    /**
-     * The rule map. The key is lowercase, and all spaces
-     * are replaces with underscore.
-     */
-    val ruleMap: MutableMap<String, RuleHead> = hashMapOf(),
-    var syntax: String? = null,
-    var currentToken: String? = null,
-    var tokens: Array<String>? = null,
-    var firstChar: Char? = null,
-    var index: Int = 0,
-    var lastRepeat: Rule? = null,
-    var statements: ArrayList<RuleHead>? = null,
-    var currentTopic: String? = null
-) {
+        /**
+         * The rule map. The key is lowercase, and all spaces
+         * are replaces with underscore.
+         */
+        val ruleMap: MutableMap<String, RuleHead> = hashMapOf(),
+        var syntax: String? = null,
+        var currentToken: String? = null,
+        var tokens: Array<String>? = null,
+        var firstChar: Char? = null,
+        var index: Int = 0,
+        var lastRepeat: Rule? = null,
+        var statements: ArrayList<RuleHead>? = null,
+        var currentTopic: String? = null) {
 
 
     companion object {
@@ -51,7 +50,7 @@ open class Bnf(
          * @param s the syntax
          * @return the tokenizer
          */
-        fun getTokenizer(s: String?): StringTokenizer? {
+        fun getTokenizer(s: String?): StringTokenizer {
             return StringTokenizer(s, " [](){}|.,\r\n<>:-+*/=\"!'$", true)
         }
 
@@ -117,17 +116,13 @@ open class Bnf(
             tokens = tokenize(syntax!!)
             index = 0
 
-            var rule = parseRule()
+            var rule = parseRule()!!
             if (section.startsWith("Command")) {
-                rule = RuleList(rule, RuleElement(";\n\n", currentTopic!!), false)
+                rule = RuleList(first = rule, next = RuleElement(";\n\n", currentTopic!!), or = false)
             }
-            val head = addRule(topic, section, rule!!)
+            val head = addRule(topic, section, rule)
             if (section.startsWith("Function")) {
-                functions = if (functions == null) {
-                    rule
-                } else {
-                    RuleList(rule, functions, true)
-                }
+                functions = functions?.let { RuleList(first = rule, next = it, or = true) } ?: rule
             } else if (section.startsWith("Commands")) {
                 statements!!.add(head!!)
             }
@@ -173,10 +168,10 @@ open class Bnf(
 
         val tokenizer: StringTokenizer = getTokenizer(syntax)!!
         return Sequence(tokenizer::asIterator)
-            .map { StringUtils.cache(it as String)!! }
-            .filterNot { s -> s.length == 1 && " \r\n".indexOf(s[0]) >= 0 }
-            .toList()
-            .toTypedArray()
+                .map { StringUtils.cache(it as String)!! }
+                .filterNot { s -> s.length == 1 && " \r\n".indexOf(s[0]) >= 0 }
+                .toList()
+                .toTypedArray()
     }
 
     private fun read() {
@@ -198,7 +193,7 @@ open class Bnf(
         var r: Rule = parseList()
         if (firstChar == '|') {
             read()
-            r = RuleList(r, parseOr(), true)
+            r = RuleList(first = r, next = parseOr(), or = true)
         }
         lastRepeat = r
         return r
@@ -207,7 +202,7 @@ open class Bnf(
     private fun parseList(): Rule {
         var r: Rule = parseToken()
         if (firstChar != '|' && firstChar != ']' && firstChar != '}' && firstChar!!.code != 0) {
-            r = RuleList(r, parseList(), false)
+            r = RuleList(first = r, next = parseList(), or = false)
         }
         lastRepeat = r
         return r
@@ -232,10 +227,10 @@ open class Bnf(
                 throw AssertionError("""expected }, got $currentToken syntax:$syntax""")
             }
         } else if ("@commaDots@" == currentToken) {
-            r = RuleList(RuleElement(",", currentTopic!!), lastRepeat, false)
+            r = RuleList(first = RuleElement(",", currentTopic!!), next = lastRepeat!!, or = false)
             r = RuleRepeat(r, true)
         } else if ("@dots@" == currentToken) {
-            r = RuleRepeat(lastRepeat, false)
+            r = RuleRepeat(lastRepeat!!, false)
         } else {
             r = RuleElement(currentToken!!, currentTopic!!)
         }

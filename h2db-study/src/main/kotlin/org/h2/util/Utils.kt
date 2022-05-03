@@ -335,4 +335,43 @@ object Utils {
     }
 
     fun uncheckedSleep(millis: Long) = kotlin.runCatching { Thread.sleep(millis) }.getOrNull()
+
+    /**
+     * Returns the current value of the high-resolution time source.
+     *
+     * @return time in nanoseconds, never equal to 0
+     * @see System.nanoTime
+     */
+    fun currentNanoTime(): Long {
+        val time = System.nanoTime()
+        return if (time == 0L) 1L else time
+    }
+
+    /**
+     * Returns the current value of the high-resolution time source plus the
+     * specified offset.
+     *
+     * @param ms
+     * additional offset in milliseconds
+     * @return time in nanoseconds, never equal to 0
+     * @see System.nanoTime
+     */
+    fun currentNanoTimePlusMillis(ms: Int): Long {
+        return nanoTimePlusMillis(System.nanoTime(), ms)
+    }
+
+    /**
+     * Returns the current value of the high-resolution time source plus the
+     * specified offset.
+     *
+     * @param nanoTime time in nanoseconds
+     * @param ms additional offset in milliseconds
+     * @return time in nanoseconds, never equal to 0
+     * @see System.nanoTime
+     */
+    fun nanoTimePlusMillis(nanoTime: Long, ms: Int): Long {
+        val time = nanoTime + ms * 1000000L
+        return if (time == 0L) 1L else time
+    }
+
 }
