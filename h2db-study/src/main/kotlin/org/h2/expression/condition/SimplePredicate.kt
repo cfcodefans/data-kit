@@ -7,6 +7,9 @@ import org.h2.expression.ValueExpression
 import org.h2.table.ColumnResolver
 import org.h2.table.TableFilter
 
+/**
+ * Base class for simple predicates.
+ */
 abstract class SimplePredicate(
     /**
      * The left hand side of the expression.
@@ -47,9 +50,7 @@ abstract class SimplePredicate(
     override fun getSubexpressionCount(): Int = 1
 
     override fun getSubexpression(index: Int): Expression? {
-        if (index == 0) {
-            return left
-        }
+        if (index == 0) return left
         throw IndexOutOfBoundsException()
     }
 
