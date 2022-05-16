@@ -26,29 +26,21 @@ open class BooleanTest(val right: Boolean?,
         return builder.append(if (not) " IS NOT " else " IS ").append(if (right == null) "UNKNOWN" else if (right) "TRUE" else "FALSE")
     }
 
-    override fun getValue(session: SessionLocal?): Value? {
-        return ValueBoolean.get(getValue(left!!.getValue(session)!!))
-    }
+    override fun getValue(session: SessionLocal?): Value? = ValueBoolean.get(getValue(left!!.getValue(session)!!))
 
-    override fun getWhenValue(session: SessionLocal, left: Value?): Boolean {
-        return if (!whenOperand) {
-            super.getWhenValue(session, left)
-        } else getValue(left!!)
-    }
+    override fun getWhenValue(session: SessionLocal, left: Value?): Boolean = if (!whenOperand) {
+        super.getWhenValue(session, left)
+    } else getValue(left!!)
 
-    private fun getValue(left: Value): Boolean {
-        return (if (left === ValueNull.INSTANCE)
-            right == null
-        else
-            right != null && right == left.getBoolean()) xor not
-    }
+    private fun getValue(left: Value): Boolean = (if (left === ValueNull.INSTANCE)
+        right == null
+    else
+        right != null && right == left.getBoolean()) xor not
 
     override fun getNotIfPossible(session: SessionLocal?): Expression? = if (whenOperand) null else BooleanTest(left = left, not = !not, whenOperand = false, right = right)
 
     override fun createIndexConditions(session: SessionLocal?, filter: TableFilter?) {
-        if (whenOperand || !filter!!.table.isQueryComparable) {
-            return
-        }
+        if (whenOperand || !filter!!.table.isQueryComparable) return
 
         if (left !is ExpressionColumn) return
 

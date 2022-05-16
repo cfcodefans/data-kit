@@ -11,18 +11,18 @@ import org.h2.message.DbException
 abstract class ValueCollectionBase(val values: Array<Value?>) : Value() {
     private var hash: Int = 0
 
-    fun getList(): Array<Value?>? = values
+    fun getList(): Array<Value?> = values
 
     override fun hashCode(): Int {
         if (hash != 0) return hash
 
         var h = getValueType()
-        for (v in values!!) h = h * 31 + v.hashCode()
+        for (v in values) h = h * 31 + v.hashCode()
         hash = h
         return h
     }
 
-    override fun containsNull(): Boolean = values?.any { it?.containsNull() == true }
+    override fun containsNull(): Boolean = values.any { it?.containsNull() == true }
 
     override fun getMemory(): Int = (72 + values.size * Constants.MEMORY_POINTER) + values.sumOf { it!!.getMemory() }
 

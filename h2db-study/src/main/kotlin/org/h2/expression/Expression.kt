@@ -62,7 +62,7 @@ abstract class Expression : HasSQL, Typed {
          * @param sqlFlags formatting flags
          * @return the specified string builder
          */
-        fun writeExpressions(builder: StringBuilder, expressions: List<out Expression>, sqlFlags: Int): StringBuilder? {
+        fun writeExpressions(builder: StringBuilder, expressions: List<Expression>, sqlFlags: Int): StringBuilder? {
             for ((i, exp) in expressions.withIndex()) {
                 if (i > 0) builder.append(", ")
                 exp.getUnenclosedSQL(builder, sqlFlags)
@@ -78,15 +78,12 @@ abstract class Expression : HasSQL, Typed {
          * @param sqlFlags formatting flags
          * @return the specified string builder
          */
-        fun writeExpressions(builder: StringBuilder, expressions: Array<Expression?>, sqlFlags: Int): StringBuilder? {
+        fun writeExpressions(builder: StringBuilder, expressions: Array<Expression?>, sqlFlags: Int): StringBuilder {
             for ((i, e) in expressions.withIndex()) {
                 if (i > 0) builder.append(", ")
 
-                if (e == null) {
-                    builder.append("DEFAULT")
-                } else {
-                    e.getUnenclosedSQL(builder, sqlFlags)
-                }
+                if (e == null) builder.append("DEFAULT")
+                else e.getUnenclosedSQL(builder, sqlFlags)
             }
             return builder
         }
@@ -207,7 +204,7 @@ abstract class Expression : HasSQL, Typed {
      * @param sqlFlags formatting flags
      * @return the specified string builder
      */
-    abstract fun getUnenclosedSQL(builder: StringBuilder?, sqlFlags: Int): StringBuilder?
+    abstract fun getUnenclosedSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder?
 
     /**
      * Update an aggregate value. This method is called at statement execution

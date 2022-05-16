@@ -53,7 +53,7 @@ class ValueBoolean(val value: Boolean) : Value() {
         }
     }
 
-    override val type: TypeInfo = TypeInfo.TYPE_BOOLEAN
+    override var type: TypeInfo? = TypeInfo.TYPE_BOOLEAN
 
     override fun getValueType(): Int = BOOLEAN
 

@@ -21,7 +21,7 @@ object StringUtils {
     private var softCacheCreatedNs: Long = 0L
 
     private val HEX: CharArray = "0123456789abcdef".toCharArray()
-    private val HEX_DECODE: kotlin.IntArray = IntArray('f'.toInt() + 1) { _ -> -1 }
+    private val HEX_DECODE: kotlin.IntArray = IntArray('f'.code + 1) { _ -> -1 }
 
     // memory used by this cache:
     // 4 * 1024 * 2 (strings per pair) * 64 * 2 (bytes per char) = 0.5 MB
@@ -42,17 +42,16 @@ object StringUtils {
     @JvmStatic
     private fun getCache(): Array<String?>? {
         var cache: Array<String?>? = softCache.get()
-        if (cache != null)
-            return cache
+        if (cache != null) return cache
 
         //create a new cache at most every 5 seconds
         //so that out of memory exceptions are not delayed
         if (softCacheCreatedNs != 0L
-                && System.nanoTime() - softCacheCreatedNs < TimeUnit.SECONDS.toNanos(5)) {
+            && System.nanoTime() - softCacheCreatedNs < TimeUnit.SECONDS.toNanos(5)) {
             return null
         }
         try {
-            cache = Array(SysProperties.OBJECT_CACHE_SIZE) { _ -> null }
+            cache = arrayOfNulls<String>(SysProperties.OBJECT_CACHE_SIZE)
             softCache = SoftReference(cache)
             return cache
         } finally {
@@ -77,9 +76,8 @@ object StringUtils {
         val hash = s.hashCode()
         val index = hash and SysProperties.OBJECT_CACHE_SIZE - 1
         val cached = cache[index]
-        if (s == cached) {
-            return cached
-        }
+
+        if (s == cached) return cached
         cache[index] = s
 
         return s
@@ -92,9 +90,8 @@ object StringUtils {
      */
     @JvmStatic
     fun toUpperEnglish(s: String): String {
-        if (s.length > TO_UPPER_CACHE_MAX_ENTRY_LENGTH) {
-            return s.uppercase(Locale.ENGLISH)
-        }
+        if (s.length > TO_UPPER_CACHE_MAX_ENTRY_LENGTH) return s.uppercase(Locale.ENGLISH)
+
         val index: Int = s.hashCode() and (TO_UPPER_CACHE_LENGTH - 1)
         var e: Array<String>? = TO_UPPER_CACHE[index]
         if (e != null && s == e[0]) return e[1]
@@ -118,9 +115,8 @@ object StringUtils {
     fun replaceAll(s: String?, before: String, after: String): String? {
         if (s.isNullOrEmpty()) return s
         var next = s.indexOf(before)
-        if (next < 0 || before.isEmpty()) {
-            return s
-        }
+        if (next < 0 || before.isEmpty()) return s
+
         val buff = StringBuilder(s.length - before.length + after.length)
         var index = 0
         while (true) {
@@ -260,16 +256,14 @@ object StringUtils {
         val hex: kotlin.IntArray = HEX_DECODE
         try {
             for (i in 0..len) {
-                val d: Int = hex[s[i + i].toInt()] shl 4 or hex[s[i + i + 1].toInt()]
+                val d: Int = hex[s[i + i].code] shl 4 or hex[s[i + i + 1].code]
                 mask = mask or d
                 buff[i] = d.toByte()
             }
         } catch (e: ArrayIndexOutOfBoundsException) {
             throw DbException.get(HEX_STRING_WRONG_1, s)
         }
-        if ((mask and 255.inv()) != 0) {
-            throw DbException.get(HEX_STRING_WRONG_1, s)
-        }
+        if ((mask and 255.inv()) != 0) throw DbException.get(HEX_STRING_WRONG_1, s)
         return buff
     }
 
@@ -298,10 +292,10 @@ object StringUtils {
                     buff.append(c)
                 } else {
                     buff.append("\\u")
-                            .append(HEX[c.toInt() shr 12])
-                            .append(HEX[c.toInt() shr 8 and 0xf])
-                            .append(HEX[c.toInt() shr 4 and 0xf])
-                            .append(HEX[c.toInt() and 0xf])
+                        .append(HEX[c.toInt() shr 12])
+                        .append(HEX[c.toInt() shr 8 and 0xf])
+                        .append(HEX[c.toInt() shr 4 and 0xf])
+                        .append(HEX[c.toInt() and 0xf])
                 }
             }
         }
@@ -315,14 +309,14 @@ object StringUtils {
      * @return the text with asterisk.
      */
     @JvmStatic
-    fun addAsterisk(s: String, index: Int): String = s?.let {
+    fun addAsterisk(s: String, index: Int): String = s.let {
         val len: Int = s.length
-        val i: Int = min(index, len)
+        val i: Int = kotlin.math.min(index, len)
         StringBuilder(len + 3)
-                .append(s, 0, index)
-                .append("[*]")
-                .append(s, i, len)
-                .toString()
+            .append(s, 0, index)
+            .append("[*]")
+            .append(s, i, len)
+            .toString()
     }
 
     /**
@@ -416,9 +410,9 @@ object StringUtils {
      */
     @JvmStatic
     fun unEnclose(s: String): String =
-            if (s.startsWith('(') && s.endsWith(')'))
-                s.substring(1, s.length - 1)
-            else s
+        if (s.startsWith('(') && s.endsWith(')'))
+            s.substring(1, s.length - 1)
+        else s
 
     /**
      * Encode the string as a URL
@@ -429,7 +423,7 @@ object StringUtils {
     fun urlEncode(s: String): String = try {
         URLEncoder.encode(s, "UTF-8")
     } catch (e: Exception) {
-        throw  DbException.convert(e)
+        throw DbException.convert(e)
     }
 
     /**
@@ -609,7 +603,7 @@ object StringUtils {
         var i = bytes * 8
         while (i > 0) {
             builder.append(HEX[(x shr 4.let { i -= it; i }).toInt() and 0xf])
-                    .append(HEX[(x shr 4.let { i -= it; i }).toInt() and 0xf])
+                .append(HEX[(x shr 4.let { i -= it; i }).toInt() and 0xf])
         }
         return builder
     }
