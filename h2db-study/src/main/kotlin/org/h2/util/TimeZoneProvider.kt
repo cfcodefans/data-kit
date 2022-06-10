@@ -1,7 +1,15 @@
 package org.h2.util
 
+import org.h2.util.DateTimeUtils.dayFromDateValue
 import org.h2.util.DateTimeUtils.getEpochSeconds
+import org.h2.util.DateTimeUtils.monthFromDateValue
+import org.h2.util.DateTimeUtils.yearFromDateValue
+import java.time.Instant
+import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 /**
  * Provides access to time zone API.
@@ -57,15 +65,13 @@ abstract class TimeZoneProvider {
      * @return whether this is a simple time zone provider with a fixed offset
      * from UTC
      */
-    open fun hasFixedOffset(): Boolean {
-        return false
-    }
+    open fun hasFixedOffset(): Boolean = false
 
     companion object {
         /**
          * The UTC time zone provider.
          */
-        val UTC: TimeZoneProvider = TimeZoneProvider.Simple(0.toShort())
+        val UTC: TimeZoneProvider = Simple(0)
 
         /**
          * A small cache for timezone providers.
@@ -78,6 +84,18 @@ abstract class TimeZoneProvider {
         private const val CACHE_SIZE = 32
 
         /**
+         * Returns the time zone provider with the specified offset.
+         *
+         * @param offset UTC offset in seconds
+         * @return the time zone provider with the specified offset
+         */
+        fun ofOffset(offset: Int): TimeZoneProvider {
+            if (offset == 0) return UTC
+            require(!(offset < -18 * 60 * 60 || offset > 18 * 60 * 60)) { "Time zone offset $offset seconds is out of range" }
+            return Simple(offset)
+        }
+
+        /**
          * Returns the time zone provider with the specified name.
          *
          * @param id  the ID of the time zone
@@ -85,7 +103,7 @@ abstract class TimeZoneProvider {
          * @throws RuntimeException if time zone with specified ID isn't known
          */
         @Throws(RuntimeException::class)
-        open fun ofId(id: String): TimeZoneProvider? {
+        open fun ofId(id: String): TimeZoneProvider {
             val length = id.length
             if (length == 1 && id[0] == 'Z') return UTC
 
@@ -151,11 +169,12 @@ abstract class TimeZoneProvider {
                 }
                 require(index <= 0) { id }
             }
+
             val hash = id.hashCode() and CACHE_SIZE - 1
             var cache: Array<TimeZoneProvider?> = CACHE
             if (cache != null) {
                 val provider = cache[hash]
-                if (provider != null && provider.getId() == id) {
+                if (provider?.getId() == id) {
                     return provider
                 }
             }
@@ -173,53 +192,129 @@ abstract class TimeZoneProvider {
          */
         private class Simple internal constructor(private val offset: Int) : TimeZoneProvider() {
             @Volatile
-            var id: String? = null
-                get() {
-                    var id = field
-                    if (id == null) {
-                        id = DateTimeUtils.timeZoneNameFromOffsetSeconds(offset)
-                        field = id
-                    }
-                    return id
-                }
-                private set
+            private var id: String? = null
 
-            override fun hashCode(): Int {
-                return offset + 129607
-            }
-
-            override fun equals(obj: Any?): Boolean {
-                if (this === obj) {
-                    return true
-                }
-                return if (obj == null || obj.javaClass != Simple::class.java) {
-                    false
-                } else offset == (obj as Simple).offset
-            }
-
-            override fun getTimeZoneOffsetUTC(epochSeconds: Long): Int {
-                return offset
-            }
-
-            override fun getTimeZoneOffsetLocal(dateValue: Long, timeNanos: Long): Int {
-                return offset
-            }
-
-            override fun getEpochSecondsFromLocal(dateValue: Long, timeNanos: Long): Long {
-                return getEpochSeconds(dateValue, timeNanos, offset)
-            }
-
-            override fun getShortId(epochSeconds: Long): String? {
+            override fun getId(): String? {
+                if (id == null) id = DateTimeUtils.timeZoneNameFromOffsetSeconds(offset)
                 return id
             }
 
-            override fun hasFixedOffset(): Boolean {
-                return true
+            override fun hashCode(): Int = offset + 129607
+
+            override fun equals(obj: Any?): Boolean = (this === obj) || (obj is Simple && obj.offset == offset)
+
+            override fun getTimeZoneOffsetUTC(epochSeconds: Long): Int = offset
+
+            override fun getTimeZoneOffsetLocal(dateValue: Long, timeNanos: Long): Int = offset
+
+            override fun getEpochSecondsFromLocal(dateValue: Long, timeNanos: Long): Long = getEpochSeconds(dateValue, timeNanos, offset)
+
+            override fun getShortId(epochSeconds: Long): String? = id
+
+            override fun hasFixedOffset(): Boolean = true
+
+            override fun toString(): String = "TimeZoneProvider $id"
+        }
+
+        /**
+         * Time zone provider with time zone.
+         */
+        internal class WithTimeZone(private val zoneId: ZoneId) : TimeZoneProvider() {
+            override fun hashCode(): Int = zoneId.hashCode() + 951689
+
+            override fun equals(obj: Any?): Boolean = (this === obj) || (obj is WithTimeZone && obj.zoneId == zoneId)
+
+            override fun getTimeZoneOffsetUTC(epochSeconds: Long): Int {
+                /*
+             * Construct an Instant with EPOCH seconds within the range
+             * -31,557,014,135,532,000..31,556,889,832,715,999
+             * (-999999999-01-01T00:00-18:00..
+             * +999999999-12-31T23:59:59.999999999+18:00). Too large and too
+             * small EPOCH seconds are replaced with EPOCH seconds within the
+             * range using the 400 years period of the Gregorian calendar.
+             *
+             * H2 has slightly wider range of EPOCH seconds than Instant, and
+             * ZoneRules.getOffset(Instant) does not support all Instant values
+             * in all time zones.
+             */
+                return zoneId.rules.getOffset(
+                    Instant.ofEpochSecond(
+                        epochSeconds + when {
+                            epochSeconds > 31556889832715999L -> -SECONDS_PER_PERIOD
+                            epochSeconds < -31557014135532000L -> SECONDS_PER_PERIOD
+                            else -> 0
+                        }
+                    )
+                ).totalSeconds
             }
 
-            override fun toString(): String {
-                return "TimeZoneProvider $id"
+            override fun getTimeZoneOffsetLocal(dateValue: Long, timeNanos: Long): Int {
+                var second = (timeNanos / DateTimeUtils.NANOS_PER_SECOND).toInt()
+                var minute = second / 60
+                second -= minute * 60
+                val hour = minute / 60
+                minute -= hour * 60
+                return ZonedDateTime.of(
+                    LocalDateTime.of(
+                        yearForCalendar(yearFromDateValue(dateValue)),
+                        monthFromDateValue(dateValue), dayFromDateValue(dateValue), hour,
+                        minute, second
+                    ), zoneId
+                ).offset.totalSeconds
+            }
+
+            override fun getEpochSecondsFromLocal(dateValue: Long, timeNanos: Long): Long {
+                var second = (timeNanos / DateTimeUtils.NANOS_PER_SECOND).toInt()
+                var minute = second / 60
+                second -= minute * 60
+                val hour = minute / 60
+                minute -= hour * 60
+                val year = yearFromDateValue(dateValue)
+                val yearForCalendar = yearForCalendar(year)
+                val epoch = ZonedDateTime.of(
+                    LocalDateTime.of(
+                        yearForCalendar, monthFromDateValue(dateValue),
+                        dayFromDateValue(dateValue), hour, minute, second
+                    ), zoneId
+                ).toOffsetDateTime().toEpochSecond()
+                return epoch + (year - yearForCalendar) * SECONDS_PER_YEAR
+            }
+
+            override fun getId(): String = zoneId.id
+
+            override fun getShortId(epochSeconds: Long): String = ZonedDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), zoneId).format(TIME_ZONE_FORMATTER)
+
+            override fun toString(): String = "TimeZoneProvider " + zoneId.id
+
+            companion object {
+                /**
+                 * Number of seconds in 400 years.
+                 */
+                const val SECONDS_PER_PERIOD = 146097L * 60 * 60 * 24
+
+                /**
+                 * Number of seconds per year.
+                 */
+                const val SECONDS_PER_YEAR = SECONDS_PER_PERIOD / 400
+
+                //                @Volatile
+                val TIME_ZONE_FORMATTER: DateTimeFormatter by lazy { DateTimeFormatter.ofPattern("z", Locale.ENGLISH) }
+
+                /**
+                 * Returns a year within the range -999,999,999..999,999,999 for the
+                 * given year. Too large and too small years are replaced with years
+                 * within the range using the 400 years period of the Gregorian
+                 * calendar.
+                 *
+                 * Because we need them only to calculate a time zone offset, it's safe
+                 * to normalize them to such range.
+                 *
+                 * @param year the year
+                 * @return the specified year or the replacement year within the range
+                 */
+                private fun yearForCalendar(year: Int): Int = year + (if (year > 999999999) -400 else if (year < -999999999) 400 else 0)
             }
         }
     }
 }
+

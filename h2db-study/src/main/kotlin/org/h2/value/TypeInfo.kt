@@ -8,6 +8,8 @@ import org.h2.engine.Constants.MAX_STRING_LENGTH
 import org.h2.message.DbException
 import org.h2.value.Value.Companion.NULL
 import org.h2.value.Value.Companion.UNKNOWN
+import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -20,10 +22,10 @@ import kotlin.math.min
  * @param extTypeInfo the extended type information, or null
  */
 open class TypeInfo(
-        val valueType: Int,
-        val precision: Long = -1L,
-        val scale: Int = -1,
-        val extTypeInfo: ExtTypeInfo? = null) : ExtTypeInfo(), Typed {
+    val valueType: Int,
+    val precision: Long = -1L,
+    val scale: Int = -1,
+    val extTypeInfo: ExtTypeInfo? = null) : ExtTypeInfo(), Typed {
 
     override val type: TypeInfo?
         get() = this
@@ -36,9 +38,9 @@ open class TypeInfo(
             // INTERVAL
             for (i in Value.INTERVAL_YEAR..Value.INTERVAL_MINUTE_TO_SECOND) {
                 TYPE_INFOS_BY_VALUE_TYPE[i] = TypeInfo(valueType = i,
-                        precision = ValueInterval.MAXIMUM_PRECISION.toLong(),
-                        scale = if (IntervalQualifier.valueOf(i - Value.INTERVAL_YEAR).hasSeconds()) ValueInterval.MAXIMUM_SCALE else -1,
-                        extTypeInfo = null)
+                                                       precision = ValueInterval.MAXIMUM_PRECISION.toLong(),
+                                                       scale = if (IntervalQualifier.valueOf(i - Value.INTERVAL_YEAR).hasSeconds()) ValueInterval.MAXIMUM_SCALE else -1,
+                                                       extTypeInfo = null)
             }
         }
 
@@ -81,9 +83,9 @@ open class TypeInfo(
         val TYPE_NUMERIC_SCALE_0: TypeInfo = TypeInfo(Value.NUMERIC, Constants.MAX_NUMERIC_PRECISION.toLong(), 0, null).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
         val TYPE_NUMERIC_BIGINT: TypeInfo = TypeInfo(Value.NUMERIC, ValueBigint.DECIMAL_PRECISION.toLong(), 0, null).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
         val TYPE_NUMERIC_FLOATING_POINT: TypeInfo = TypeInfo(valueType = Value.NUMERIC,
-                precision = Constants.MAX_NUMERIC_PRECISION.toLong(),
-                scale = Constants.MAX_NUMERIC_PRECISION / 2,
-                extTypeInfo = null).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
+                                                             precision = Constants.MAX_NUMERIC_PRECISION.toLong(),
+                                                             scale = Constants.MAX_NUMERIC_PRECISION / 2,
+                                                             extTypeInfo = null).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
 
         val TYPE_REAL: TypeInfo = TypeInfo(Value.REAL).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
         val TYPE_DOUBLE: TypeInfo = TypeInfo(Value.DOUBLE).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
@@ -112,16 +114,15 @@ open class TypeInfo(
         // COLLECTION
         val TYPE_ARRAY_UNKNOWN: TypeInfo = TypeInfo(Value.ARRAY).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
         val TYPE_ROW_EMPTY: TypeInfo = TypeInfo(valueType = Value.ROW,
-                precision = -1L,
-                scale = -1,
-                extTypeInfo = ExtTypeInfoRow(LinkedHashMap())).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
+                                                precision = -1L,
+                                                scale = -1,
+                                                extTypeInfo = ExtTypeInfoRow(LinkedHashMap())).apply { TYPE_INFOS_BY_VALUE_TYPE[valueType] = this }
 
         /**
          * Get the data type with parameters object for the given value type and
          * maximum parameters.
          *
-         * @param type
-         * the value type
+         * @param type the value type
          * @return the data type with parameters object
          */
         fun getTypeInfo(type: Int): TypeInfo {
@@ -143,22 +144,20 @@ open class TypeInfo(
          * @param extTypeInfo the extended type information or null
          * @return the data type with parameters object
          */
-        fun getTypeInfo(type: Int, precision: Long, scale: Int, extTypeInfo: ExtTypeInfo?): TypeInfo? {
+        fun getTypeInfo(type: Int, precision: Long, scale: Int, extTypeInfo: ExtTypeInfo?): TypeInfo {
             var precision = precision
             var scale = scale
 
-            when (type) {
-                NULL, Value.BOOLEAN, Value.TINYINT, Value.SMALLINT, Value.INTEGER, Value.BIGINT, Value.DATE, Value.UUID -> return TYPE_INFOS_BY_VALUE_TYPE[type]
-                UNKNOWN -> return TYPE_UNKNOWN
-                Value.CHAR -> {
-                    return if (precision < 1) TYPE_CHAR else TypeInfo(Value.CHAR, precision.coerceAtMost(MAX_STRING_LENGTH.toLong()))
-                }
+            return when (type) {
+                NULL, Value.BOOLEAN, Value.TINYINT, Value.SMALLINT, Value.INTEGER, Value.BIGINT, Value.DATE, Value.UUID -> TYPE_INFOS_BY_VALUE_TYPE[type]!!
+                UNKNOWN -> TYPE_UNKNOWN
+                Value.CHAR -> if (precision < 1) TYPE_CHAR else TypeInfo(Value.CHAR, precision.coerceAtMost(MAX_STRING_LENGTH.toLong()))
                 Value.VARCHAR -> {
                     if (precision < 1 || precision >= MAX_STRING_LENGTH) {
                         if (precision != 0L) return TYPE_VARCHAR
                         precision = 1
                     }
-                    return TypeInfo(Value.VARCHAR, precision)
+                    TypeInfo(Value.VARCHAR, precision)
                 }
                 Value.CLOB -> return if (precision < 1) TYPE_CLOB else TypeInfo(Value.CLOB, precision)
                 Value.VARCHAR_IGNORECASE -> {
@@ -166,123 +165,87 @@ open class TypeInfo(
                         if (precision != 0L) return TYPE_VARCHAR_IGNORECASE
                         precision = 1
                     }
-                    return TypeInfo(Value.VARCHAR_IGNORECASE, precision)
+                    TypeInfo(Value.VARCHAR_IGNORECASE, precision)
                 }
-                Value.BINARY -> return TypeInfo(Value.BINARY, min(precision, MAX_STRING_LENGTH.toLong()))
+                Value.BINARY -> TypeInfo(Value.BINARY, min(precision, MAX_STRING_LENGTH.toLong()))
                 Value.VARBINARY -> {
                     if (precision < 1 || precision >= MAX_STRING_LENGTH) {
                         if (precision != 0L) return TYPE_VARBINARY
                         precision = 1
                     }
-                    return TypeInfo(Value.VARBINARY, precision)
+                    TypeInfo(Value.VARBINARY, precision)
                 }
-                Value.BLOB -> return if (precision < 1) TYPE_BLOB else TypeInfo(Value.BLOB, precision)
+                Value.BLOB -> if (precision < 1) TYPE_BLOB else TypeInfo(Value.BLOB, precision)
                 Value.NUMERIC -> {
-                    return TypeInfo(Value.NUMERIC,
-                            if (precision < 1) -1 else if (precision > MAX_NUMERIC_PRECISION) MAX_NUMERIC_PRECISION.toLong() else precision,
-                            if (scale < 0) -1 else if (scale > ValueNumeric.MAXIMUM_SCALE) ValueNumeric.MAXIMUM_SCALE else scale,
-                            extTypeInfo as? ExtTypeInfoNumeric)
+                    TypeInfo(Value.NUMERIC,
+                             if (precision < 1) -1 else if (precision > MAX_NUMERIC_PRECISION) MAX_NUMERIC_PRECISION.toLong() else precision,
+                             if (scale < 0) -1 else if (scale > ValueNumeric.MAXIMUM_SCALE) ValueNumeric.MAXIMUM_SCALE else scale,
+                             extTypeInfo as? ExtTypeInfoNumeric)
                 }
-                Value.REAL -> return if (precision in 1..24) TypeInfo(Value.REAL, precision, -1, extTypeInfo) else TypeInfo.TYPE_REAL
-                Value.DOUBLE -> return if (precision == 0L || precision >= 25 && precision <= 53) {
+                Value.REAL -> if (precision in 1..24) TypeInfo(Value.REAL, precision, -1, extTypeInfo) else TypeInfo.TYPE_REAL
+                Value.DOUBLE -> if (precision == 0L || precision >= 25 && precision <= 53)
                     TypeInfo(Value.DOUBLE, precision, -1, extTypeInfo)
-                } else TypeInfo.TYPE_DOUBLE
+                else TypeInfo.TYPE_DOUBLE
+
                 Value.DECFLOAT -> {
-                    if (precision < 1) {
-                        precision = -1L
-                    } else if (precision >= Constants.MAX_NUMERIC_PRECISION) {
-                        return TypeInfo.TYPE_DECFLOAT
-                    }
-                    return TypeInfo(Value.DECFLOAT, precision, -1, null)
+                    if (precision >= MAX_NUMERIC_PRECISION) TypeInfo.TYPE_DECFLOAT
+                    else TypeInfo(Value.DECFLOAT, if (precision < 1) -1L else precision, -1, null)
                 }
                 Value.TIME -> {
-                    if (scale < 0) {
-                        scale = -1
-                    } else if (scale >= ValueTime.MAXIMUM_SCALE) {
-                        return TypeInfo.TYPE_TIME
-                    }
-                    return TypeInfo(Value.TIME, scale.toLong())
+                    if (scale >= ValueTime.MAXIMUM_SCALE) TypeInfo.TYPE_TIME
+                    else TypeInfo(Value.TIME, (if (scale < 0) -1 else scale).toLong())
                 }
                 Value.TIME_TZ -> {
-                    if (scale < 0) {
-                        scale = -1
-                    } else if (scale >= ValueTime.MAXIMUM_SCALE) {
-                        return TypeInfo.TYPE_TIME_TZ
-                    }
-                    return TypeInfo(Value.TIME_TZ, scale.toLong())
+                    if (scale >= ValueTime.MAXIMUM_SCALE) TYPE_TIME_TZ
+                    else TypeInfo(Value.TIME_TZ, (if (scale < 0) -1 else scale).toLong())
                 }
                 Value.TIMESTAMP -> {
-                    if (scale < 0) {
-                        scale = -1
-                    } else if (scale >= ValueTimestamp.MAXIMUM_SCALE) {
-                        return TypeInfo.TYPE_TIMESTAMP
-                    }
-                    return TypeInfo(Value.TIMESTAMP, scale.toLong())
+                    if (scale >= ValueTimestamp.MAXIMUM_SCALE) TYPE_TIMESTAMP
+                    else TypeInfo(Value.TIMESTAMP, (if (scale < 0) -1 else scale).toLong())
                 }
                 Value.TIMESTAMP_TZ -> {
-                    if (scale < 0) {
-                        scale = -1
-                    } else if (scale >= ValueTimestamp.MAXIMUM_SCALE) {
-                        return TypeInfo.TYPE_TIMESTAMP_TZ
-                    }
-                    return TypeInfo(Value.TIMESTAMP_TZ, scale.toLong())
+                    if (scale >= ValueTimestamp.MAXIMUM_SCALE) TYPE_TIMESTAMP_TZ
+                    else TypeInfo(Value.TIMESTAMP_TZ, (if (scale < 0) -1 else scale).toLong())
                 }
-                Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_HOUR_TO_MINUTE -> {
-                    if (precision < 1) {
-                        precision = -1L
-                    } else if (precision > ValueInterval.MAXIMUM_PRECISION) {
-                        precision = ValueInterval.MAXIMUM_PRECISION.toLong()
-                    }
-                    return TypeInfo(type, precision)
+                Value.INTERVAL_YEAR,
+                Value.INTERVAL_MONTH,
+                Value.INTERVAL_DAY,
+                Value.INTERVAL_HOUR,
+                Value.INTERVAL_MINUTE,
+                Value.INTERVAL_YEAR_TO_MONTH,
+                Value.INTERVAL_DAY_TO_HOUR,
+                Value.INTERVAL_DAY_TO_MINUTE,
+                Value.INTERVAL_HOUR_TO_MINUTE -> {
+                    TypeInfo(type, if (precision < 1) -1L else if (precision > ValueInterval.MAXIMUM_PRECISION) ValueInterval.MAXIMUM_PRECISION.toLong() else precision)
                 }
                 Value.INTERVAL_SECOND, Value.INTERVAL_DAY_TO_SECOND, Value.INTERVAL_HOUR_TO_SECOND, Value.INTERVAL_MINUTE_TO_SECOND -> {
-                    if (precision < 1) {
-                        precision = -1L
-                    } else if (precision > ValueInterval.MAXIMUM_PRECISION) {
-                        precision = ValueInterval.MAXIMUM_PRECISION.toLong()
-                    }
-                    if (scale < 0) {
-                        scale = -1
-                    } else if (scale > ValueInterval.MAXIMUM_SCALE) {
-                        scale = ValueInterval.MAXIMUM_SCALE
-                    }
-                    return TypeInfo(type, precision, scale, null)
+                    TypeInfo(type,
+                             if (precision < 1) -1L else if (precision > ValueInterval.MAXIMUM_PRECISION) ValueInterval.MAXIMUM_PRECISION.toLong() else precision,
+                             if (scale < 0) -1 else if (scale > ValueInterval.MAXIMUM_SCALE) ValueInterval.MAXIMUM_SCALE else scale,
+                             null)
                 }
                 Value.JAVA_OBJECT -> {
-                    if (precision < 1) {
-                        return TypeInfo.TYPE_JAVA_OBJECT
-                    } else if (precision > Constants.MAX_STRING_LENGTH) {
-                        precision = Constants.MAX_STRING_LENGTH.toLong()
-                    }
-                    return TypeInfo(Value.JAVA_OBJECT, precision)
+                    if (precision < 1) TypeInfo.TYPE_JAVA_OBJECT
+                    else TypeInfo(Value.JAVA_OBJECT, precision.coerceAtMost(MAX_STRING_LENGTH.toLong()))
                 }
-                Value.ENUM -> return if (extTypeInfo is ExtTypeInfoEnum) {
-                    extTypeInfo.type
-                } else {
-                    TypeInfo.TYPE_ENUM_UNDEFINED
-                }
-                Value.GEOMETRY -> return if (extTypeInfo is ExtTypeInfoGeometry) {
-                    TypeInfo(Value.GEOMETRY, -1L, -1, extTypeInfo)
-                } else {
-                    TypeInfo.TYPE_GEOMETRY
-                }
+                Value.ENUM -> if (extTypeInfo is ExtTypeInfoEnum) extTypeInfo.type else TypeInfo.TYPE_ENUM_UNDEFINED
+                Value.GEOMETRY -> if (extTypeInfo is ExtTypeInfoGeometry) TypeInfo(Value.GEOMETRY, -1L, -1, extTypeInfo) else TypeInfo.TYPE_GEOMETRY
                 Value.JSON -> {
-                    if (precision < 1) return TypeInfo.TYPE_JSON
-                    else if (precision > Constants.MAX_STRING_LENGTH) precision = Constants.MAX_STRING_LENGTH.toLong()
-                    return TypeInfo(Value.JSON, precision)
+                    if (precision < 1) TypeInfo.TYPE_JSON
+                    else TypeInfo(Value.JSON, precision.coerceAtMost(MAX_STRING_LENGTH.toLong()))
                 }
                 Value.ARRAY -> {
                     require(extTypeInfo is TypeInfo)
-                    if (precision < 0 || precision >= Constants.MAX_ARRAY_CARDINALITY) {
-                        precision = -1L
-                    }
-                    return TypeInfo(Value.ARRAY, precision, -1, extTypeInfo)
+                    TypeInfo(Value.ARRAY,
+                             if (precision < 0 || precision >= Constants.MAX_ARRAY_CARDINALITY) -1 else precision,
+                             -1,
+                             extTypeInfo)
                 }
                 Value.ROW -> {
                     require(extTypeInfo is ExtTypeInfoRow)
-                    return TypeInfo(Value.ROW, -1L, -1, extTypeInfo)
+                    TypeInfo(Value.ROW, -1L, -1, extTypeInfo)
                 }
-                else -> return TYPE_NULL
+                else -> TYPE_NULL
             }
         }
 
@@ -293,28 +256,93 @@ open class TypeInfo(
          * @param values the values
          * @return the higher data type
          */
-        open fun getHigherType(values: Array<Typed?>): TypeInfo? {
+        open fun getHigherType(values: Array<out Typed?>): TypeInfo? {
             if (values.isEmpty()) return TYPE_NULL
 
-            var type: TypeInfo? = values[0].type
+            var type: TypeInfo = values[0]!!.type!!
             var hasUnknown = false
             var hasNull = false
-            when (type.getValueType()) {
+            when (type.valueType) {
                 UNKNOWN -> hasUnknown = true
                 NULL -> hasNull = true
             }
             for (i in 1 until values.size) {
-                val t: TypeInfo = values[i].getType()
-                when (t.getValueType()) {
+                val t: TypeInfo = values[i]!!.type!!
+                when (t.valueType) {
                     UNKNOWN -> hasUnknown = true
                     NULL -> hasNull = true
-                    else -> type = getHigherType(type!!, t)
+                    else -> type = getHigherType(type, t)
                 }
             }
-            if (type.getValueType() <= NULL && hasUnknown) {
+            if (type.valueType <= NULL && hasUnknown) {
                 throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, if (hasNull) "NULL, ?" else "?")
             }
             return type
+        }
+
+        private fun getHigherArray(type1: TypeInfo, type2: TypeInfo, d1: Int, d2: Int): TypeInfo {
+            var type1 = type1
+            var type2 = type2
+            var d1 = d1
+            var d2 = d2
+            val precision: Long
+            if (d1 > d2) {
+                d1--
+                precision = max(type1.precision, 1L)
+                type1 = type1!!.extTypeInfo as TypeInfo
+            } else if (d1 < d2) {
+                d2--
+                precision = max(1L, type2.precision)
+                type2 = type2!!.extTypeInfo as TypeInfo
+            } else if (d1 > 0) {
+                d1--
+                d2--
+                precision = max(type1.precision, type2.precision)
+                type1 = type1!!.extTypeInfo as TypeInfo
+                type2 = type2!!.extTypeInfo as TypeInfo
+            } else {
+                return getHigherType(type1!!, type2!!)
+            }
+            return getTypeInfo(Value.ARRAY, precision, 0, getHigherArray(type1, type2, d1, d2))
+        }
+
+        private fun dimensions(type: TypeInfo): Int {
+            var type: TypeInfo = type
+            var result: Int = 0
+            while (type.valueType == Value.ARRAY) {
+                type = type.extTypeInfo as TypeInfo
+                result++
+            }
+            return result
+        }
+
+        private fun getHigherRow(type1: TypeInfo, type2: TypeInfo): TypeInfo {
+            var type1: TypeInfo = if (type1.valueType != Value.ROW) typeToRow(type1) else type1
+            var type2: TypeInfo = if (type2.valueType != Value.ROW) typeToRow(type2) else type2
+
+            val ext1 = type1.extTypeInfo as ExtTypeInfoRow
+            val ext2 = type2.extTypeInfo as ExtTypeInfoRow
+            if (ext1 == ext2) return type1
+
+            val m1 = ext1.getFields()
+            val m2 = ext2.getFields()
+            val degree = m1.size
+            if (m2.size != degree) throw DbException.get(ErrorCode.COLUMN_COUNT_DOES_NOT_MATCH)
+
+            val m = LinkedHashMap<String, TypeInfo>(ceil(degree / .75).toInt())
+            val i1 = m1.iterator()
+            val i2 = m2.iterator()
+            while (i1.hasNext()) {
+                val (key, value) = i1.next()
+                m[key] = getHigherType(value, i2.next().value)
+            }
+            return getTypeInfo(Value.ROW, 0, 0, ExtTypeInfoRow(m))
+        }
+
+        private fun typeToRow(type: TypeInfo): TypeInfo {
+            val map = LinkedHashMap<String, TypeInfo>(2)
+            map["C1"] = type
+            return getTypeInfo(Value.ROW, 0, 0, ExtTypeInfoRow(map))
         }
 
         /**
@@ -326,11 +354,11 @@ open class TypeInfo(
          * @param type2 the second data type
          * @return the higher data type of the two
          */
-        fun getHigherType(type1: TypeInfo, type2: TypeInfo): TypeInfo? {
+        fun getHigherType(type1: TypeInfo, type2: TypeInfo): TypeInfo {
             var type1 = type1
             var type2 = type2
-            var t1: Int = type1.getValueType()
-            var t2: Int = type2.getValueType()
+            var t1: Int = type1.valueType
+            var t2: Int = type2.valueType
             val dataType: Int
             if (t1 == t2) {
                 if (t1 == UNKNOWN) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, ?")
@@ -345,19 +373,13 @@ open class TypeInfo(
                     type2 = type
                 }
                 if (t1 == UNKNOWN) {
-                    if (t2 == NULL) {
-                        throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, NULL")
-                    }
+                    if (t2 == NULL) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?, NULL")
                     return type2
                 } else if (t2 == UNKNOWN) {
-                    if (t1 == NULL) {
-                        throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "NULL, ?")
-                    }
+                    if (t1 == NULL) throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "NULL, ?")
                     return type1
                 }
-                if (t2 == NULL) {
-                    return type1
-                }
+                if (t2 == NULL) return type1
                 dataType = Value.getHigherOrderKnown(t1, t2)
             }
 
@@ -366,30 +388,30 @@ open class TypeInfo(
                 Value.NUMERIC -> {
                     type1 = type1.toNumericType()
                     type2 = type2.toNumericType()
-                    var precision1: Long = type1.getPrecision()
-                    var precision2: Long = type2.getPrecision()
-                    val scale1: Int = type1.getScale()
-                    val scale2: Int = type2.getScale()
-                    val scale: Int
-                    if (scale1 < scale2) {
+
+                    var precision1: Long = type1.precision
+                    var precision2: Long = type2.precision
+                    val scale1: Int = type1.scale
+                    val scale2: Int = type2.scale
+                    val scale: Int = if (scale1 < scale2) {
                         precision1 += (scale2 - scale1).toLong()
-                        scale = scale2
+                        scale2
                     } else {
                         precision2 += (scale1 - scale2).toLong()
-                        scale = scale1
+                        scale1
                     }
-                    return getTypeInfo(Value.NUMERIC, Math.max(precision1, precision2), scale, null)
+                    return getTypeInfo(Value.NUMERIC, max(precision1, precision2), scale, null)
                 }
                 Value.REAL, Value.DOUBLE -> precision = -1L
-                Value.ARRAY -> return TypeInfo.getHigherArray(type1, type2, TypeInfo.dimensions(type1), TypeInfo.dimensions(type2))
+                Value.ARRAY -> return getHigherArray(type1, type2, dimensions(type1), dimensions(type2))
                 Value.ROW -> return TypeInfo.getHigherRow(type1, type2)
-                else -> precision = Math.max(type1.getPrecision(), type2.getPrecision())
+                else -> precision = max(type1.precision, type2.precision)
             }
             val ext1 = type1.extTypeInfo
             return getTypeInfo(dataType,  //
-                    precision,  //
-                    Math.max(type1.getScale(), type2.getScale()),  //
-                    if (dataType == t1 && ext1 != null) ext1 else if (dataType == t2) type2.extTypeInfo else null)
+                               precision,  //
+                               max(type1.scale, type2.scale),  //
+                               if (dataType == t1 && ext1 != null) ext1 else if (dataType == t2) type2.extTypeInfo else null)
         }
     }
 
@@ -440,8 +462,8 @@ open class TypeInfo(
             Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_DAY_TO_SECOND,
             Value.INTERVAL_HOUR_TO_MINUTE, Value.INTERVAL_HOUR_TO_SECOND,
             Value.INTERVAL_MINUTE_TO_SECOND -> IntervalQualifier
-                    .valueOf(valueType - Value.INTERVAL_YEAR)
-                    .getTypeName(builder, precision.toInt(), scale, false)
+                .valueOf(valueType - Value.INTERVAL_YEAR)
+                .getTypeName(builder, precision.toInt(), scale, false)
             Value.ENUM -> extTypeInfo!!.getSQL(builder.append("ENUM"), sqlFlags)
             Value.GEOMETRY -> {
                 builder.append("GEOMETRY")
@@ -467,4 +489,40 @@ open class TypeInfo(
      * @return the precision, or `-1L` if not specified in data type definition
      */
     open fun getDeclaredPrecision(): Long = precision
+
+    /**
+     * Convert this type information to compatible NUMERIC type information.
+     *
+     * @return NUMERIC type information
+     */
+    open fun toNumericType(): TypeInfo = when (valueType) {
+        Value.BOOLEAN, Value.TINYINT, Value.SMALLINT, Value.INTEGER -> getTypeInfo(Value.NUMERIC, getDecimalPrecision(), 0, null)
+        Value.BIGINT -> TYPE_NUMERIC_BIGINT
+        Value.NUMERIC -> this
+        Value.REAL ->             // Smallest REAL value is 1.4E-45 with precision 2 and scale 46
+            // Largest REAL value is 3.4028235E+38 with precision 8 and scale
+            // -31
+            getTypeInfo(Value.NUMERIC, 85, 46, null)
+        Value.DOUBLE ->             // Smallest DOUBLE value is 4.9E-324 with precision 2 and scale 325
+            // Largest DOUBLE value is 1.7976931348623157E+308 with precision 17
+            // and scale -292
+            getTypeInfo(Value.NUMERIC, 634, 325, null)
+        else -> TYPE_NUMERIC_FLOATING_POINT
+    }
+
+    /**
+     * Returns approximate precision in decimal digits for binary numeric data
+     * types and precision for all other types.
+     *
+     * @return precision in decimal digits
+     */
+    open fun getDecimalPrecision(): Long = when (valueType) {
+        Value.TINYINT -> ValueTinyint.DECIMAL_PRECISION.toLong()
+        Value.SMALLINT -> ValueSmallint.DECIMAL_PRECISION.toLong()
+        Value.INTEGER -> ValueInteger.DECIMAL_PRECISION.toLong()
+        Value.BIGINT -> ValueBigint.DECIMAL_PRECISION.toLong()
+        Value.REAL -> ValueReal.DECIMAL_PRECISION.toLong()
+        Value.DOUBLE -> ValueDouble.DECIMAL_PRECISION.toLong()
+        else -> precision
+    }
 }

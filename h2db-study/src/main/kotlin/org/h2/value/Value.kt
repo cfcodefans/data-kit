@@ -320,58 +320,58 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
 
 
         val GROUPS = byteArrayOf( // NULL
-                GROUP_NULL.toByte(),
-                // CHAR, VARCHAR, CLOB, VARCHAR_IGNORECASE
-                GROUP_CHARACTER_STRING.toByte(),
-                GROUP_CHARACTER_STRING.toByte(),
-                GROUP_CHARACTER_STRING.toByte(),
-                GROUP_CHARACTER_STRING.toByte(),
+            GROUP_NULL.toByte(),
+            // CHAR, VARCHAR, CLOB, VARCHAR_IGNORECASE
+            GROUP_CHARACTER_STRING.toByte(),
+            GROUP_CHARACTER_STRING.toByte(),
+            GROUP_CHARACTER_STRING.toByte(),
+            GROUP_CHARACTER_STRING.toByte(),
 
-                // BINARY, VARBINARY, BLOB
-                GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(),
-                // BOOLEAN
-                GROUP_BOOLEAN.toByte(),
-                // TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, REAL, DOUBLE, DECFLOAT
-                GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),
-                GROUP_NUMERIC.toByte(),
+            // BINARY, VARBINARY, BLOB
+            GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(), GROUP_BINARY_STRING.toByte(),
+            // BOOLEAN
+            GROUP_BOOLEAN.toByte(),
+            // TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC, REAL, DOUBLE, DECFLOAT
+            GROUP_NUMERIC.toByte(),
+            GROUP_NUMERIC.toByte(),
+            GROUP_NUMERIC.toByte(),
+            GROUP_NUMERIC.toByte(),
+            GROUP_NUMERIC.toByte(),
+            GROUP_NUMERIC.toByte(),
+            GROUP_NUMERIC.toByte(),
+            GROUP_NUMERIC.toByte(),
 
-                // DATE, TIME, TIME_TZ, TIMESTAMP, TIMESTAMP_TZ
-                GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(),
-                // INTERVAL_YEAR, INTERVAL_MONTH
-                GROUP_INTERVAL_YM.toByte(), GROUP_INTERVAL_YM.toByte(),
-                // INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND
-                GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),
-                // INTERVAL_YEAR_TO_MONTH
-                GROUP_INTERVAL_YM.toByte(),
-                // INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
-                // INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE,
-                // INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND
-                GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),
-                GROUP_INTERVAL_DT.toByte(),  // JAVA_OBJECT, ENUM, GEOMETRY, JSON, UUID
-                GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(),  // ARRAY, ROW
-                GROUP_COLLECTION.toByte(), GROUP_COLLECTION.toByte())
+            // DATE, TIME, TIME_TZ, TIMESTAMP, TIMESTAMP_TZ
+            GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(), GROUP_DATETIME.toByte(),
+            // INTERVAL_YEAR, INTERVAL_MONTH
+            GROUP_INTERVAL_YM.toByte(), GROUP_INTERVAL_YM.toByte(),
+            // INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND
+            GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),
+            // INTERVAL_YEAR_TO_MONTH
+            GROUP_INTERVAL_YM.toByte(),
+            // INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
+            // INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE,
+            // INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND
+            GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(), GROUP_INTERVAL_DT.toByte(),
+            GROUP_INTERVAL_DT.toByte(),  // JAVA_OBJECT, ENUM, GEOMETRY, JSON, UUID
+            GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(), GROUP_OTHER.toByte(),  // ARRAY, ROW
+            GROUP_COLLECTION.toByte(), GROUP_COLLECTION.toByte())
 
         private val NAMES = arrayOf(
-                "NULL",  //
-                "CHARACTER", "CHARACTER VARYING", "CHARACTER LARGE OBJECT", "VARCHAR_IGNORECASE",  //
-                "BINARY", "BINARY VARYING", "BINARY LARGE OBJECT",  //
-                "BOOLEAN",  //
-                "TINYINT", "SMALLINT", "INTEGER", "BIGINT",  //
-                "NUMERIC", "REAL", "DOUBLE PRECISION", "DECFLOAT",  //
-                "DATE", "TIME", "TIME WITH TIME ZONE", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE",  //
-                "INTERVAL YEAR", "INTERVAL MONTH",  //
-                "INTERVAL DAY", "INTERVAL HOUR", "INTERVAL MINUTE", "INTERVAL SECOND",  //
-                "INTERVAL YEAR TO MONTH",  //
-                "INTERVAL DAY TO HOUR", "INTERVAL DAY TO MINUTE", "INTERVAL DAY TO SECOND",  //
-                "INTERVAL HOUR TO MINUTE", "INTERVAL HOUR TO SECOND", "INTERVAL MINUTE TO SECOND",  //
-                "JAVA_OBJECT", "ENUM", "GEOMETRY", "JSON", "UUID",  //
-                "ARRAY", "ROW")
+            "NULL",  //
+            "CHARACTER", "CHARACTER VARYING", "CHARACTER LARGE OBJECT", "VARCHAR_IGNORECASE",  //
+            "BINARY", "BINARY VARYING", "BINARY LARGE OBJECT",  //
+            "BOOLEAN",  //
+            "TINYINT", "SMALLINT", "INTEGER", "BIGINT",  //
+            "NUMERIC", "REAL", "DOUBLE PRECISION", "DECFLOAT",  //
+            "DATE", "TIME", "TIME WITH TIME ZONE", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE",  //
+            "INTERVAL YEAR", "INTERVAL MONTH",  //
+            "INTERVAL DAY", "INTERVAL HOUR", "INTERVAL MINUTE", "INTERVAL SECOND",  //
+            "INTERVAL YEAR TO MONTH",  //
+            "INTERVAL DAY TO HOUR", "INTERVAL DAY TO MINUTE", "INTERVAL DAY TO SECOND",  //
+            "INTERVAL HOUR TO MINUTE", "INTERVAL HOUR TO SECOND", "INTERVAL MINUTE TO SECOND",  //
+            "JAVA_OBJECT", "ENUM", "GEOMETRY", "JSON", "UUID",  //
+            "ARRAY", "ROW")
 
         /**
          * Empty array of values.
@@ -594,8 +594,8 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             val index: Int = v.hashCode() and SysProperties.OBJECT_CACHE_SIZE - 1
             val cached = cache[index]
             if (cached != null
-                    && cached.getValueType() == v.getValueType()
-                    && v == cached)
+                && cached.getValueType() == v.getValueType()
+                && v == cached)
                 return cached
 
             cache[index] = v
@@ -769,7 +769,8 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
     fun convertToInt(column: Any?): ValueInteger = when (getValueType()) {
         INTEGER -> this as ValueInteger
         CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT, ENUM, SMALLINT -> ValueInteger.get(getInt())
-        BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueInteger.get(Value.convertToInt(getLong(), column))
+        BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueInteger.get(
+            Value.convertToInt(getLong(), column))
         NUMERIC, DECFLOAT -> ValueInteger.get(Value.convertToInt(convertToLong(getBigDecimal(), column), column))
         REAL, DOUBLE -> ValueInteger.get(Value.convertToInt(convertToLong(getDouble(), column), column))
         BINARY, VARBINARY -> {
@@ -806,7 +807,8 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             SMALLINT -> this as ValueSmallint
             CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT -> ValueSmallint.get(getShort())
             ENUM, INTEGER -> ValueSmallint.get(convertToShort(getInt().toLong(), column!!))
-            BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueSmallint.get(convertToShort(getLong(), column!!))
+            BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueSmallint.get(
+                convertToShort(getLong(), column!!))
             NUMERIC, DECFLOAT -> ValueSmallint.get(convertToShort(convertToLong(getBigDecimal(), column), column!!))
             REAL, DOUBLE -> ValueSmallint.get(convertToShort(convertToLong(getDouble(), column), column!!))
             BINARY, VARBINARY -> {
@@ -966,10 +968,10 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         val targetValueType: Int = targetType.valueType
 
         return if (valueType == NULL
-                || valueType == targetValueType//.also { targetValueType = it }
-                && conversionMode == CONVERT_TO
-                && targetType.valueType == null
-                && valueType != CHAR) {
+            || valueType == targetValueType //.also { targetValueType = it }
+            && conversionMode == CONVERT_TO
+            && targetType.valueType == null
+            && valueType != CHAR) {
             this
         } else when (targetValueType) {
             NULL -> ValueNull.INSTANCE
@@ -1022,10 +1024,10 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                 val targetScale: Int = targetType.scale
                 val scale = value.scale()
                 if (scale < 0
-                        || scale > ValueNumeric.MAXIMUM_SCALE
-                        || conversionMode != CONVERT_TO
-                        && scale != targetScale
-                        && (scale >= targetScale || !provider.getMode().convertOnlyToSmallerScale)) {
+                    || scale > ValueNumeric.MAXIMUM_SCALE
+                    || conversionMode != CONVERT_TO
+                    && scale != targetScale
+                    && (scale >= targetScale || !provider.getMode().convertOnlyToSmallerScale)) {
                     value = ValueNumeric.setScale(value, targetScale)
                 }
                 if (conversionMode != CONVERT_TO && value.precision() > targetType.precision - targetScale + value.scale()) {
@@ -1249,4 +1251,27 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         else if (v === ValueNull.INSTANCE) return 1
         return compareToNotNullable(v, provider, compareMode!!)
     }
+
+    /**
+     * Returns whether this value `IS TRUE`.
+     *
+     * @return `true` if it is. For `BOOLEAN` values returns
+     * `true` for `TRUE` and `false` for `FALSE`
+     * and `UNKNOWN` (`NULL`).
+     * @see .getBoolean
+     * @see .isFalse
+     */
+    fun isTrue(): Boolean = if (this !== ValueNull.INSTANCE) getBoolean() else false
+
+    /**
+     * Returns whether this value `IS FALSE`.
+     *
+     * @return `true` if it is. For `BOOLEAN` values returns
+     * `true` for `FALSE` and `false` for `TRUE`
+     * and `UNKNOWN` (`NULL`).
+     * @see .getBoolean
+     * @see .isTrue
+     */
+    fun isFalse(): Boolean = this !== ValueNull.INSTANCE && !getBoolean()
+
 }

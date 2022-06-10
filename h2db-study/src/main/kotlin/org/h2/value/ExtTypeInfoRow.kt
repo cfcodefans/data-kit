@@ -25,8 +25,8 @@ class ExtTypeInfoRow(private val fields: LinkedHashMap<String, TypeInfo>) : ExtT
     constructor(fields: Array<Typed>, degree: Int) : this(fields = fields.let {
         if (degree > Constants.MAX_COLUMNS) throw DbException.get(ErrorCode.TOO_MANY_COLUMNS_1, "${Constants.MAX_COLUMNS}")
         it.take(degree)
-                .mapIndexed { index, typed -> "C${1 + index}" to typed.type!! }
-                .toMap()
+            .mapIndexed { index, typed -> "C${1 + index}" to typed.type!! }
+            .toMap()
     }.let { LinkedHashMap<String, TypeInfo>(it) })
 
     /**
@@ -61,13 +61,9 @@ class ExtTypeInfoRow(private val fields: LinkedHashMap<String, TypeInfo>) : ExtT
     override fun hashCode(): Int {
         if (hash != 0) return hash
 
-        hash = fields.entries.fold(67378403) { h, entry ->
-            (h * 31 + entry.key.hashCode()) * 37 + entry.value.hashCode()
-        }
+        hash = fields.entries.fold(67378403) { h, entry -> (h * 31 + entry.key.hashCode()) * 37 + entry.value.hashCode() }
         return hash
     }
 
-    override fun equals(other: Any?): Boolean {
-        return super.equals(other)
-    }
+    override fun equals(other: Any?): Boolean = super.equals(other)
 }

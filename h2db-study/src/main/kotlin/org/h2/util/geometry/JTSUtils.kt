@@ -31,10 +31,8 @@ object JTSUtils {
          * @param dimensionSystem dimension system to use
          */
         override fun init(srid: Int) {
-            factory = GeometryFactory(
-                PrecisionModel(), srid,
-                if (dimensionSystem and GeometryUtils.DIMENSION_SYSTEM_XYM != 0) PackedCoordinateSequenceFactory.DOUBLE_FACTORY else CoordinateArraySequenceFactory.instance()
-            )
+            factory = GeometryFactory(PrecisionModel(), srid,
+                                      if (dimensionSystem and GeometryUtils.DIMENSION_SYSTEM_XYM != 0) PackedCoordinateSequenceFactory.DOUBLE_FACTORY else CoordinateArraySequenceFactory.instance())
         }
 
         override fun startPoint() {
@@ -113,7 +111,7 @@ object JTSUtils {
                 && isNaN(x)
                 && isNaN(y)
                 && isNaN(z)
-                && isNaN(m) ) {
+                && isNaN(m)) {
                 coordinates = createCoordinates(0)
                 return
             }
@@ -315,30 +313,24 @@ object JTSUtils {
     }
 
 
-    private fun addCoordinate(
-        sequence: CoordinateSequence,
-        target: GeometryUtils.Target,
-        index: Int,
-        total: Int
-    ) {
-        addCoordinate(
-            sequence,
-            target,
-            index,
-            total,
-            GeometryUtils.toCanonicalDouble(sequence.getX(index)),
-            GeometryUtils.toCanonicalDouble(sequence.getY(index))
-        )
+    private fun addCoordinate(sequence: CoordinateSequence,
+                              target: GeometryUtils.Target,
+                              index: Int,
+                              total: Int) {
+        addCoordinate(sequence,
+                      target,
+                      index,
+                      total,
+                      GeometryUtils.toCanonicalDouble(sequence.getX(index)),
+                      GeometryUtils.toCanonicalDouble(sequence.getY(index)))
     }
 
-    private fun addCoordinate(
-        sequence: CoordinateSequence,
-        target: GeometryUtils.Target,
-        index: Int,
-        total: Int,
-        x: Double,
-        y: Double
-    ) {
+    private fun addCoordinate(sequence: CoordinateSequence,
+                              target: GeometryUtils.Target,
+                              index: Int,
+                              total: Int,
+                              x: Double,
+                              y: Double) {
         val z = GeometryUtils.toCanonicalDouble(sequence.getZ(index))
         val m = GeometryUtils.toCanonicalDouble(sequence.getM(index))
         target.addCoordinate(x, y, z, m, index, total)
