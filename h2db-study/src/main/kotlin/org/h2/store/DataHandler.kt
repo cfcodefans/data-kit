@@ -54,7 +54,7 @@ interface DataHandler {
      * Get the temp file deleter mechanism.
      * @return the temp file deleter
      */
-    fun getTempFileDeleter(): TempFileDeleter?
+    fun getTempFileDeleter(): TempFileDeleter
 
     /**
      * Get the synchronization object for lob operations.
