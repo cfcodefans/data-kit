@@ -23,7 +23,7 @@ object FileUtils {
     fun readFully(channel: FileChannel, dst: ByteBuffer) {
         do {
             if (channel.read(dst) < 0) {
-                throw  EOFException()
+                throw EOFException()
             }
         } while (dst.remaining() > 0)
     }
@@ -154,6 +154,14 @@ object FileUtils {
      * @return if the file is writable
      */
     fun canWrite(fileName: String): Boolean = get(fileName).canWrite()
+
+    /**
+     * Try to delete a file or directory (ignoring errors).
+     *
+     * @param path the file or directory name
+     * @return true if it worked
+     */
+    fun tryDelete(path: String): Boolean = kotlin.runCatching { get(path).delete() }.isSuccess
 
     /**
      * Create a new temporary file.

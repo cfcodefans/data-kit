@@ -1,8 +1,9 @@
 package org.h2.store
 
-import org.h2.api.JavaObjectSerializer
 import org.h2.message.DbException
+import org.h2.util.SmallLRUCache
 import org.h2.util.TempFileDeleter
+import org.h2.value.CompareMode
 
 /**
  * A data handler contains a number of callback methods, mostly related to CLOB
@@ -43,42 +44,6 @@ interface DataHandler {
     fun checkWritingAllowed(): Unit
 
     /**
-     *  Get the maximum length of a in-place large object
-     *  @return the maximum size
-     */
-    fun getMaxLengthInplaceLog(): Int
-
-    /**
-     * Get the compression algorithm used for large objects.
-     * @param type the data type (CLOB or BLOB)
-     * @return the compression algorithm, or null
-     */
-    fun getLogCompressionAlgorithm(type: Int): String
-
-    /**
-     * Get the temp file deleter mechanism.
-     *
-     * @return the temp file deleter
-     */
-    fun getTempFileDeleter(): TempFileDeleter?
-
-    /**
-     * Get the synchronization object for lob operations.
-     *
-     * @return the synchronization object
-     */
-    fun getLobSyncObject(): Any
-
-    /**
-     * Return the serializer to be used for java objects being stored in
-     * column of type OTHER.
-     *
-     * @return the serializer to be used for java objects being stored in
-     * column of type OTHER
-     */
-    fun getJavaObjectSerializer(): JavaObjectSerializer?
-
-    /**
      * Get the maximum length of a in-place large object
      *
      * @return the maximum size
@@ -86,9 +51,46 @@ interface DataHandler {
     fun getMaxLengthInplaceLob(): Int
 
     /**
-     * Get the lob storage mechanism to use.
+     * Get the temp file deleter mechanism.
+     * @return the temp file deleter
+     */
+    fun getTempFileDeleter(): TempFileDeleter?
+
+    /**
+     * Get the synchronization object for lob operations.
+     * @return the synchronization object
+     */
+    fun getLobSyncObject(): Any?
+
+    /**
+     * Get the lob file list cache if it is used.
      *
+     * @return the cache or null
+     */
+    fun getLobFileListCache(): SmallLRUCache<String?, Array<String>?>
+
+    /**
+     * Get the lob storage mechanism to use.
      * @return the lob storage mechanism
      */
     fun getLobStorage(): LobStorageInterface
+
+    /**
+     * Read from a lob.
+     *
+     * @param lobId the lob id
+     * @param hmac the message authentication code
+     * @param offset the offset within the lob
+     * @param buff the target buffer
+     * @param off the offset within the target buffer
+     * @param length the number of bytes to read
+     * @return the number of bytes read
+     */
+    fun readLob(lobId: Long, hmac: ByteArray?, offset: Long, buff: ByteArray?, off: Int, length: Int): Int
+
+    /**
+     * Return compare mode.
+     * @return Compare mode.
+     */
+    fun getCompareMode(): CompareMode?
 }
