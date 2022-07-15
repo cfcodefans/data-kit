@@ -259,7 +259,7 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
          * @return the exception
          */
         @JvmStatic
-        fun get(errorCode: Int, cause: Throwable, vararg params: String?): DbException =
+        fun get(errorCode: Int, cause: Throwable?, vararg params: String?): DbException =
                 DbException(getJdbcSQLException(errorCode, cause, *params))
 
         /**

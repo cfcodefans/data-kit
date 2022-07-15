@@ -77,9 +77,8 @@ class Driver : java.sql.Driver {
             // SEVERE: The web application appears to have started a thread named
             // ... but has failed to stop it.
             // This is very likely to create a memory leak.
-            try {
+            kotlin.runCatching {
                 thread.contextClassLoader = Driver::class.java.classLoader
-            } catch (t: Throwable) {
             }
         }
     }
