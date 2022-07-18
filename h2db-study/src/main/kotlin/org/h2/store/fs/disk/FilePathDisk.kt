@@ -330,11 +330,8 @@ open class FilePathDisk(override val scheme: String = "file") : FilePath() {
             if (fileStore.supportsFileAttributeView(PosixFileAttributeView::class.java)) {
                 Files.setPosixFilePermissions(f,
                     Files.getPosixFilePermissions(f)
-                        .filterNot { p ->
-                            p == PosixFilePermission.OWNER_WRITE
-                                    || p == PosixFilePermission.GROUP_WRITE
-                                    || p == PosixFilePermission.OTHERS_WRITE
-                        }.toSet())
+                        .filterNot { p -> p == PosixFilePermission.OWNER_WRITE || p == PosixFilePermission.GROUP_WRITE || p == PosixFilePermission.OTHERS_WRITE }
+                        .toSet())
             } else if (fileStore.supportsFileAttributeView(DosFileAttributeView::class.java)) {
                 Files.setAttribute(f, "dos:readonly", true)
             } else {
