@@ -726,6 +726,78 @@ object ErrorCode {
     const val FILE_CREATION_FAILED_1: Int = 90062
 
     /**
+     * The error with code `90063` is thrown when
+     * trying to rollback to a savepoint that is not defined.
+     * Example:
+     * <pre>
+     * ROLLBACK TO SAVEPOINT S_UNKNOWN;
+    </pre> *
+     */
+    const val SAVEPOINT_IS_INVALID_1 = 90063
+
+    /**
+     * The error with code `90064` is thrown when
+     * Savepoint.getSavepointName() is called on an unnamed savepoint.
+     * Example:
+     * <pre>
+     * Savepoint sp = conn.setSavepoint();
+     * sp.getSavepointName();
+    </pre> *
+     */
+    const val SAVEPOINT_IS_UNNAMED = 90064
+
+    /**
+     * The error with code `90065` is thrown when
+     * Savepoint.getSavepointId() is called on a named savepoint.
+     * Example:
+     * <pre>
+     * Savepoint sp = conn.setSavepoint("Joe");
+     * sp.getSavepointId();
+    </pre> *
+     */
+    const val SAVEPOINT_IS_NAMED = 90065
+
+    /**
+     * The error with code `90066` is thrown when
+     * the same property appears twice in the database URL or in
+     * the connection properties.
+     * Example:
+     * <pre>
+     * jdbc:h2:~/test;LOCK_TIMEOUT=0;LOCK_TIMEOUT=1
+    </pre> *
+     */
+    const val DUPLICATE_PROPERTY_1 = 90066
+
+    /**
+     * The error with code `90067` is thrown when the client could
+     * not connect to the database, or if the connection was lost. Possible
+     * reasons are: the database server is not running at the given port, the
+     * connection was closed due to a shutdown, or the server was stopped. Other
+     * possible causes are: the server is not an H2 server, or the network
+     * connection is broken.
+     */
+    const val CONNECTION_BROKEN_1 = 90067
+
+    /**
+     * The error with code `90068` is thrown when the given
+     * expression that is used in the ORDER BY is not in the result list. This
+     * is required for distinct queries, otherwise the result would be
+     * ambiguous.
+     * Example of wrong usage:
+     * <pre>
+     * CREATE TABLE TEST(ID INT, NAME VARCHAR);
+     * INSERT INTO TEST VALUES(2, 'Hello'), (1, 'Hello');
+     * SELECT DISTINCT NAME FROM TEST ORDER BY ID;
+     * Order by expression ID must be in the result list in this case
+    </pre> *
+     * Correct:
+     * <pre>
+     * SELECT DISTINCT ID, NAME FROM TEST ORDER BY ID;
+    </pre> *
+     */
+    const val ORDER_BY_NOT_IN_RESULT = 90068
+
+    /**
      * The error with code `90086` is thrown when
      * a class can not be loaded because it is not in the classpath
      * or because a related class is not in the classpath.

@@ -122,7 +122,7 @@ abstract class Command(
      *
      * @throws DbException if the statement has been canceled
      */
-    protected open fun checkCanceled() {
+    open fun checkCanceled() {
         if (cancel) {
             cancel = false
             throw DbException.get(ErrorCode.STATEMENT_WAS_CANCELED)

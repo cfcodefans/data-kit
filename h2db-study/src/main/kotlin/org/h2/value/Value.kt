@@ -376,7 +376,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         /**
          * Empty array of values.
          */
-        val EMPTY_VALUES = arrayOfNulls<Value>(0)
+        val EMPTY_VALUES = emptyArray<Value>()
 
         @JvmStatic
         val softCache: SoftReference<Array<Value?>> by lazy { SoftReference<Array<Value?>>(arrayOfNulls(SysProperties.OBJECT_CACHE_SIZE)) }

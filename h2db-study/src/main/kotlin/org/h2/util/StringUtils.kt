@@ -620,4 +620,24 @@ object StringUtils {
         val s = positiveValue.toString()
         return builder.append(s.padEnd(length - s.length, '0'))
     }
+
+    fun <T> StringBuilder.appends(
+        iterable: Iterable<T>,
+        separator: String = ", ",
+        prefix: String = "",
+        postfix: String = "",
+        truncated: CharSequence = "...",
+        limit: Int = -1,
+        transform: ((StringBuilder, T) -> Unit)? = null): StringBuilder = apply {
+        this.append(prefix)
+        var count: Int = 0
+        for (element in iterable) {
+            if (++count > 1) append(separator)
+            if (limit < 0 || count <= limit) {
+                transform?.invoke(this, element)
+            } else break
+        }
+        if (limit >= 0 && count > limit) append(truncated)
+        append(postfix)
+    }
 }

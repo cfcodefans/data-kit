@@ -26,7 +26,7 @@ open class BooleanTest(val right: Boolean?,
         return builder.append(if (not) " IS NOT " else " IS ").append(if (right == null) "UNKNOWN" else if (right) "TRUE" else "FALSE")
     }
 
-    override fun getValue(session: SessionLocal?): Value? = ValueBoolean.get(getValue(left!!.getValue(session)!!))
+    override fun getValue(session: SessionLocal?): Value? = ValueBoolean[getValue(left!!.getValue(session)!!)]
 
     override fun getWhenValue(session: SessionLocal, left: Value?): Boolean = if (!whenOperand) {
         super.getWhenValue(session, left)
