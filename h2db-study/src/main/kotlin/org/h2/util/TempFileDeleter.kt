@@ -2,6 +2,7 @@ package org.h2.util
 
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
+import org.h2.store.fs.FileUtils
 import org.h2.util.IOUtils.trace
 import java.lang.ref.PhantomReference
 import java.lang.ref.Reference
@@ -28,8 +29,8 @@ class TempFileDeleter {
         }
 
         IOUtils.trace("TempFileDeleter.addFile",
-                (if (resource is String) resource else "-"),
-                monitor)
+            (if (resource is String) resource else "-"),
+            monitor)
         val ref: PhantomReference<*> = PhantomReference(monitor, queue)
         refMap[ref] = resource
         deleteUnused()
@@ -44,25 +45,36 @@ class TempFileDeleter {
      */
     @Synchronized
     fun deleteFile(ref: Reference<*>?, resource: Any?): Unit {
-        var res: Any? = resource
-        if (ref != null) {
-            val f2: Any? = refMap.remove(ref)
-            if (f2 != null) {
-                if (SysProperties.CHECK && f2 != resource) {
-                    DbException.throwInternalError("f2: $f2 f: $resource")
-                }
-                res = f2
-            }
-        }
+        val res: Any? = ref?.let { refMap.remove(it) }
+            ?.apply {
+                if (SysProperties.CHECK && resource != null && this != resource) throw DbException.throwInternalError("f2: $this f: $resource")
+            } ?: resource
 
         when (res) {
             is String -> {
                 val fileName: String = res
-
-
+                if (FileUtils.exists(fileName)) kotlin.runCatching {
+                    trace("TempFileDeleter.deleteFile", fileName, null)
+                    FileUtils.tryDelete(fileName)
+                }
+            }
+            is AutoCloseable -> kotlin.runCatching {
+                trace("TempFileDeleter.deleteCloseable", "-", null)
+                res.close()
             }
         }
     }
+
+    /**
+     * Delete all registered temp resources.
+     */
+    fun deleteAll() {
+        for (resource in ArrayList(refMap.values)) {
+            deleteFile(null, resource)
+        }
+        deleteUnused()
+    }
+
 
     /**
      * Delete all unused resources now.

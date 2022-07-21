@@ -14,21 +14,6 @@ import java.nio.channels.WritableByteChannel
 abstract class FileBase : FileChannel() {
 
     @Throws(IOException::class)
-    abstract override fun size(): Long
-
-    @Throws(IOException::class)
-    abstract override fun position(): Long
-
-    @Throws(IOException::class)
-    abstract override fun position(newPosition: Long): FileChannel
-
-    @Throws(IOException::class)
-    abstract override fun read(dst: ByteBuffer?): Int
-
-    @Throws(IOException::class)
-    abstract override fun write(src: ByteBuffer?): Int
-
-    @Throws(IOException::class)
     @Synchronized
     override fun read(dst: ByteBuffer?, position: Long): Int {
         val oldPos: Long = position()
@@ -48,14 +33,12 @@ abstract class FileBase : FileChannel() {
         return len
     }
 
-    @Throws(IOException::class)
-    abstract override fun truncate(size: Long): FileChannel
-
     override fun force(metaData: Boolean) {
     }
 
     override fun implCloseChannel() {
     }
+
 
     override fun lock(position: Long, size: Long, shared: Boolean): FileLock = throw UnsupportedOperationException()
 

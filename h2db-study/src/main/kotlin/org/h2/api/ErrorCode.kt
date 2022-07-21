@@ -706,6 +706,126 @@ object ErrorCode {
     const val ERROR_EXECUTING_TRIGGER_3: Int = 90044
 
     /**
+     * The error with code `90050` is thrown when trying to open an
+     * encrypted database, but not separating the file password from the user
+     * password. The file password is specified in the password field, before
+     * the user password. A single space needs to be added between the file
+     * password and the user password; the file password itself may not contain
+     * spaces. File passwords (as well as user passwords) are case sensitive.
+     * Example of wrong usage:
+     * <pre>
+     * String url = &quot;jdbc:h2:/test;CIPHER=AES&quot;;
+     * String passwords = &quot;filePasswordUserPassword&quot;;
+     * DriverManager.getConnection(url, &quot;sa&quot;, pwds);
+    </pre> *
+     * Correct:
+     * <pre>
+     * String url = &quot;jdbc:h2:/test;CIPHER=AES&quot;;
+     * String passwords = &quot;filePassword userPassword&quot;;
+     * DriverManager.getConnection(url, &quot;sa&quot;, pwds);
+    </pre> *
+     */
+    const val WRONG_PASSWORD_FORMAT = 90050
+
+    // 90051 was removed
+
+    // 90051 was removed
+    /**
+     * The error with code `90052` is thrown when a single-column
+     * subquery is expected but a subquery with other number of columns was
+     * specified.
+     * Example:
+     * <pre>
+     * VALUES ARRAY(SELECT A, B FROM TEST)
+    </pre> *
+     */
+    const val SUBQUERY_IS_NOT_SINGLE_COLUMN = 90052
+
+    /**
+     * The error with code `90053` is thrown when
+     * a subquery that is used as a value contains more than one row.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT, NAME VARCHAR);
+     * INSERT INTO TEST VALUES(1, 'Hello'), (1, 'World');
+     * SELECT X, (SELECT NAME FROM TEST WHERE ID=X) FROM DUAL;
+    </pre> *
+     */
+    const val SCALAR_SUBQUERY_CONTAINS_MORE_THAN_ONE_ROW = 90053
+
+    /**
+     * The error with code `90054` is thrown when
+     * an aggregate function is used where it is not allowed.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT);
+     * INSERT INTO TEST VALUES(1), (2);
+     * SELECT MAX(ID) FROM TEST WHERE ID = MAX(ID) GROUP BY ID;
+    </pre> *
+     */
+    const val INVALID_USE_OF_AGGREGATE_FUNCTION_1 = 90054
+
+    /**
+     * The error with code `90055` is thrown when
+     * trying to open a database with an unsupported cipher algorithm.
+     * Supported is AES.
+     * Example:
+     * <pre>
+     * jdbc:h2:~/test;CIPHER=DES
+    </pre> *
+     */
+    const val UNSUPPORTED_CIPHER = 90055
+
+    /**
+     * The error with code `90056` is thrown when trying to format a
+     * timestamp using TO_DATE and TO_TIMESTAMP  with an invalid format.
+     */
+    const val INVALID_TO_DATE_FORMAT = 90056
+
+    /**
+     * The error with code `90057` is thrown when
+     * trying to drop a constraint that does not exist.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT);
+     * ALTER TABLE TEST DROP CONSTRAINT CID;
+    </pre> *
+     */
+    const val CONSTRAINT_NOT_FOUND_1 = 90057
+
+    /**
+     * The error with code `90058` is thrown when trying to call
+     * commit or rollback inside a trigger, or when trying to call a method
+     * inside a trigger that implicitly commits the current transaction, if an
+     * object is locked. This is not because it would release the lock too
+     * early.
+     */
+    const val COMMIT_ROLLBACK_NOT_ALLOWED = 90058
+
+    /**
+     * The error with code `90059` is thrown when
+     * a query contains a column that could belong to multiple tables.
+     * Example:
+     * <pre>
+     * CREATE TABLE PARENT(ID INT, NAME VARCHAR);
+     * CREATE TABLE CHILD(PID INT, NAME VARCHAR);
+     * SELECT ID, NAME FROM PARENT P, CHILD C WHERE P.ID = C.PID;
+    </pre> *
+     */
+    const val AMBIGUOUS_COLUMN_NAME_1 = 90059
+
+    /**
+     * The error with code `90060` is thrown when
+     * trying to use a file locking mechanism that is not supported.
+     * Currently only FILE (the default) and SOCKET are supported
+     * Example:
+     * <pre>
+     * jdbc:h2:~/test;FILE_LOCK=LDAP
+    </pre> *
+     */
+    const val UNSUPPORTED_LOCK_METHOD_1 = 90060
+
+    /**
      * The error with code <code>90061</code> is sthrown when
      * trying to start a server if a server is already running at the same port.
      * It could also be a firewall problem. To find out if another server is

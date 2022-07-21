@@ -64,12 +64,14 @@ open class CommandContainer(session: SessionLocal, sql: String, private var prep
             }
 
             override fun addRow(vararg values: Value?) {
-                val length = indexes.size
-                val row = arrayOfNulls<Value>(length)
-                for (i in 0 until length) {
-                    row[i] = values[indexes[i]]
-                }
-                result.addRow(*row)
+                result.addRow(*(indexes.map { values[it] }.toTypedArray()))
+
+//                val length = indexes.size
+//                val row = arrayOfNulls<Value>(length)
+//                for (i in 0 until length) {
+//                    row[i] = values[indexes[i]]
+//                }
+//                result.addRow(*row)
             }
         }
     }

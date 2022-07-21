@@ -7,8 +7,44 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+import java.nio.file.OpenOption
+import java.nio.file.StandardOpenOption
+import java.nio.file.attribute.FileAttribute
+import java.util.Collections
+import java.util.EnumSet
 
 object FileUtils {
+    /**
+     * [StandardOpenOption.READ].
+     */
+    val R: Set<OpenOption> = setOf(StandardOpenOption.READ)
+
+    /**
+     * [StandardOpenOption.READ], [StandardOpenOption.WRITE], and
+     * [StandardOpenOption.CREATE].
+     */
+    val RW: Set<OpenOption> = Collections
+        .unmodifiableSet(EnumSet.of(StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE))
+
+    /**
+     * [StandardOpenOption.READ], [StandardOpenOption.WRITE],
+     * [StandardOpenOption.CREATE], and [StandardOpenOption.SYNC].
+     */
+    val RWS: Set<OpenOption> = Collections.unmodifiableSet(EnumSet.of(StandardOpenOption.READ,
+        StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.SYNC))
+
+    /**
+     * [StandardOpenOption.READ], [StandardOpenOption.WRITE],
+     * [StandardOpenOption.CREATE], and [StandardOpenOption.DSYNC].
+     */
+    val RWD: Set<OpenOption> = Collections.unmodifiableSet(EnumSet.of(StandardOpenOption.READ,
+        StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.DSYNC))
+
+    /**
+     * No file attributes.
+     */
+    val NO_ATTRIBUTES: Array<FileAttribute<*>> = emptyArray()
+
     @JvmStatic
     fun exists(fileName: String): Boolean = get(fileName).exists()
 
@@ -23,7 +59,7 @@ object FileUtils {
     fun readFully(channel: FileChannel, dst: ByteBuffer) {
         do {
             if (channel.read(dst) < 0) {
-                throw  EOFException()
+                throw EOFException()
             }
         } while (dst.remaining() > 0)
     }
@@ -156,6 +192,14 @@ object FileUtils {
     fun canWrite(fileName: String): Boolean = get(fileName).canWrite()
 
     /**
+     * Try to delete a file or directory (ignoring errors).
+     *
+     * @param path the file or directory name
+     * @return true if it worked
+     */
+    fun tryDelete(path: String): Boolean = kotlin.runCatching { get(path).delete() }.isSuccess
+
+    /**
      * Create a new temporary file.
      *
      * @param prefix the prefix of the file name (including directory name if
@@ -167,5 +211,30 @@ object FileUtils {
      */
     @Throws(IOException::class)
     fun createTempFile(prefix: String?, suffix: String?, inTempDir: Boolean): String = get(prefix!!).createTempFile(suffix!!, inTempDir).toString()
+
+    /**
+     * Get the last modified date of a file.
+     * This method is similar to Java 7
+     * `java.nio.file.attribute.Attributes.
+     * readBasicFileAttributes(file).lastModified().toMillis()`
+     *
+     * @param fileName the file name
+     * @return the last modified date
+     */
+    fun lastModified(fileName: String?): Long = get(fileName!!).lastModified()
+
+    /**
+     * Convert the string representation to a set.
+     *
+     * @param mode the mode as a string
+     * @return the set
+     */
+    fun modeToOptions(mode: String): Set<OpenOption> = when (mode) {
+        "r" -> R
+        "rw" -> RW
+        "rws" -> RWS
+        "rwd" -> RWD
+        else -> throw IllegalArgumentException(mode)
+    }
 }
 
