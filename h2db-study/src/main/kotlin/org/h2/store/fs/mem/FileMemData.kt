@@ -5,7 +5,6 @@ import org.h2.util.MathUtils
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.io.IOException
 import java.nio.channels.NonWritableChannelException
-import java.util.Arrays
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -19,12 +18,31 @@ open class FileMemData(var name: String, private val compress: Boolean) {
     @Volatile
     private var length: Long = 0
 
-    private var data: Array<AtomicReference<ByteArray>> = emptyArray()
-    private var lastModified: Long = 0
+    fun getLen() = length
 
-    private val isReadOnly: Boolean = false
+    private var data: Array<AtomicReference<ByteArray>> = emptyArray()
+    var lastModified: Long = 0
+
+    private var isReadOnly: Boolean = false
     private var isLockedExclusive: Boolean = false
     private var sharedLockCount: Int = 0
+
+    /**
+     * Set the read-only flag.
+     *
+     * @return true
+     */
+    open fun setReadOnly(): Boolean {
+        isReadOnly = true
+        return true
+    }
+
+    /**
+     * Check whether writing is allowed.
+     *
+     * @return true if it is
+     */
+    open fun canWrite(): Boolean = !isReadOnly
 
 
     companion object {
@@ -201,7 +219,7 @@ open class FileMemData(var name: String, private val compress: Boolean) {
         val blocks = (MathUtils.roundUpLong(len, BLOCK_SIZE.toLong()) ushr BLOCK_SIZE_SHIFT).toInt()
         if (blocks == data.size) return
 
-        val n:Array<AtomicReference<ByteArray>> = data.copyOf(blocks).cast()
+        val n: Array<AtomicReference<ByteArray>> = data.copyOf(blocks).cast()
         for (i in data.size until blocks) {
             n[i] = AtomicReference(COMPRESSED_EMPTY_BLOCK)
         }
@@ -216,17 +234,17 @@ open class FileMemData(var name: String, private val compress: Boolean) {
     open fun truncate(newLength: Long) {
         changeLength(newLength)
         val end = MathUtils.roundUpLong(newLength, BLOCK_SIZE.toLong())
-        if (end != newLength) {
-            val lastPage = (newLength ushr BLOCK_SIZE_SHIFT).toInt()
-            val d = expand(lastPage)
-            val d2 = d.copyOf(d.size)
-            for (i in (newLength and BLOCK_SIZE_MASK.toLong()).toInt() until BLOCK_SIZE) {
-                d2[i] = 0
-            }
-            setPage(lastPage, d, d2, true)
-            if (compress) {
-                compressLater(lastPage)
-            }
+        if (end == newLength) return
+
+        val lastPage = (newLength ushr BLOCK_SIZE_SHIFT).toInt()
+        val d = expand(lastPage)
+        val d2 = d.copyOf(d.size)
+        for (i in (newLength and BLOCK_SIZE_MASK.toLong()).toInt() until BLOCK_SIZE) {
+            d2[i] = 0
+        }
+        setPage(lastPage, d, d2, true)
+        if (compress) {
+            compressLater(lastPage)
         }
     }
 

@@ -212,10 +212,10 @@ open class FilePathDisk(override val scheme: String = "file") : FilePath() {
         return try {
             getPath(path.toRealPath().toString())
         } catch (e: IOException) {
-/*
-* File does not exist or isn't accessible, try to get the real path
-* of parent directory.
-*/
+            /*
+            * File does not exist or isn't accessible, try to get the real path
+            * of parent directory.
+            */
             getPath(toRealPath(path.toAbsolutePath().normalize()).toString())
         }
     }
@@ -295,7 +295,7 @@ open class FilePathDisk(override val scheme: String = "file") : FilePath() {
 
     @Throws(IOException::class)
     override fun createTempFile(suffix: String, inTempDir: Boolean): FilePath {
-        var file = Paths.get("$name.").toAbsolutePath()
+        var file: Path = Paths.get("$name.").toAbsolutePath()
         val prefix = file.fileName.toString()
         file = if (inTempDir) {
             Files.createDirectories(Paths.get(System.getProperty("java.io.tmpdir", ".")))
@@ -309,29 +309,28 @@ open class FilePathDisk(override val scheme: String = "file") : FilePath() {
     }
 
     @Throws(IOException::class)
-    override fun open(mode: String): FileChannel {
-        val f = FileChannel.open(Paths.get(name),
-            FileUtils.modeToOptions(mode),
-            *FileUtils.NO_ATTRIBUTES)
-        IOUtils.trace("open", name, f)
-        return f
-    }
+    override fun open(mode: String): FileChannel = FileChannel
+        .open(Paths.get(name), FileUtils.modeToOptions(mode), *FileUtils.NO_ATTRIBUTES)
+        .also { IOUtils.trace("open", name, it) }
 
     override fun setReadOnly(): Boolean {
         val f = Paths.get(name)
         return try {
             val fileStore: FileStore = Files.getFileStore(f)
             /*
-                  * Need to check PosixFileAttributeView first because
-                  * DosFileAttributeView is also supported by recent Java versions on
-                  * non-Windows file systems, but it doesn't affect real access
-                  * permissions.
-                  */
+              * Need to check PosixFileAttributeView first because
+              * DosFileAttributeView is also supported by recent Java versions on
+              * non-Windows file systems, but it doesn't affect real access
+              * permissions.
+              */
             if (fileStore.supportsFileAttributeView(PosixFileAttributeView::class.java)) {
                 Files.setPosixFilePermissions(f,
                     Files.getPosixFilePermissions(f)
-                        .filterNot { p -> p == PosixFilePermission.OWNER_WRITE || p == PosixFilePermission.GROUP_WRITE || p == PosixFilePermission.OTHERS_WRITE }
-                        .toSet())
+                        .filterNot { p ->
+                            p == PosixFilePermission.OWNER_WRITE
+                                    || p == PosixFilePermission.GROUP_WRITE
+                                    || p == PosixFilePermission.OTHERS_WRITE
+                        }.toSet())
             } else if (fileStore.supportsFileAttributeView(DosFileAttributeView::class.java)) {
                 Files.setAttribute(f, "dos:readonly", true)
             } else {

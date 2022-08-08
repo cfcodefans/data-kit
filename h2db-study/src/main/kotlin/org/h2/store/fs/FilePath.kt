@@ -258,7 +258,7 @@ abstract class FilePath {
      * @return the name of the created file
      */
     @Throws(IOException::class)
-    open fun createTempFile(suffix: String, inTempDir: Boolean): FilePath {
+    open fun createTempFile(suffix: String, inTempDir: Boolean): FilePath? {
         while (true) {
             val p: FilePath = getPath(name + getNextTempFileNamePart(false) + suffix)
             if (p.exists() || !p.createFile()) {

@@ -4,7 +4,7 @@ import org.h2.util.MathUtils
 import org.h2.util.Utils
 import org.h2.util.Utils.getProperty
 import org.jetbrains.kotlin.konan.file.File
-import org.jetbrains.kotlin.konan.util.suffixIfNot
+import org.jetbrains.kotlin.util.suffixIfNot
 import kotlin.math.max
 
 /**
@@ -161,7 +161,7 @@ object SysProperties {
      * System property <code>h2.delayWrongPasswordMax</code>
      * (default: 4000). <br/>
      * The maximum delay in milliseconds before an exception is thrown for using the
-     * wrong user name or password. This slows down brute force attacks. The delay
+     * wrong username or password. This slows down brute force attacks. The delay
      * is reset after a successful login. The value 0 means there is no maximum delay.
      */
     val DELAY_WRONG_PASSWORD_MAX: Int = getProperty("h2.delayWrongPasswordMax", 4000)
@@ -227,6 +227,13 @@ object SysProperties {
      * The maximum size of a LOB value that is written as data to the trace system.
      */
     val MAX_TRACE_DATA_LENGTH: Long = getProperty("h2.maxTraceDataLength", 65535).toLong()
+
+    /**
+     * System property `h2.nioLoadMapped` (default: false).
+     * If the mapped buffer should be loaded when the file is opened.
+     * This can improve performance.
+     */
+    val NIO_LOAD_MAPPED = getProperty("h2.nioLoadMapped", false)
 
     /**
      * System property <code>h2.modifyOnWrite</code> (default: false). <br/>
