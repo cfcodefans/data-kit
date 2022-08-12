@@ -15,7 +15,7 @@ abstract class FileBase : FileChannel() {
 
     @Throws(IOException::class)
     @Synchronized
-    override fun read(dst: ByteBuffer?, position: Long): Int {
+    override fun read(dst: ByteBuffer, position: Long): Int {
         val oldPos: Long = position()
         position(position)
         val len: Int = read(dst)
@@ -25,10 +25,10 @@ abstract class FileBase : FileChannel() {
 
     @Throws(IOException::class)
     @Synchronized
-    override fun write(dst: ByteBuffer?, position: Long): Int {
+    override fun write(src: ByteBuffer, position: Long): Int {
         val oldPos: Long = position()
         position(position)
-        val len: Int = write(dst)
+        val len: Int = write(src)
         position(oldPos)
         return len
     }
@@ -50,7 +50,7 @@ abstract class FileBase : FileChannel() {
 
     override fun transferTo(position: Long, count: Long, target: WritableByteChannel?): Long = throw UnsupportedOperationException()
 
-    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock = throw UnsupportedOperationException()
+    override fun tryLock(position: Long, size: Long, shared: Boolean): FileLock? = throw UnsupportedOperationException()
 
     override fun write(srcs: Array<out ByteBuffer>?, offset: Int, length: Int): Long = throw UnsupportedOperationException()
 }

@@ -34,7 +34,7 @@ class FileNio(val name: String, mode: String) : FileBase() {
     override fun read(dst: ByteBuffer?, position: Long): Int = channel.read(dst, position)
 
     @Throws(IOException::class)
-    override fun write(dst: ByteBuffer?, position: Long): Int = channel.write(dst, position)
+    override fun write(src: ByteBuffer?, position: Long): Int = channel.write(src, position)
 
     @Throws(IOException::class)
     override fun truncate(newLen: Long): FileChannel {

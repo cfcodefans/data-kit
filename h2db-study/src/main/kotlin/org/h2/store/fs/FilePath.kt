@@ -1,5 +1,6 @@
 package org.h2.store.fs
 
+import org.h2.store.fs.disk.FilePathDisk
 import org.h2.util.MathUtils
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.io.IOException
@@ -39,30 +40,32 @@ abstract class FilePath {
             return tempRandom + tempSequence++
         }
 
-        @JvmStatic
-        private fun registerDefaultProviders() {
-            if (providers == null || defaultProvider == null) {
-                val map: ConcurrentHashMap<String, FilePath> = ConcurrentHashMap()
-                for (c in arrayOf("org.h2.store.fs.FilePathDisk",
-                        "org.h2.store.fs.FilePathMem",
-                        "org.h2.store.fs.FilePathMemLZF",
-                        "org.h2.store.fs.FilePathNioMem",
-                        "org.h2.store.fs.FilePathNioMemLZF",
-                        "org.h2.store.fs.FilePathSplit",
-                        "org.h2.store.fs.FilePathNio",
-                        "org.h2.store.fs.FilePathNioMapped",
-                        "org.h2.store.fs.FilePathAsync",
-                        "org.h2.store.fs.FilePathZip",
-                        "org.h2.store.fs.FilePathRetryOnInterrupt")) {
-                    try {
-                        val p: FilePath = Class.forName(c).getDeclaredConstructor().newInstance().cast()
-                        map[p.scheme] = p
-                        if (defaultProvider == null) defaultProvider = p
-                    } catch (e: Exception) {
-                    }
+        init {
+            var def: FilePath? = null
+            val map: ConcurrentHashMap<String, FilePath> = ConcurrentHashMap()
+            for (c in arrayOf("org.h2.store.fs.FilePathDisk",
+                "org.h2.store.fs.FilePathMem",
+                "org.h2.store.fs.FilePathMemLZF",
+                "org.h2.store.fs.FilePathNioMem",
+                "org.h2.store.fs.FilePathNioMemLZF",
+                "org.h2.store.fs.FilePathSplit",
+                "org.h2.store.fs.FilePathNio",
+                "org.h2.store.fs.FilePathNioMapped",
+                "org.h2.store.fs.FilePathAsync",
+                "org.h2.store.fs.FilePathZip",
+                "org.h2.store.fs.FilePathRetryOnInterrupt")) {
+                try {
+                    val p: FilePath = Class.forName(c).getDeclaredConstructor().newInstance().cast()
+
+                    map[p.scheme] = p
+                    if (p.javaClass == FilePathDisk::class.java) map["nio"] = p
+                    if (def == null) def = p
+                } catch (e: Exception) {
                 }
-                providers = map
             }
+
+            defaultProvider = def!!
+            providers = map
         }
 
         /**
@@ -73,17 +76,16 @@ abstract class FilePath {
          */
         @JvmStatic
         fun get(path: String): FilePath {
-            registerDefaultProviders()
             val _path: String = path.replace('\\', '/')
+
             val index: Int = _path.indexOf(':')
             if (index < 2) {
                 // use the default provider if no prefix or
                 // only a single character (driver name)
                 return defaultProvider.getPath(path)
             }
-            val scheme: String = path.substring(0, index)
-            val p: FilePath = providers[scheme] ?: defaultProvider
-            return p.getPath(path)
+
+            return (providers[path.substring(0, index)] ?: defaultProvider).getPath(path)
         }
 
         /**
@@ -92,7 +94,6 @@ abstract class FilePath {
          */
         @JvmStatic
         fun register(provider: FilePath) {
-            registerDefaultProviders()
             providers[provider.scheme] = provider
         }
 
@@ -102,7 +103,6 @@ abstract class FilePath {
          */
         @JvmStatic
         fun unregister(provider: FilePath) {
-            registerDefaultProviders()
             providers.remove(provider.scheme)
         }
     }

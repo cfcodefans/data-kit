@@ -10,16 +10,16 @@ import java.nio.channels.FileChannel
  * the split file system.
  */
 abstract class FilePathWrapper : FilePath() {
-    private lateinit var base: FilePath
+    protected lateinit var base: FilePath
 
     /**
      * Get the base path for the given wrapped path.
      * @param path the path including the scheme prefix
      * @return the base file path
      */
-    protected fun unwrap(path: String): FilePath = get(path.substring(scheme.length + 1))
+    protected open fun unwrap(path: String): FilePath = get(path.substring(scheme.length + 1))
 
-    protected fun getPrefix(): String = scheme + ":"
+    protected open fun getPrefix(): String = "$scheme:"
 
     /**
      * Create a wrapped path instance for the given base path.
