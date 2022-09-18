@@ -29,7 +29,7 @@ abstract class SearchRow: Value() {
     /**
      * The row key.
      */
-    protected var key: Long = 0
+    open var key: Long = 0
 
     /**
      * Get the column count.

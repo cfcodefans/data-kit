@@ -6,7 +6,6 @@ import org.h2.api.ErrorCode.HEX_STRING_WRONG_1
 import org.h2.api.ErrorCode.STRING_FORMAT_ERROR_1
 import org.h2.engine.SysProperties
 import org.h2.message.DbException
-import java.lang.Math.min
 import java.lang.ref.SoftReference
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -209,7 +208,7 @@ object StringUtils {
      * escaped using a double quote.
      *
      * @param s the text
-     * @return the double quoted text
+     * @return the double-quoted text
      */
     fun quotedIdentifier(s: String): String {
         return quoteIdentifier(StringBuilder(s.length + 2), s).toString()
@@ -639,5 +638,29 @@ object StringUtils {
         }
         if (limit >= 0 && count > limit) append(truncated)
         append(postfix)
+    }
+
+    /**
+     * Indents a string with spaces and appends it to a specified builder.
+     *
+     * @param builder string builder to append to
+     * @param s the string
+     * @param spaces the number of spaces
+     * @param newline append a newline if there is none
+     * @return the specified string builder
+     */
+    open fun indent(builder: StringBuilder, s: String, spaces: Int, newline: Boolean): StringBuilder {
+        var i = 0
+        val length = s.length
+        while (i < length) {
+            for (j in 0 until spaces) builder.append(' ')
+
+            var n = s.indexOf('\n', i)
+            n = if (n < 0) length else n + 1
+            builder.append(s, i, n)
+            i = n
+        }
+        if (newline && !s.endsWith("\n")) builder.append('\n')
+        return builder
     }
 }

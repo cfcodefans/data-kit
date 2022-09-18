@@ -982,6 +982,34 @@ object ErrorCode {
     const val OUT_OF_MEMORY: Int = 90108
 
     /**
+     * The error with code `90109` is thrown when
+     * trying to run a query against an invalid view.
+     * Example:
+     * <pre>
+     * CREATE FORCE VIEW TEST_VIEW AS SELECT * FROM TEST;
+     * SELECT * FROM TEST_VIEW;
+    </pre> *
+     */
+    const val VIEW_IS_INVALID_2 = 90109
+
+    /**
+     * The error with code `90110` is thrown when
+     * trying to compare values of incomparable data types.
+     * Example:
+     * <pre>
+     * CREATE TABLE test (id INT NOT NULL, name VARCHAR);
+     * select * from test where id = (1, 2);
+    </pre> *
+     */
+    const val TYPES_ARE_NOT_COMPARABLE_2 = 90110
+
+    /**
+     * The error with code `90111` is thrown when
+     * an exception occurred while accessing a linked table.
+     */
+    const val ERROR_ACCESSING_LINKED_TABLE_2 = 90111
+
+    /**
      * The error with code `90112` is thrown when a row was deleted
      * twice while locking was disabled. This is an intern exception that should
      * never be thrown to the application, because such deleted should be

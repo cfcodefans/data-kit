@@ -54,7 +54,7 @@ interface ColumnResolver {
      * Get the list of system columns, if any.
      * @return the system columns or null
      */
-    fun getSystemColumns(): Array<Column?>? = null
+    fun getSystemColumns(): Array<Column>? = null
 
     /**
      * Get the row id pseudo column, if there is one.
