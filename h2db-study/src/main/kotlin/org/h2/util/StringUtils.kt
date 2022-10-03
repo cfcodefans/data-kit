@@ -663,4 +663,15 @@ object StringUtils {
         if (newline && !s.endsWith("\n")) builder.append('\n')
         return builder
     }
+
+    /**
+     * Enclose a string with double quotes. A double quote inside the string is
+     * escaped using a double quote.
+     *
+     * @param s the text
+     * @return the double quoted text
+     */
+    fun quoteIdentifier(s: String): String? {
+        return quoteIdentifierOrLiteral(StringBuilder(s.length + 2), s, '"').toString()
+    }
 }

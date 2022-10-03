@@ -7,6 +7,7 @@ import org.h2.engine.Database
 import org.h2.engine.Right
 import org.h2.engine.SessionLocal
 import org.h2.expression.Expression
+import org.h2.expression.condition.Comparison
 import org.h2.expression.condition.ConditionAndOr
 import org.h2.index.Index
 import org.h2.index.IndexCondition
@@ -117,7 +118,7 @@ open class TableFilter(private var session: SessionLocal,
      */
     private var commonJoinColumns: java.util.LinkedHashMap<Column, Column>? = null
     private var commonJoinColumnsFilter: TableFilter? = null
-    private val commonJoinColumnsToExclude: java.util.ArrayList<Column>? = null
+    private var commonJoinColumnsToExclude: java.util.ArrayList<Column>? = null
 
     /**
      * Visit this and all joined or nested table filters.
@@ -830,13 +831,41 @@ open class TableFilter(private var session: SessionLocal,
      * left side
      * @param replacementFilter the table filter for replacement columns
      */
-    open fun addCommonJoinColumns(leftColumn: Column?, replacementColumn: Column?, replacementFilter: TableFilter) {
+    open fun addCommonJoinColumns(leftColumn: Column, replacementColumn: Column, replacementFilter: TableFilter) {
         if (commonJoinColumns == null) {
             commonJoinColumns = java.util.LinkedHashMap<Column, Column>()
             commonJoinColumnsFilter = replacementFilter
         } else {
             assert(commonJoinColumnsFilter === replacementFilter)
         }
-        commonJoinColumns.put(leftColumn, replacementColumn)
+        commonJoinColumns!![leftColumn] = replacementColumn
+    }
+
+    /**
+     * Add an excluded column to the common join column list.
+     * @param columnToExclude
+     * the column to exclude
+     */
+    open fun addCommonJoinColumnToExclude(columnToExclude: Column?) {
+        if (commonJoinColumnsToExclude == null) commonJoinColumnsToExclude = Utils.newSmallArrayList()
+        commonJoinColumnsToExclude!!.add(columnToExclude!!)
+    }
+
+    /**
+     * Are there any index conditions that involve IN(...).
+     * @return whether there are IN(...) comparisons
+     */
+    open fun hasInComparisons(): Boolean = indexConditions.find { cond ->
+        cond.compareType == Comparison.IN_QUERY || cond.compareType == Comparison.IN_LIST
+    } != null
+
+    /**
+     * Returns whether this is a table filter with implicit DUAL table for a
+     * SELECT without a FROM clause.
+     *
+     * @return whether this is a table filter with implicit DUAL table
+     */
+    open fun isNoFromClauseFilter(): Boolean {
+        return table is DualTable && join == null && nestedJoin == null && joinCondition == null && filterCondition == null
     }
 }

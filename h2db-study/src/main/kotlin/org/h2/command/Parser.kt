@@ -1,6 +1,8 @@
 package org.h2.command
 
+import org.h2.util.HasSQL
 import org.h2.util.ParserUtil
+import org.h2.util.StringUtils
 
 /**
  * The parser is used to convert a SQL statement string to an command object.
@@ -24,13 +26,41 @@ open class Parser {
         private const val CHAR_DOT = 8
         private const val CHAR_DOLLAR_QUOTED_STRING = 9
 
-        // these are token types, see also types in ParserUtil
+        /**
+         * The token "MINUS".
+         */
+        const val MINUS = ParserUtil.LOCALTIMESTAMP + 1
+
+        /**
+         * The token "MINUTE".
+         */
+        const val MINUTE = MINUS + 1
+
+        /**
+         * The token "MONTH".
+         */
+        const val MONTH = MINUTE + 1
+
+        /**
+         * The token "YEAR".
+         */
+        const val YEAR = ParserUtil.WITH + 1
+
+        /**
+         * The token "_ROWID_".
+         */
+        const val _ROWID_: Int = YEAR + 1
+
+        /**
+         * The ordinal number of the last keyword.
+         */
+        const val LAST_KEYWORD = _ROWID_
 
         // these are token types, see also types in ParserUtil
         /**
          * Token with parameter.
          */
-        private val PARAMETER: Int = ParserUtil.LAST_KEYWORD + 1
+        private val PARAMETER: Int = LAST_KEYWORD + 1
 
         /**
          * End of input.
@@ -312,5 +342,19 @@ open class Parser {
             "::",  // COLON_EQ
             ":=",  // NOT_TILDE
             "!~")
+
+        /**
+         * Add double quotes around an identifier if required.
+         *
+         * @param s the identifier
+         * @param sqlFlags formatting flags
+         * @return the quoted identifier
+         */
+        fun quoteIdentifier(s: String?, sqlFlags: Int): String? {
+            if (s == null) return "\"\""
+            return if (sqlFlags and HasSQL.QUOTE_ONLY_WHEN_REQUIRED != 0
+                && ParserUtil.isSimpleIdentifier(s, false, false)) s
+            else StringUtils.quoteIdentifier(s)
+        }
     }
 }
