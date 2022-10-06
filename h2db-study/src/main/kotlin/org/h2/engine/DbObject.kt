@@ -136,9 +136,7 @@ abstract class DbObject(var database: Database?,
      * used.
      */
     protected open fun invalidate() {
-        if (id == -1) {
-            throw DbException.getInternalError()
-        }
+        if (id == -1) throw DbException.getInternalError()
         setModified()
         id = -1
         database = null

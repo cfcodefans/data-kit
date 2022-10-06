@@ -59,7 +59,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-kotlin</artifactId>
-            <version>2.13.3</version>
+            <version>2.13.4</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.jetbrains.kotlin</groupId>
@@ -79,18 +79,18 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.0.202</version>
+            <version>2.1.214</version>
         </dependency>
         <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts</artifactId>
-            <version>1.18.2</version>
+            <version>1.19.0</version>
             <type>pom</type>
         </dependency>
         <dependency>
             <groupId>org.locationtech.jts.io</groupId>
             <artifactId>jts-io-common</artifactId>
-            <version>1.18.2</version>
+            <version>1.19.0</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
