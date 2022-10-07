@@ -621,6 +621,26 @@ object StringUtils {
     }
 
     fun <T> StringBuilder.appends(
+        array: Array<T>,
+        separator: String = ", ",
+        prefix: String = "",
+        postfix: String = "",
+        truncated: CharSequence = "...",
+        limit: Int = -1,
+        transform: ((StringBuilder, T) -> Unit)? = null): StringBuilder = apply {
+        this.append(prefix)
+        var count: Int = 0
+        for (element in array) {
+            if (++count > 1) append(separator)
+            if (limit < 0 || count <= limit) {
+                transform?.invoke(this, element)
+            } else break
+        }
+        if (limit >= 0 && count > limit) append(truncated)
+        append(postfix)
+    }
+
+    fun <T> StringBuilder.appends(
         iterable: Iterable<T>,
         separator: String = ", ",
         prefix: String = "",

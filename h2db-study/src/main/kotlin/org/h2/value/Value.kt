@@ -474,6 +474,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                         INTEGER -> return DOUBLE
                         BIGINT, NUMERIC -> return DECFLOAT
                     }
+
                     DOUBLE -> when (t2) {
                         BIGINT, NUMERIC -> return DECFLOAT
                     }
@@ -500,6 +501,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                 GROUP_INTERVAL_YM -> {
                     if (t1 == INTERVAL_MONTH && t2 == INTERVAL_YEAR) INTERVAL_YEAR_TO_MONTH else t1
                 }
+
                 GROUP_CHARACTER_STRING, GROUP_NUMERIC -> t1
                 else -> throw getDataTypeCombinationException(t1, t2)
             }
@@ -517,26 +519,31 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                 INTERVAL_MINUTE -> {
                     return if (t2 == INTERVAL_DAY) INTERVAL_DAY_TO_MINUTE else INTERVAL_HOUR_TO_MINUTE
                 }
+
                 INTERVAL_SECOND -> return when (t2) {
                     INTERVAL_DAY -> INTERVAL_DAY_TO_SECOND
                     INTERVAL_HOUR -> INTERVAL_HOUR_TO_SECOND
                     else -> INTERVAL_MINUTE_TO_SECOND
                 }
+
                 INTERVAL_DAY_TO_HOUR -> {
                     when (t2) {
                         INTERVAL_MINUTE -> return INTERVAL_DAY_TO_MINUTE
                         INTERVAL_SECOND -> return INTERVAL_DAY_TO_SECOND
                     }
                 }
+
                 INTERVAL_DAY_TO_MINUTE -> if (t2 == INTERVAL_SECOND) return INTERVAL_DAY_TO_SECOND
                 INTERVAL_HOUR_TO_MINUTE -> when (t2) {
                     INTERVAL_DAY, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE -> return INTERVAL_DAY_TO_MINUTE
                     INTERVAL_SECOND -> return INTERVAL_HOUR_TO_SECOND
                     INTERVAL_DAY_TO_SECOND -> return INTERVAL_DAY_TO_SECOND
                 }
+
                 INTERVAL_HOUR_TO_SECOND -> when (t2) {
                     INTERVAL_DAY, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND -> return INTERVAL_DAY_TO_SECOND
                 }
+
                 INTERVAL_MINUTE_TO_SECOND -> when (t2) {
                     INTERVAL_DAY, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND -> return INTERVAL_DAY_TO_SECOND
                     INTERVAL_HOUR, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND -> return INTERVAL_HOUR_TO_SECOND
@@ -550,11 +557,14 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                 JAVA_OBJECT -> if (g2 != GROUP_BINARY_STRING) throw getDataTypeCombinationException(t1, t2)
                 ENUM -> if (g2 != GROUP_CHARACTER_STRING && (g2 != GROUP_NUMERIC || t2 > INTEGER))
                     throw getDataTypeCombinationException(t1, t2)
+
                 GEOMETRY -> if (g2 != GROUP_CHARACTER_STRING && g2 != GROUP_BINARY_STRING)
                     throw getDataTypeCombinationException(t1, t2)
+
                 JSON -> when (g2) {
                     GROUP_DATETIME, GROUP_INTERVAL_YM, GROUP_INTERVAL_DT, GROUP_OTHER -> throw getDataTypeCombinationException(t1, t2)
                 }
+
                 UUID -> when (g2) {
                     GROUP_CHARACTER_STRING, GROUP_BINARY_STRING -> {}
                     GROUP_OTHER -> if (t2 != JAVA_OBJECT) throw getDataTypeCombinationException(t1, t2)
@@ -771,6 +781,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
         CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT, ENUM, SMALLINT -> ValueInteger.get(getInt())
         BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueInteger.get(
             Value.convertToInt(getLong(), column))
+
         NUMERIC, DECFLOAT -> ValueInteger.get(Value.convertToInt(convertToLong(getBigDecimal(), column), column))
         REAL, DOUBLE -> ValueInteger.get(Value.convertToInt(convertToLong(getDouble(), column), column))
         BINARY, VARBINARY -> {
@@ -778,6 +789,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             if (bytes!!.size == 4) ValueInteger.get(Bits.readInt(bytes, 0))
             throw getDataConversionError(INTEGER)
         }
+
         NULL -> throw DbException.getInternalError()
         else -> throw getDataConversionError(INTEGER)
     }
@@ -809,6 +821,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             ENUM, INTEGER -> ValueSmallint.get(convertToShort(getInt().toLong(), column!!))
             BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueSmallint.get(
                 convertToShort(getLong(), column!!))
+
             NUMERIC, DECFLOAT -> ValueSmallint.get(convertToShort(convertToLong(getBigDecimal(), column), column!!))
             REAL, DOUBLE -> ValueSmallint.get(convertToShort(convertToLong(getDouble(), column), column!!))
             BINARY, VARBINARY -> {
@@ -818,6 +831,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
                 }
                 throw getDataConversionError(SMALLINT)
             }
+
             NULL -> throw DbException.getInternalError()
             else -> throw getDataConversionError(SMALLINT)
         }
@@ -1002,6 +1016,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE,
             INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE,
             INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> convertToIntervalDayTime(targetType, conversionMode, column)
+
             JAVA_OBJECT -> convertToJavaObject(targetType, conversionMode, column)
             ENUM -> convertToEnum(targetType.extTypeInfo as ExtTypeInfoEnum, provider)
             GEOMETRY -> convertToGeometry(targetType.extTypeInfo as ExtTypeInfoGeometry?)
@@ -1274,4 +1289,16 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      */
     fun isFalse(): Boolean = this !== ValueNull.INSTANCE && !getBoolean()
 
+    /**
+     * Convert a value to the specified type without taking scale and precision
+     * into account.
+     *
+     * @param targetType the type of the returned value
+     * @param provider the cast information provider
+     * @param column the column, used to improve the error message if conversion fails
+     * @return the converted value
+     */
+    fun convertTo(targetType: TypeInfo?, provider: CastDataProvider?, column: Any?): Value? {
+        return convertTo(targetType = targetType!!, provider = provider, conversionMode = CONVERT_TO, column = column)
+    }
 }
