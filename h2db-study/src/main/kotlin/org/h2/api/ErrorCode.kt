@@ -191,6 +191,31 @@ object ErrorCode {
     const val ENUM_EMPTY = 22032
 
     /**
+     * The error with code `22034` is thrown when an
+     * attempt is made to read non-existing element of an array.
+     *
+     * Example:
+     * <pre>
+     * VALUES ARRAY[1, 2][3]
+    </pre> *
+     */
+    const val ARRAY_ELEMENT_ERROR_2 = 22034
+
+    // 23: constraint violation
+
+    // 23: constraint violation
+    /**
+     * The error with code `23502` is thrown when
+     * trying to insert NULL into a column that does not allow NULL.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT, NAME VARCHAR NOT NULL);
+     * INSERT INTO TEST(ID) VALUES(1);
+    </pre> *
+     */
+    const val NULL_NOT_ALLOWED = 23502
+
+    /**
      * The error with code `22033` is thrown when an
      * attempt is made to add or modify an ENUM-typed column so
      * that it would have duplicate values.
@@ -459,6 +484,39 @@ object ErrorCode {
      * </pre>
      */
     const val INVALID_VALUE_2: Int = 90008
+
+    /**
+     * The error with code `90009` is thrown when
+     * trying to create a sequence with an invalid combination
+     * of attributes (min value, max value, start value, etc).
+     */
+    const val SEQUENCE_ATTRIBUTES_INVALID_7 = 90009
+
+    /**
+     * The error with code `90010` is thrown when
+     * trying to format a timestamp or number using TO_CHAR
+     * with an invalid format.
+     */
+    const val INVALID_TO_CHAR_FORMAT = 90010
+
+    /**
+     * The error with code `90011` is thrown when
+     * trying to open a connection to a database using an implicit relative
+     * path, such as "jdbc:h2:test" (in which case the database file would be
+     * stored in the current working directory of the application). This is not
+     * allowed because it can lead to confusion where the database file is, and
+     * can result in multiple databases because different working directories
+     * are used. Instead, use "jdbc:h2:~/name" (relative to the current user
+     * home directory), use an absolute path, set the base directory (baseDir),
+     * use "jdbc:h2:./name" (explicit relative path), or set the system property
+     * "h2.implicitRelativePath" to "true" (to prevent this check). For Windows,
+     * an absolute path also needs to include the drive ("C:/..."). Please see
+     * the documentation on the supported URL format. Example:
+     * <pre>
+     * jdbc:h2:test
+    </pre> *
+     */
+    const val URL_RELATIVE_TO_CWD = 90011
 
     /**
      * The error with code <code>90019</code> is thrown when

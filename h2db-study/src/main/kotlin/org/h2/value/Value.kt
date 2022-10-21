@@ -1301,4 +1301,17 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
     fun convertTo(targetType: TypeInfo?, provider: CastDataProvider?, column: Any?): Value? {
         return convertTo(targetType = targetType!!, provider = provider, conversionMode = CONVERT_TO, column = column)
     }
+
+    /**
+     * Cast a value to the specified type for assignment. The scale is set if
+     * applicable. If precision is too large an exception is thrown.
+     *
+     * @param targetType the type of the returned value
+     * @param provider the cast information provider
+     * @param column the column, used to improve the error message if conversion fails
+     * @return the converted value
+     */
+    fun convertForAssignTo(targetType: TypeInfo?, provider: CastDataProvider?, column: Any?): Value? {
+        return convertTo(targetType!!, provider, ASSIGN_TO, column)
+    }
 }

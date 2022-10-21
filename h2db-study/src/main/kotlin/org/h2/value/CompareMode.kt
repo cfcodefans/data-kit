@@ -49,12 +49,12 @@ open class CompareMode(val name: String = OFF, val strength: Int) : Comparator<V
          * @param l the locale
          * @return the name of the collation
          */
-        fun getName(l: Locale): String? {
+        fun getName(l: Locale): String {
             val english = Locale.ENGLISH
             return "${l.getDisplayLanguage(english)} ${l.getDisplayCountry(english)} ${l.variant}"
-                    .trim()
-                    .replace(' ', '_')
-                    .let { StringUtils.toUpperEnglish(it) }
+                .trim()
+                .replace(' ', '_')
+                .let { StringUtils.toUpperEnglish(it) }
         }
 
         /**
@@ -66,9 +66,9 @@ open class CompareMode(val name: String = OFF, val strength: Int) : Comparator<V
          * @return true if they match
          */
         fun compareLocaleNames(locale: Locale, name: String) =
-                name.equals(locale.toString(), ignoreCase = true)
-                        || name.equals(locale.toLanguageTag(), ignoreCase = true)
-                        || name.equals(getName(locale), ignoreCase = true)
+            name.equals(locale.toString(), ignoreCase = true)
+                    || name.equals(locale.toLanguageTag(), ignoreCase = true)
+                    || name.equals(getName(locale), ignoreCase = true)
 
         /**
          * Create a new compare mode with the given collator and strength. If
@@ -138,8 +138,8 @@ open class CompareMode(val name: String = OFF, val strength: Int) : Comparator<V
             }
 
             return result ?: LOCALES
-                    .firstOrNull { locale -> compareLocaleNames(locale, name) }
-                    ?.let { locale -> Collator.getInstance(locale) }
+                .firstOrNull { locale -> compareLocaleNames(locale, name) }
+                ?.let { locale -> Collator.getInstance(locale) }
         }
 
 

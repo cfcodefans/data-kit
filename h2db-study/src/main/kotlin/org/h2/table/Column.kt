@@ -8,6 +8,7 @@ import org.h2.engine.SessionLocal
 import org.h2.expression.Expression
 import org.h2.expression.ValueExpression
 import org.h2.message.DbException
+import org.h2.result.Row
 import org.h2.schema.Domain
 import org.h2.schema.Sequence
 import org.h2.util.HasSQL
@@ -17,6 +18,7 @@ import org.h2.util.StringUtils.appends
 import org.h2.util.Typed
 import org.h2.value.TypeInfo
 import org.h2.value.Value
+import org.h2.value.ValueNull
 import java.sql.ResultSetMetaData
 
 
@@ -95,8 +97,32 @@ open class Column(override var type: TypeInfo? = null,
 
     private var defaultExpression: Expression? = null
     override fun getDefaultExpression(): Expression? = defaultExpression
+
+    override fun getEffectiveDefaultExpression(): Expression? {
+        /*
+         * Identity columns may not have a default expression and may not use an
+         * expression from domain.
+         *
+         * Generated columns always have an own expression.
+         */
+
+        /*
+         * Identity columns may not have a default expression and may not use an
+         * expression from domain.
+         *
+         * Generated columns always have an own expression.
+         */
+        if (sequence != null) {
+            return null
+        }
+        return if (defaultExpression != null) defaultExpression else if (domain != null) domain!!.effectiveDefaultExpression else null
+    }
+
     private var onUpdateExpression: Expression? = null
     override fun getOnUpdateExpression(): Expression? = onUpdateExpression
+    override fun getEffectiveOnUpdateExpression(): Expression? {
+        TODO("Not yet implemented")
+    }
 
     var identityOptions: SequenceOptions? = null
     var defaultOnNull = false
@@ -265,4 +291,112 @@ open class Column(override var type: TypeInfo? = null,
 
         return builder.toString()
     }
+
+    /**
+     * Validate the value, convert it if required, and update the sequence value
+     * if required. If the value is null, the default value (NULL if no default
+     * is set) is returned. Domain constraints are validated as well.
+     *
+     * @param session the session
+     * @param value the value or null
+     * @param row the row
+     * @return the new or converted value
+     */
+    open fun validateConvertUpdateSequence(session: SessionLocal, value: Value?, row: Row?): Value? {
+        var value: Value? = run {
+            if (value == null) {
+                if (sequence != null) session.getNextValueFor(sequence, null) else null
+            } else {
+                getDefaultOrGenerated(session, row!!)
+            }
+        }
+        if (value === ValueNull.INSTANCE && !nullable) {
+            throw DbException.get(ErrorCode.NULL_NOT_ALLOWED, name!!)
+        }
+        try {
+            value = value?.convertForAssignTo(type, session, name)
+        } catch (e: DbException) {
+            throw if (e.getErrorCode() == ErrorCode.DATA_CONVERSION_ERROR_1) getDataConversionError(value!!, e) else e
+        }
+        if (domain != null) {
+            domain!!.checkConstraints(session, value)
+        }
+        if (sequence != null && session.mode.updateSequenceOnManualIdentityInsertion) {
+            updateSequenceIfRequired(session, value!!.getLong())
+        }
+        return value
+    }
+
+    private fun getDefaultOrGenerated(session: SessionLocal, row: Row): Value {
+        return getEffectiveDefaultExpression()?.let { localDefaultExpression ->
+            if (isGeneratedAlways) {
+                synchronized(this) {
+                    generatedTableFilter!!.set(row)
+                    try {
+                        localDefaultExpression.getValue(session)
+                    } finally {
+                        generatedTableFilter!!.set(null)
+                    }
+                }
+            } else localDefaultExpression.getValue(session)
+        } ?: ValueNull.INSTANCE
+    }
+
+    private fun updateSequenceIfRequired(session: SessionLocal, value: Long) {
+        if (sequence!!.cycle == Sequence.Cycle.EXHAUSTED) return
+        val current = sequence!!.currentValue
+        val inc = sequence!!.increment
+        if (inc > 0) {
+            if (value < current) return
+        } else if (value > current) return
+
+        try {
+            sequence!!.modify(value + inc, null, null, null, null, null, null)
+        } catch (ex: DbException) {
+            if (ex.getErrorCode() == ErrorCode.SEQUENCE_ATTRIBUTES_INVALID_7) return
+            throw ex
+        }
+        sequence!!.flush(session)
+    }
+
+    override fun getDefaultSQL(): String? = defaultExpression?.getUnenclosedSQL(StringBuilder(), HasSQL.DEFAULT_SQL_FLAGS)?.toString()
+
+    override fun getOnUpdateSQL(): String? = onUpdateExpression?.getUnenclosedSQL(StringBuilder(), HasSQL.DEFAULT_SQL_FLAGS)?.toString()
+    override fun prepareExpressions(session: SessionLocal?) {
+        TODO("Not yet implemented")
+    }
+
+    /**
+     * Check whether the new column is of the same type and not more restricted
+     * than this column.
+     *
+     * @param newColumn the new (target) column
+     * @return true if the new column is compatible
+     */
+    open fun isWideningConversion(newColumn: Column): Boolean {
+        val newType = newColumn.type
+        val valueType: Int = type!!.valueType
+        if (valueType != newType?.valueType) return false
+
+        val precision: Long = type!!.precision
+        val newPrecision: Long = newType.precision
+        if (precision > newPrecision
+            || precision < newPrecision
+            && (valueType == Value.CHAR || valueType == Value.BINARY)) {
+            return false
+        }
+
+        if (type!!.scale != newType.scale) return false
+        if (type!!.extTypeInfo != newType.extTypeInfo) return false
+        if (nullable && !newColumn.nullable) return false
+        if (primaryKey != newColumn.primaryKey) return false
+        if (identityOptions != null || newColumn.identityOptions != null) return false
+        if (domain != newColumn.domain) return false
+        if (defaultExpression != null || newColumn.defaultExpression != null) return false
+        if (isGeneratedAlways || newColumn.isGeneratedAlways) return false
+        return !(onUpdateExpression != null || newColumn.onUpdateExpression != null)
+    }
+
+
 }
+
