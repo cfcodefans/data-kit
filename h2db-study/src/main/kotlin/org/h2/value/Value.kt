@@ -7,6 +7,7 @@ import org.h2.message.DbException
 import org.h2.util.Bits
 import org.h2.util.HasSQL
 import org.h2.util.Typed
+import org.h2.util.json.JsonConstructorUtils
 import org.h2.value.TypeInfo.Companion.getTypeInfo
 import org.h2.value.ValueArray.Companion.convertToAnyArray
 import org.h2.value.ValueArray.Companion.convertToArray
@@ -24,6 +25,7 @@ import org.h2.value.ValueInterval.Companion.convertToIntervalYearMonth
 import org.h2.value.ValueJavaObject.Companion.convertToJavaObject
 import org.h2.value.ValueRow.Companion.convertToAnyRow
 import org.h2.value.ValueRow.Companion.convertToRow
+import org.h2.value.ValueSmallint.Companion.convertToSmallint
 import org.h2.value.ValueTime.Companion.convertToTime
 import org.h2.value.ValueTimeTimeZone.Companion.convertToTimeTimeZone
 import org.h2.value.ValueTimestamp.Companion.convertToTimestamp
@@ -34,6 +36,7 @@ import org.h2.value.ValueVarbinary.Companion.convertToVarbinary
 import org.h2.value.ValueVarchar.Companion.convertToVarchar
 import org.h2.value.ValueVarchar.Companion.convertToVarcharIgnoreCase
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.Reader
 import java.io.StringReader
@@ -637,7 +640,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
             return x.toByte()
         }
 
-        private fun convertToShort(x: Long, column: Any): Short {
+        fun convertToShort(x: Long, column: Any): Short {
             if (x > Short.MAX_VALUE || x < Short.MIN_VALUE) {
                 throw DbException.get(ErrorCode.NUMERIC_VALUE_OUT_OF_RANGE_2, x.toString(), getColumnName(column))
             }
@@ -805,38 +808,6 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      */
     open fun getByte(): Byte = convertToTinyint(null).getByte()
 
-
-    /**
-     * Converts this value to a SMALLINT value. May not be called on a NULL value.
-     *
-     * @param column
-     * the column, used for to improve the error message if
-     * conversion fails
-     * @return the SMALLINT value
-     */
-    fun convertToSmallint(column: Any?): ValueSmallint {
-        return when (getValueType()) {
-            SMALLINT -> this as ValueSmallint
-            CHAR, VARCHAR, VARCHAR_IGNORECASE, BOOLEAN, TINYINT -> ValueSmallint.get(getShort())
-            ENUM, INTEGER -> ValueSmallint.get(convertToShort(getInt().toLong(), column!!))
-            BIGINT, INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE, INTERVAL_SECOND, INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND, INTERVAL_HOUR_TO_MINUTE, INTERVAL_HOUR_TO_SECOND, INTERVAL_MINUTE_TO_SECOND -> ValueSmallint.get(
-                convertToShort(getLong(), column!!))
-
-            NUMERIC, DECFLOAT -> ValueSmallint.get(convertToShort(convertToLong(getBigDecimal(), column), column!!))
-            REAL, DOUBLE -> ValueSmallint.get(convertToShort(convertToLong(getDouble(), column), column!!))
-            BINARY, VARBINARY -> {
-                val bytes = getBytesNoCopy()!!
-                if (bytes.size == 2) {
-                    return ValueSmallint.get(((bytes[0].toInt() shl 8) + (bytes[1].toInt() and 0xff)).toShort())
-                }
-                throw getDataConversionError(SMALLINT)
-            }
-
-            NULL -> throw DbException.getInternalError()
-            else -> throw getDataConversionError(SMALLINT)
-        }
-    }
-
     /**
      * Returns this value as a Java `short` value.
      *
@@ -849,10 +820,8 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
 
     /**
      * Returns this value as a Java `int` value.
-     *
      * @throws DbException
-     * if this value is `NULL` or cannot be casted to
-     * `INTEGER`
+     * if this value is `NULL` or cannot be casted to `INTEGER`
      * @return value
      */
     open fun getInt(): Int = convertToInt(null).int
@@ -861,8 +830,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * Returns this value as a Java `long` value.
      *
      * @throws DbException
-     * if this value is `NULL` or cannot be casted to
-     * `BIGINT`
+     * if this value is `NULL` or cannot be casted to `BIGINT`
      * @return value
      */
     open fun getLong(): Long = convertToBigint(null).getLong()
@@ -977,7 +945,7 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param column the column (if any), used to improve the error message if conversion fails
      * @return the converted value
      */
-    fun convertTo(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): Value? {
+    fun convertTo(targetType: TypeInfo, provider: CastDataProvider?, conversionMode: Int, column: Any?): Value {
         val valueType = getValueType()
         val targetValueType: Int = targetType.valueType
 
@@ -1019,8 +987,8 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
 
             JAVA_OBJECT -> convertToJavaObject(targetType, conversionMode, column)
             ENUM -> convertToEnum(targetType.extTypeInfo as ExtTypeInfoEnum, provider)
-            GEOMETRY -> convertToGeometry(targetType.extTypeInfo as ExtTypeInfoGeometry?)
-            JSON -> convertToJson(targetType, conversionMode, column)
+//            GEOMETRY -> convertToGeometry(targetType.extTypeInfo as ExtTypeInfoGeometry?)
+            JSON -> convertToJson(targetType, conversionMode, column!!)
             UUID -> convertToUuid()
             ARRAY -> convertToArray(targetType, provider, conversionMode, column)
             ROW -> convertToRow(targetType, provider, conversionMode, column)
@@ -1099,12 +1067,46 @@ abstract class Value : VersionedValue<Value>(), HasSQL, Typed {
      * @param provider the cast information provider
      * @return the converted value
      */
-    fun convertTo(targetType: Int, provider: CastDataProvider?): Value? = when (targetType) {
+    fun convertTo(targetType: Int, provider: CastDataProvider?): Value = when (targetType) {
         ARRAY -> convertToAnyArray(provider)
         ROW -> convertToAnyRow()
         else -> convertTo(getTypeInfo(targetType), provider, CONVERT_TO, null)
     }
 
+    private fun convertToJson(targetType: TypeInfo, conversionMode: Int, column: Any): ValueJson {
+        val v: ValueJson
+        when (getValueType()) {
+            JSON -> v = this as ValueJson
+            BOOLEAN -> v = ValueJson.get(getBoolean())
+            TINYINT, SMALLINT, INTEGER -> v = ValueJson.get(getInt())
+            BIGINT -> v = ValueJson.get(getLong())
+            REAL, DOUBLE, NUMERIC, DECFLOAT -> v = ValueJson.get(getBigDecimal())
+            BINARY, VARBINARY, BLOB -> v = ValueJson.fromJson(getBytesNoCopy())
+            CHAR, VARCHAR, CLOB, VARCHAR_IGNORECASE, DATE, TIME, TIME_TZ, ENUM, UUID -> v = ValueJson.get(getString())
+            TIMESTAMP -> v = ValueJson.get((this as ValueTimestamp).getISOString())
+            TIMESTAMP_TZ -> v = ValueJson.get((this as ValueTimestampTimeZone).getISOString())
+//            GEOMETRY -> {
+//                val vg = this as ValueGeometry
+//                v = ValueJson.getInternal(GeoJsonUtils.ewkbToGeoJson(vg.getBytesNoCopy(), vg.getDimensionSystem()))
+//            }
+
+            ARRAY -> {
+                val baos = ByteArrayOutputStream()
+                baos.write('['.code)
+                for (e in (this as ValueArray).getList()) {
+                    JsonConstructorUtils.jsonArrayAppend(baos, e, 0)
+                }
+                baos.write(']'.code)
+                v = ValueJson.getInternal(baos.toByteArray())
+            }
+
+            else -> throw getDataConversionError(JSON)
+        }
+        if (conversionMode != CONVERT_TO && v.bytesNoCopy.size > targetType.precision) {
+            throw v.getValueTooLongException(targetType, column)
+        }
+        return v
+    }
 
     /**
      * Cast a value to the specified type. The scale is set if applicable. The

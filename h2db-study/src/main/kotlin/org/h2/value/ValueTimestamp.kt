@@ -4,6 +4,7 @@ import org.h2.api.ErrorCode
 import org.h2.engine.CastDataProvider
 import org.h2.message.DbException
 import org.h2.util.DateTimeUtils
+import org.h2.value.ValueTimeTimeZone.Companion.getLocalTimeNanos
 
 /**
  * Implementation of the TIMESTAMP data type.
@@ -73,7 +74,7 @@ class ValueTimestamp(val dateValue: Long, val timeNanos: Long) : Value() {
             }
         }
 
-        fun Value.convertToTimestamp(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int): ValueTimestamp? {
+        fun Value.convertToTimestamp(targetType: TypeInfo, provider: CastDataProvider, conversionMode: Int): ValueTimestamp {
             var v: ValueTimestamp
             when (getValueType()) {
                 TIMESTAMP -> v = this as ValueTimestamp
@@ -81,14 +82,16 @@ class ValueTimestamp(val dateValue: Long, val timeNanos: Long) : Value() {
                 TIME_TZ -> v = ValueTimestamp.fromDateValueAndNanos(provider.currentTimestamp().dateValue, getLocalTimeNanos(provider))
                 DATE ->             // Scale is always 0
                     return ValueTimestamp.fromDateValueAndNanos((this as ValueDate).dateValue, 0)
+
                 TIMESTAMP_TZ -> {
                     val ts = this as ValueTimestampTimeZone
                     val timeNanos = ts.timeNanos
                     var epochSeconds = DateTimeUtils.getEpochSeconds(ts.dateValue, timeNanos, ts.timeZoneOffsetSeconds)
                     epochSeconds += provider.currentTimeZone().getTimeZoneOffsetUTC(epochSeconds).toLong()
                     v = ValueTimestamp.fromDateValueAndNanos(DateTimeUtils.dateValueFromLocalSeconds(epochSeconds),
-                            DateTimeUtils.nanosFromLocalSeconds(epochSeconds) + timeNanos % DateTimeUtils.NANOS_PER_SECOND)
+                        DateTimeUtils.nanosFromLocalSeconds(epochSeconds) + timeNanos % DateTimeUtils.NANOS_PER_SECOND)
                 }
+
                 VARCHAR, VARCHAR_IGNORECASE, CHAR -> v = parse(getString()!!.trim { it <= ' ' }, provider)
                 else -> throw getDataConversionError(TIMESTAMP)
             }
@@ -99,7 +102,7 @@ class ValueTimestamp(val dateValue: Long, val timeNanos: Long) : Value() {
                     var dv = v.dateValue
                     val n = v.timeNanos
                     var n2 = DateTimeUtils.convertScale(n, targetScale,
-                            if (dv == DateTimeUtils.MAX_DATE_VALUE) DateTimeUtils.NANOS_PER_DAY else Long.MAX_VALUE)
+                        if (dv == DateTimeUtils.MAX_DATE_VALUE) DateTimeUtils.NANOS_PER_DAY else Long.MAX_VALUE)
                     if (n2 != n) {
                         if (n2 >= DateTimeUtils.NANOS_PER_DAY) {
                             n2 -= DateTimeUtils.NANOS_PER_DAY
@@ -113,8 +116,7 @@ class ValueTimestamp(val dateValue: Long, val timeNanos: Long) : Value() {
         }
     }
 
-    override val type: TypeInfo
-        get() = TypeInfo.TYPE_TIMESTAMP
+    override var type: TypeInfo? = TypeInfo.TYPE_TIMESTAMP
 
     override fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder = toString(builder.append("TIMESTAMP '"), false).append('\'')
 
@@ -166,4 +168,11 @@ class ValueTimestamp(val dateValue: Long, val timeNanos: Long) : Value() {
         }
         return fromDateValueAndNanos(DateTimeUtils.dateValueFromAbsoluteDay(absoluteDay), nanos)
     }
+
+    /**
+     * Returns value as string in ISO format.
+     *
+     * @return value as string in ISO format
+     */
+    fun getISOString(): String = toString(StringBuilder(ValueTimestampTimeZone.MAXIMUM_PRECISION), true).toString()
 }

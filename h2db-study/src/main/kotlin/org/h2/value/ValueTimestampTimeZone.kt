@@ -85,7 +85,7 @@ class ValueTimestampTimeZone(
         }
 
         fun Value.convertToTimestampTimeZone(targetType: TypeInfo, provider: CastDataProvider,
-                                             conversionMode: Int): ValueTimestampTimeZone? {
+                                             conversionMode: Int): ValueTimestampTimeZone {
             var v: ValueTimestampTimeZone = when (getValueType()) {
                 TIMESTAMP_TZ -> this as ValueTimestampTimeZone
                 TIME -> {

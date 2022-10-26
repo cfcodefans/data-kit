@@ -4,19 +4,28 @@ import org.h2.api.ErrorCode
 import org.h2.command.query.AllColumnsForPlan
 import org.h2.constraint.Constraint
 import org.h2.engine.CastDataProvider
+import org.h2.engine.Constants
+import org.h2.engine.DbObject
 import org.h2.engine.SessionLocal
 import org.h2.index.Index
 import org.h2.index.IndexType
 import org.h2.message.DbException
 import org.h2.message.Trace
 import org.h2.result.Row
+import org.h2.result.RowFactory
+import org.h2.result.SearchRow
 import org.h2.result.SortOrder
 import org.h2.schema.Schema
 import org.h2.schema.SchemaObject
 import org.h2.schema.Sequence
 import org.h2.schema.TriggerObject
+import org.h2.util.HasSQL
+import org.h2.util.Utils
 import org.h2.value.CompareMode
 import org.h2.value.Value
+import org.h2.value.ValueNull
+import java.util.Arrays
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * This is the base class for most tables.
@@ -42,10 +51,38 @@ abstract class Table(
     var constraints: ArrayList<Constraint>? = null
 
     /** Is foreign key constraint checking enabled for this table.  */
-    private var checkForeignKeyConstraints: Boolean = true
+    var checkForeignKeyConstraints: Boolean = true
 
     var onCommitDrop: Boolean = false
     var onCommitTruncate: Boolean = false
+
+    @Volatile
+    private var nullRow: Row? = null
+
+    val rowFactory = RowFactory.getRowFactory()
+
+    open fun getNullRow(): Row? {
+        var row = nullRow
+        if (row == null) {
+            // Here can be concurrently produced more than one row, but it must be ok.
+            val values = arrayOfNulls<Value>(columns.size)
+            Arrays.fill(values, ValueNull.INSTANCE)
+            row = createRow(values, 1)
+            nullRow = row
+        }
+        return row
+    }
+
+    /**
+     * Create a new row for this table.
+     *
+     * @param data the values
+     * @param memory the estimated memory usage in bytes
+     * @return the created row
+     */
+    open fun createRow(data: Array<Value?>, memory: Int): Row {
+        return rowFactory.createRow(data, memory)
+    }
 
     override fun rename(newName: String) {
         super.rename(newName)
@@ -59,7 +96,8 @@ abstract class Table(
     /**
      * The columns of this table.
      */
-    protected abstract var columns: Array<Column>
+    var columns: Array<Column> = emptyArray()
+
     private var triggers: ArrayList<TriggerObject>? = null
     private var sequences: ArrayList<Sequence>? = null
 
@@ -396,6 +434,32 @@ abstract class Table(
     open fun getIdentityColumn(): Column? = columns.firstOrNull { it.isIdentity() }
 
     /**
+     * Get the scan index to iterate through all rows.
+     *
+     * @param session the session
+     * @return the index
+     */
+    abstract fun getScanIndex(session: SessionLocal?): Index?
+
+    /**
+     * Get the scan index for this table.
+     *
+     * @param session the session
+     * @param masks the search mask
+     * @param filters the table filters
+     * @param filter the filter index
+     * @param sortOrder the sort order
+     * @param allColumnsSet all columns
+     * @return the scan index
+     */
+    open fun getScanIndex(session: SessionLocal?,
+                          masks: IntArray?,
+                          filters: Array<TableFilter>?,
+                          filter: Int,
+                          sortOrder: SortOrder?,
+                          allColumnsSet: AllColumnsForPlan?): Index? = getScanIndex(session)
+
+    /**
      * Get the best plan for the given search mask.
      *
      * @param session the session
@@ -407,41 +471,331 @@ abstract class Table(
      * @param allColumnsSet the set of all columns
      * @return the plan item
      */
-    open fun getBestPlanItem(session: SessionLocal, masks: IntArray?,
-                             filters: Array<TableFilter?>?, filter: Int, sortOrder: SortOrder?,
-                             allColumnsSet: AllColumnsForPlan?): PlanItem? {
-        val item = PlanItem()
-        item.setIndex(getScanIndex(session))
-        item.cost = item.getIndex().getCost(session, null, filters, filter, null, allColumnsSet)
+    open fun getBestPlanItem(session: SessionLocal,
+                             masks: IntArray?,
+                             filters: Array<TableFilter>?,
+                             filter: Int,
+                             sortOrder: SortOrder?,
+                             allColumnsSet: AllColumnsForPlan?): PlanItem {
+        val item = PlanItem().apply {
+            index = getScanIndex(session)
+            cost = index!!.getCost(session, null, filters, filter, null, allColumnsSet)
+        }
         val t = session.trace
         if (t.isDebugEnabled) {
             t.debug("Table      :     potential plan item cost {0} index {1}",
-                item.cost, item.getIndex().getPlanSQL())
+                item.cost, item.index?.planSQL)
         }
-        val indexes = getIndexes()
-        val indexHints: IndexHints = Table.getIndexHints(filters, filter)
-        if (indexes != null && masks != null) {
-            var i = 1
-            val size = indexes.size
-            while (i < size) {
-                val index = indexes[i]
-                if (Table.isIndexExcludedByHints(indexHints, index)) {
-                    i++
-                    continue
-                }
-                val cost = index.getCost(session, masks, filters, filter,
-                    sortOrder, allColumnsSet)
+        val indexes: ArrayList<Index>? = getIndexes()
+        val indexHints: IndexHints? = Table.getIndexHints(filters, filter)
+
+        if (indexes == null || masks == null) return item
+
+        indexes.filterNot { index: Index -> isIndexExcludedByHints(indexHints, index) }
+            .forEach { index: Index ->
+                val cost = index.getCost(session, masks, filters, filter, sortOrder, allColumnsSet)
                 if (t.isDebugEnabled) {
                     t.debug("Table      :     potential plan item cost {0} index {1}",
                         cost, index.planSQL)
                 }
                 if (cost < item.cost) {
                     item.cost = cost
-                    item.setIndex(index)
+                    item.index = index
                 }
-                i++
             }
-        }
+
         return item
     }
+
+    /**
+     * Get the primary key index if there is one, or null if there is none.
+     *
+     * @return the primary key index or null
+     */
+    open fun findPrimaryKey(): Index? = getIndexes()?.firstOrNull { idx -> idx.indexType.isPrimaryKey }
+
+    open fun getPrimaryKey(): Index? = findPrimaryKey() ?: throw DbException.get(ErrorCode.INDEX_NOT_FOUND_1,
+        Constants.PREFIX_PRIMARY_KEY)
+
+    /**
+     * Prepares the specified row for INSERT operation.
+     *
+     * Identity, default, and generated values are evaluated, all values are
+     * converted to target data types and validated. Base value of identity
+     * column is updated when required by compatibility mode.
+     *
+     * @param session the session
+     * @param overridingSystem
+     * [Boolean.TRUE] for `OVERRIDING SYSTEM VALUES`,
+     * [Boolean.FALSE] for `OVERRIDING USER VALUES`,
+     * `null` if override clause is not specified
+     * @param row the row
+     */
+    open fun convertInsertRow(session: SessionLocal?, row: Row, overridingSystem: Boolean?) {
+        val length = columns.size
+        var generated = 0
+        for (i in 0 until length) {
+            val column: Column = columns[i]
+
+            var value = row.getValue(i)
+            if (value === ValueNull.INSTANCE && column.defaultOnNull) {
+                value = null
+            }
+            if (column.isIdentity()) {
+                if (overridingSystem == false) {
+                    value = null
+                } else if (value != null && column.defaultOnNull) {
+                    throw DbException.get(ErrorCode.GENERATED_COLUMN_CANNOT_BE_ASSIGNED_1,
+                        column.getSQLWithTable(StringBuilder(), HasSQL.TRACE_SQL_FLAGS).toString())
+                }
+            } else if (column.isGeneratedAlways) {
+                if (value != null) {
+                    throw DbException.get(ErrorCode.GENERATED_COLUMN_CANNOT_BE_ASSIGNED_1,
+                        column.getSQLWithTable(StringBuilder(), HasSQL.TRACE_SQL_FLAGS).toString())
+                }
+                generated++
+                continue
+            }
+            val v2 = column.validateConvertUpdateSequence(session!!, value, row)
+            if (v2 !== value) row.setValue(i, v2)
+        }
+        if (generated <= 0) return
+
+        for (i in 0 until length) {
+            val value = row.getValue(i)
+            if (value != null) continue
+            row.setValue(i, columns[i].validateConvertUpdateSequence(session!!, null, row))
+        }
+    }
+
+    /**
+     * Prepares the specified row for UPDATE operation.
+     *
+     * Default and generated values are evaluated, all values are converted to
+     * target data types and validated. Base value of identity column is updated
+     * when required by compatibility mode.
+     *
+     * @param session the session
+     * @param row the row
+     * @param fromTrigger `true` if row was modified by INSERT or UPDATE trigger
+     */
+    open fun convertUpdateRow(session: SessionLocal?, row: Row, fromTrigger: Boolean) {
+        val length = columns.size
+        var generated = 0
+        for (i in 0 until length) {
+            val value = row.getValue(i)
+            val column = columns[i]
+            if (column.isGenerated()) {
+                if (value != null) {
+                    if (!fromTrigger) {
+                        throw DbException.get(ErrorCode.GENERATED_COLUMN_CANNOT_BE_ASSIGNED_1,
+                            column.getSQLWithTable(StringBuilder(), HasSQL.TRACE_SQL_FLAGS).toString())
+                    }
+                    row.setValue(i, null)
+                }
+                generated++
+                continue
+            }
+            val v2 = column.validateConvertUpdateSequence(session!!, value, row)
+            if (v2 !== value) row.setValue(i, v2)
+        }
+        if (generated <= 0) return
+        for (i in 0 until length) {
+            val value = row.getValue(i)
+            if (value != null) continue
+            row.setValue(i, columns[i].validateConvertUpdateSequence(session!!, null, row))
+        }
+    }
+
+    /**
+     * Remove the given index from the list.
+     *
+     * @param index the index to remove
+     */
+    open fun removeIndex(index: Index) {
+        getIndexes()?.remove(index)
+        if (!index.indexType.isPrimaryKey) return
+        for (col in index.columns) {
+            col.isPrimaryKey = false
+        }
+    }
+
+    /**
+     * views that depend on this table
+     */
+    private val dependentViews = CopyOnWriteArrayList<TableView>()
+
+    /**
+     * Remove the given view from the dependent views list.
+     *
+     * @param view the view to remove
+     */
+    open fun removeDependentView(view: TableView?) {
+        dependentViews.remove(view)
+    }
+
+    private var synonyms: ArrayList<TableSynonym>? = null
+
+    /**
+     * Remove the given view from the list.
+     *
+     * @param synonym the synonym to remove
+     */
+    open fun removeSynonym(synonym: TableSynonym?) {
+        remove(synonyms, synonym!!)
+    }
+
+    /**
+     * Remove the given constraint from the list.
+     *
+     * @param constraint the constraint to remove
+     */
+    open fun removeConstraint(constraint: Constraint?) {
+        remove(constraints, constraint)
+    }
+
+    /**
+     * Remove a sequence from the table. Sequences are used as identity columns.
+     *
+     * @param sequence the sequence to remove
+     */
+    fun removeSequence(sequence: Sequence?) {
+        remove(sequences, sequence)
+    }
+
+    /**
+     * Remove the given trigger from the list.
+     *
+     * @param trigger the trigger to remove
+     */
+    open fun removeTrigger(trigger: TriggerObject?) {
+        remove(triggers, trigger)
+    }
+
+    /**
+     * Add a view to this table.
+     *
+     * @param view the view to add
+     */
+    open fun addDependentView(view: TableView?) {
+        dependentViews.add(view)
+    }
+
+    /**
+     * Add a synonym to this table.
+     *
+     * @param synonym the synonym to add
+     */
+    open fun addSynonym(synonym: TableSynonym) {
+        synonyms = Table.add<TableSynonym>(synonyms, synonym)
+    }
+
+    /**
+     * Fire the triggers for this table.
+     *
+     * @param session the session
+     * @param type the trigger type
+     * @param beforeAction whether 'before' triggers should be called
+     */
+    open fun fire(session: SessionLocal?, type: Int, beforeAction: Boolean) {
+        triggers?.forEach { trigger -> trigger.fire(session, type, beforeAction) }
+    }
+
+    /**
+     * Check whether this table has a select trigger.
+     *
+     * @return true if it has
+     */
+    open fun hasSelectTrigger(): Boolean = triggers?.any { trigger -> trigger.isSelectTrigger } ?: false
+
+    /**
+     * Check if row based triggers or constraints are defined.
+     * In this case the fire after and before row methods need to be called.
+     *
+     * @return if there are any triggers or rows defined
+     */
+    open fun fireRow(): Boolean = (constraints?.isNotEmpty() == true) || (triggers?.isNotEmpty() == true)
+
+    /**
+     * Fire all triggers that need to be called before a row is updated.
+     *
+     * @param session the session
+     * @param oldRow the old data or null for an insert
+     * @param newRow the new data or null for a delete
+     * @return true if no further action is required (for 'instead of' triggers)
+     */
+    open fun fireBeforeRow(session: SessionLocal, oldRow: Row, newRow: Row): Boolean {
+        val done = fireRow(session, oldRow, newRow, true, false)
+        fireConstraints(session, oldRow, newRow, true)
+        return done
+    }
+
+    private fun fireConstraints(session: SessionLocal,
+                                oldRow: Row,
+                                newRow: Row,
+                                before: Boolean) {
+        constraints?.filter { constraint -> constraint.isBefore }
+            ?.forEach { constraint -> constraint.checkRow(session, this, oldRow, newRow) }
+    }
+
+    private fun fireRow(session: SessionLocal,
+                        oldRow: Row,
+                        newRow: Row,
+                        beforeAction: Boolean,
+                        rollback: Boolean): Boolean = triggers
+        ?.any { trigger ->
+            trigger.fireRow(session, this, oldRow, newRow, beforeAction, rollback)
+        } ?: false
+
+    /**
+     * Returns ID of main index column, or [SearchRow.ROWID_INDEX].
+     * @return ID of main index column, or [SearchRow.ROWID_INDEX]
+     */
+    open fun getMainIndexColumn(): Int = SearchRow.ROWID_INDEX
+
+
+    companion object {
+        private fun remove(list: ArrayList<out DbObject>?, obj: DbObject?) {
+            list?.remove(obj)
+        }
+
+        private fun <T> add(list: ArrayList<T>?, obj: T): ArrayList<T> {
+            // self constraints are two entries in the list
+            return (list ?: Utils.newSmallArrayList()).apply { add(obj) }
+        }
+
+        private fun getIndexHints(filters: Array<TableFilter>?, filter: Int): IndexHints? {
+            return filters?.get(filter)?.indexHints
+        }
+
+        private fun isIndexExcludedByHints(indexHints: IndexHints?, index: Index): Boolean {
+            return indexHints != null && !indexHints.allowIndex(index)
+        }
+
+        /**
+         * Read lock.
+         */
+        const val READ_LOCK = 0
+
+        /**
+         * Write lock.
+         */
+        const val WRITE_LOCK = 1
+
+        /**
+         * Exclusive lock.
+         */
+        const val EXCLUSIVE_LOCK = 2
+
+        /**
+         * The table type that means this table is a regular persistent table.
+         */
+        const val TYPE_CACHED = 0
+
+        /**
+         * The table type that means this table is a regular persistent table.
+         */
+        const val TYPE_MEMORY = 1
+    }
+
 }

@@ -86,38 +86,32 @@ class ValueUuid(private val high: Long, private val low: Long) : Value() {
             val length = s.length
             while (i < length) {
                 val c = s[i]
-                low = if (c >= '0' && c <= '9') {
-                    low shl 4 or (c - '0').toLong()
-                } else if (c >= 'a' && c <= 'f') {
-                    low shl 4 or (c.code - ('a'.code - 0xa)).toLong()
-                } else if (c == '-') {
+                low = if (c >= '0' && c <= '9') low shl 4 or (c - '0').toLong()
+                else if (c >= 'a' && c <= 'f') low shl 4 or (c.code - ('a'.code - 0xa)).toLong()
+                else if (c == '-') {
                     i++
                     continue
-                } else if (c >= 'A' && c <= 'F') {
-                    low shl 4 or (c.code - ('A'.code - 0xa)).toLong()
-                } else if (c <= ' ') {
+                } else if (c >= 'A' && c <= 'F') low shl 4 or (c.code - ('A'.code - 0xa)).toLong()
+                else if (c <= ' ') {
                     i++
                     continue
-                } else {
-                    throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, s)
-                }
+                } else throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, s)
+
                 if (++j == 16) {
                     high = low
                     low = 0
                 }
                 i++
             }
-            if (j != 32) {
-                throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, s)
-            }
+            if (j != 32) throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, s)
             return ValueUuid[high, low]
         }
 
-        fun Value.convertToUuid(): ValueUuid? = when (getValueType()) {
+        fun Value.convertToUuid(): ValueUuid = when (getValueType()) {
             UUID -> this as ValueUuid
             BINARY, VARBINARY -> ValueUuid[getBytesNoCopy()]
             JAVA_OBJECT -> JdbcUtils.deserializeUuid(getBytesNoCopy())
-            CHAR, VARCHAR, VARCHAR_IGNORECASE -> ValueUuid[getString()!!]
+            CHAR, VARCHAR, VARCHAR_IGNORECASE -> ValueUuid[getString()!!]!!
             NULL -> throw DbException.getInternalError()
             else -> throw getDataConversionError(UUID)
         }

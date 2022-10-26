@@ -1,12 +1,15 @@
 package org.h2.result
 
+import org.h2.engine.CastDataProvider
+import org.h2.value.CompareMode
+import org.h2.value.TypeInfo
 import org.h2.value.Value
 import org.h2.value.ValueNull
 
 /**
  * The base class for rows stored in a table, and for partial rows stored in the index
  */
-abstract class SearchRow: Value() {
+abstract class SearchRow : Value() {
 
     companion object {
         /**
@@ -55,4 +58,34 @@ abstract class SearchRow: Value() {
      */
     abstract fun getValue(index: Int): Value?
 
+    override var type: TypeInfo? = TypeInfo.TYPE_ROW_EMPTY
+        set(value) = Unit
+
+    override fun getValueType(): Int = Value.ROW
+
+    override fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder {
+        builder.append("ROW (")
+        var index = 0;
+        val count = getColumnCount(); while (index++ < count) {
+            if (index != 0) builder.append(", ")
+            getValue(index)!!.getSQL(builder, sqlFlags)
+        }
+        return builder.append(')')
+    }
+
+    override fun getString(): String? = getTraceSQL()
+
+    override fun hashCode(): Int = throw UnsupportedOperationException()
+
+    override fun equals(other: Any?): Boolean = throw UnsupportedOperationException()
+
+    override fun compareTypeSafe(v: Value, mode: CompareMode?, provider: CastDataProvider?): Int = throw UnsupportedOperationException()
+
+    /**
+     * Set the value for given column
+     *
+     * @param index the column number (starting with 0)
+     * @param v the new value
+     */
+    abstract fun setValue(index: Int, v: Value?)
 }

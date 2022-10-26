@@ -168,7 +168,7 @@ open class TableFilter(private var session: SessionLocal,
      * @param s the session
      */
     open fun lock(s: SessionLocal?) {
-        table.lock(s, false, false)
+        table.lock(s, Table.READ_LOCK)
         join?.lock(s)
     }
 
@@ -199,11 +199,16 @@ open class TableFilter(private var session: SessionLocal,
         var item1: PlanItem? = null
 
         if (indexConditions.isEmpty()) {
-            item1 = PlanItem(index = table.getScanIndex(s, null, filters, filter, sortOrder, allColumnsSet))
+            item1 = PlanItem(index = table.getScanIndex(session = s,
+                masks = null,
+                filters = filters,
+                filter = filter,
+                sortOrder = sortOrder,
+                allColumnsSet = allColumnsSet))
                 .apply { cost = index!!.getCost(s, null, filters, filter, sortOrder, allColumnsSet) }
         }
 
-        var masks: IntArray? = IntArray(table.getColumns().size)
+        var masks: IntArray? = IntArray(table.columns.size)
 
         for (condition in indexConditions) {
             if (!condition.isEvaluatable) continue
@@ -217,7 +222,12 @@ open class TableFilter(private var session: SessionLocal,
             }
         }
 
-        var item = table.getBestPlanItem(s, masks, filters, filter, sortOrder, allColumnsSet)
+        var item = table.getBestPlanItem(session = s!!,
+            masks = masks,
+            filters = filters,
+            filter = filter,
+            sortOrder = sortOrder,
+            allColumnsSet = allColumnsSet)
         item.masks = masks
         // The more index conditions, the earlier the table.
         // This is to ensure joins without indexes run quickly:
@@ -232,7 +242,7 @@ open class TableFilter(private var session: SessionLocal,
             item.nestedJoinPlan = nestedJoin!!.getBestPlanItem(s, filters, filter, allColumnsSet)
             // TODO optimizer: calculate cost of a join: should use separate
             // expected row number and lookup cost
-            item.cost += item.cost * item.nestedJoinPlan.cost
+            item.cost += item.cost * item.nestedJoinPlan!!.cost
         }
         if (join != null) {
             evaluatable = true
@@ -242,7 +252,7 @@ open class TableFilter(private var session: SessionLocal,
             item.joinPlan = join!!.getBestPlanItem(s, filters, filter, allColumnsSet)
             // TODO optimizer: calculate cost of a join: should use separate
             // expected row number and lookup cost
-            item.cost += item.cost * item.joinPlan.cost
+            item.cost += item.cost * item.joinPlan!!.cost
         }
         return item
     }
@@ -312,23 +322,15 @@ open class TableFilter(private var session: SessionLocal,
             i++; }
 
         if (nestedJoin != null) {
-            if (nestedJoin === this) {
-                throw DbException.getInternalError("self join")
-            }
+            if (nestedJoin === this) throw DbException.getInternalError("self join")
             nestedJoin!!.prepare()
         }
         if (join != null) {
-            if (join === this) {
-                throw DbException.getInternalError("self join")
-            }
+            if (join === this) throw DbException.getInternalError("self join")
             join!!.prepare()
         }
-        if (filterCondition != null) {
-            filterCondition = filterCondition!!.optimizeCondition(session)
-        }
-        if (joinCondition != null) {
-            joinCondition = joinCondition!!.optimizeCondition(session)
-        }
+        filterCondition = filterCondition?.optimizeCondition(session)
+        joinCondition = joinCondition?.optimizeCondition(session)
     }
 
     /**
@@ -377,9 +379,8 @@ open class TableFilter(private var session: SessionLocal,
             } else if (nestedJoin != null) {
                 if (state == BEFORE_FIRST) state = FOUND
             } else {
-                if (++scanCount and 4095 == 0) {
-                    checkTimeout()
-                }
+                if (++scanCount and 4095 == 0) checkTimeout()
+
                 if (cursor!!.next()) {
                     currentSearchRow = cursor!!.searchRow
                     current = null
@@ -474,7 +475,7 @@ open class TableFilter(private var session: SessionLocal,
      *
      * @return the alias name
      */
-    override fun getTableAlias(): String = alias ?: table.name
+    override fun getTableAlias(): String = alias ?: table.objectName!!
 
     /**
      * Add an index condition.
@@ -553,7 +554,7 @@ open class TableFilter(private var session: SessionLocal,
         join?.mapAndAddFilter(on)
     }
 
-    override fun getColumns(): Array<Column>? = table.getColumns()
+    override fun getColumns(): Array<Column>? = table.columns
 
     override fun findColumn(name: String?): Column? {
         if (derivedColumnMap == null) return table.findColumn(name)
@@ -577,7 +578,7 @@ open class TableFilter(private var session: SessionLocal,
         val v: Value? = currentSearchRow!!.getValue(columnId)
         if (v != null) return v
 
-        if (columnId == column.table.mainIndexColumn) {
+        if (columnId == column.table!!.getMainIndexColumn()) {
             return getDelegatedValue(column)
         }
 
@@ -801,8 +802,8 @@ open class TableFilter(private var session: SessionLocal,
      */
     override fun getSystemColumns(): Array<Column>? = if (!session.database.mode.systemColumns)
         null
-    else arrayOf(Column("oid", TypeInfo.TYPE_INTEGER, table, 0),  //
-        Column("ctid", TypeInfo.TYPE_VARCHAR, table, 0))
+    else arrayOf(Column(name = "oid", type = TypeInfo.TYPE_INTEGER, table = table, columnId = 0),  //
+        Column(name = "ctid", type = TypeInfo.TYPE_VARCHAR, table = table, columnId = 0))
 
     /**
      * Set derived column list.

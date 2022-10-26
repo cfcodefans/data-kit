@@ -29,6 +29,9 @@ open class Column(override var type: TypeInfo? = null,
                   var table: Table? = null,
                   var name: String? = null,
                   var columnId: Int = 0) : HasSQL, Typed, ColumnTemplate {
+
+
+
     companion object {
         /**
          * The name of the rowid pseudo column.
@@ -215,7 +218,7 @@ open class Column(override var type: TypeInfo? = null,
 
     private fun getDataConversionError(value: Value, cause: DbException): DbException {
         val builder = StringBuilder().append(value.getTraceSQL()).append(" (")
-        if (table != null) builder.append(table!!.name).append(": ")
+        if (table != null) builder.append(table!!.objectName).append(": ")
         builder.append(getCreateSQL()).append(')')
         return DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, cause, builder.toString())
     }

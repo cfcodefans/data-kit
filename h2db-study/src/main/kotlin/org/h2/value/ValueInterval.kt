@@ -145,7 +145,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
             return from(IntervalQualifier.valueOf(targetType - INTERVAL_YEAR), negative, leading, 0L)
         }
 
-        internal fun Value.convertToIntervalDayTime(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueInterval? {
+        internal fun Value.convertToIntervalDayTime(targetType: TypeInfo, conversionMode: Int, column: Any?): ValueInterval {
             var v = convertToIntervalDayTime(targetType.valueType, column)
             if (conversionMode != CONVERT_TO) {
                 v = v!!.setPrecisionAndScale(targetType, column)
@@ -153,7 +153,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
             return v
         }
 
-        private fun Value.convertToIntervalDayTime(bigDecimal: BigDecimal, targetType: Int): ValueInterval? {
+        private fun Value.convertToIntervalDayTime(bigDecimal: BigDecimal, targetType: Int): ValueInterval {
             val multiplier: Long = when (targetType) {
                 INTERVAL_SECOND -> DateTimeUtils.NANOS_PER_SECOND
                 INTERVAL_DAY_TO_HOUR, INTERVAL_DAY_TO_MINUTE, INTERVAL_DAY_TO_SECOND -> DateTimeUtils.NANOS_PER_DAY
@@ -169,7 +169,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
                             .toBigInteger())
         }
 
-        private fun Value.convertToIntervalDayTime(targetType: Int, column: Any?): ValueInterval? {
+        private fun Value.convertToIntervalDayTime(targetType: Int, column: Any?): ValueInterval {
             var leading: Long
             when (getValueType()) {
                 TINYINT, SMALLINT, INTEGER -> leading = getInt().toLong()
@@ -210,7 +210,7 @@ class ValueInterval private constructor(private val valueType: Int = 0,
         }
     }
 
-    override val type: TypeInfo = TypeInfo.getTypeInfo(valueType)
+    override var type: TypeInfo? = TypeInfo.getTypeInfo(valueType)
 
     override fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder {
         return IntervalUtils.appendInterval(builder, getQualifier(), negative, leading, remaining)
