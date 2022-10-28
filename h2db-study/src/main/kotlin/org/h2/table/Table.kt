@@ -24,7 +24,6 @@ import org.h2.util.Utils
 import org.h2.value.CompareMode
 import org.h2.value.Value
 import org.h2.value.ValueNull
-import java.util.Arrays
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -35,8 +34,8 @@ abstract class Table(
     schema: Schema,
     id: Int,
     name: String,
-    var persistIndexes: Boolean?,
-    var persistData: Boolean?) : SchemaObject(schema = schema,
+    val persistIndexes: Boolean = false,
+    val persistData: Boolean = false) : SchemaObject(schema = schema,
     id = id,
     name = name,
     traceModuleId = Trace.TABLE) {
@@ -61,16 +60,11 @@ abstract class Table(
 
     val rowFactory = RowFactory.getRowFactory()
 
-    open fun getNullRow(): Row? {
-        var row = nullRow
-        if (row == null) {
-            // Here can be concurrently produced more than one row, but it must be ok.
-            val values = arrayOfNulls<Value>(columns.size)
-            Arrays.fill(values, ValueNull.INSTANCE)
-            row = createRow(values, 1)
-            nullRow = row
-        }
-        return row
+    open fun getNullRow(): Row {
+        if (nullRow != null) nullRow
+        // Here can be concurrently produced more than one row, but it must be ok.
+        nullRow = createRow(arrayOfNulls<Value>(columns.size).apply { fill(ValueNull.INSTANCE) }, 1)
+        return nullRow!!
     }
 
     /**

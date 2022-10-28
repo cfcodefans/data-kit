@@ -431,7 +431,7 @@ open class TableFilter(private var session: SessionLocal,
      */
     protected open fun setNullRow() {
         state = NULL_ROW
-        current = table.nullRow
+        current = table.getNullRow()
         currentSearchRow = current
         nestedJoin?.visit() { obj: TableFilter -> obj.setNullRow() }
     }
@@ -578,19 +578,17 @@ open class TableFilter(private var session: SessionLocal,
         val v: Value? = currentSearchRow!!.getValue(columnId)
         if (v != null) return v
 
-        if (columnId == column.table!!.getMainIndexColumn()) {
-            return getDelegatedValue(column)
-        }
+        if (columnId == column.table!!.getMainIndexColumn()) return getDelegatedValue(column)
 
         return cursor!!.get()?.let { it.getValue(columnId) } ?: ValueNull.INSTANCE
     }
 
     private fun getDelegatedValue(column: Column): Value? {
         val key: Long = currentSearchRow!!.key
-        return when (column.type.valueType) {
+        return when (column.type?.valueType) {
             Value.TINYINT -> ValueTinyint[key.toByte()]
-            Value.SMALLINT -> ValueSmallint.get(key.toShort())
-            Value.INTEGER -> ValueInteger.get(key.toInt())
+            Value.SMALLINT -> ValueSmallint[key.toShort()]
+            Value.INTEGER -> ValueInteger[key.toInt()]
             Value.BIGINT -> ValueBigint[key]
             else -> throw DbException.getInternalError()
         }
@@ -637,13 +635,13 @@ open class TableFilter(private var session: SessionLocal,
 
         if (table is TableView && table.isRecursive) {
             table.getSchema().getSQL(builder, sqlFlags).append('.')
-            ParserUtil.quoteIdentifier(builder, table.getName(), sqlFlags)
+            ParserUtil.quoteIdentifier(builder, table.name, sqlFlags)
         } else {
             table.getSQL(builder, sqlFlags)
         }
 
         if (table is TableView && table.isInvalid) {
-            throw DbException.get(ErrorCode.VIEW_IS_INVALID_2, table.getName(), "not compiled")
+            throw DbException.get(ErrorCode.VIEW_IS_INVALID_2, table.name, "not compiled")
         }
 
         if (alias != null) {

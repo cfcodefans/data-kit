@@ -10,20 +10,20 @@ import org.h2.util.DateTimeUtils
  * Implementation of the TIMESTAMP WITH TIME ZONE data type.
  */
 class ValueTimestampTimeZone(
-        /**
-         * A bit field with bits for the year, month, and day (see DateTimeUtils for
-         * encoding)
-         */
-        val dateValue: Long = 0,
-        /**
-         * The nanoseconds since midnight.
-         */
-        val timeNanos: Long = 0,
-        /**
-         * Time zone offset from UTC in seconds, range of -18 hours to +18 hours. This
-         * range is compatible with OffsetDateTime from JSR-310.
-         */
-        val timeZoneOffsetSeconds: Int = 0) : Value() {
+    /**
+     * A bit field with bits for the year, month, and day (see DateTimeUtils for
+     * encoding)
+     */
+    val dateValue: Long = 0,
+    /**
+     * The nanoseconds since midnight.
+     */
+    val timeNanos: Long = 0,
+    /**
+     * Time zone offset from UTC in seconds, range of -18 hours to +18 hours. This
+     * range is compatible with OffsetDateTime from JSR-310.
+     */
+    val timeZoneOffsetSeconds: Int = 0) : Value() {
 
     init {
         require(dateValue >= DateTimeUtils.MIN_DATE_VALUE && dateValue <= DateTimeUtils.MAX_DATE_VALUE) { "dateValue out of range $dateValue" }
@@ -65,7 +65,7 @@ class ValueTimestampTimeZone(
          * @return the value
          */
         fun fromDateValueAndNanos(dateValue: Long, timeNanos: Long, timeZoneOffsetSeconds: Int): ValueTimestampTimeZone =
-                cache(ValueTimestampTimeZone(dateValue, timeNanos, timeZoneOffsetSeconds)) as ValueTimestampTimeZone
+            cache(ValueTimestampTimeZone(dateValue, timeNanos, timeZoneOffsetSeconds)) as ValueTimestampTimeZone
 
         /**
          * Parse a string to a ValueTimestamp. This method supports the format
@@ -93,21 +93,25 @@ class ValueTimestampTimeZone(
                     val timeNanos = (this as ValueTime).nanos
                     fromDateValueAndNanos(dateValue, timeNanos, provider.currentTimeZone().getTimeZoneOffsetLocal(dateValue, timeNanos))
                 }
+
                 TIME_TZ -> {
                     val t = this as ValueTimeTimeZone
                     fromDateValueAndNanos(provider.currentTimestamp().dateValue, t.nanos, t.timeZoneOffsetSeconds)
                 }
+
                 DATE -> {
                     val dateValue = (this as ValueDate).dateValue
                     // Scale is always 0
                     return fromDateValueAndNanos(dateValue, 0L, provider.currentTimeZone().getTimeZoneOffsetLocal(dateValue, 0L))
                 }
+
                 TIMESTAMP -> {
                     val ts = this as ValueTimestamp
                     val dateValue: Long = ts.dateValue
                     val timeNanos: Long = ts.timeNanos
                     fromDateValueAndNanos(dateValue, timeNanos, provider.currentTimeZone().getTimeZoneOffsetLocal(dateValue, timeNanos))
                 }
+
                 VARCHAR, VARCHAR_IGNORECASE, CHAR -> parse(getString()!!.trim { it <= ' ' }, provider)
                 else -> throw getDataConversionError(TIMESTAMP_TZ)
             }
@@ -118,8 +122,8 @@ class ValueTimestampTimeZone(
                     var dv: Long = v.dateValue
                     val n: Long = v.timeNanos
                     var n2 = DateTimeUtils.convertScale(n,
-                            targetScale,
-                            if (dv == DateTimeUtils.MAX_DATE_VALUE) DateTimeUtils.NANOS_PER_DAY else Long.MAX_VALUE)
+                        targetScale,
+                        if (dv == DateTimeUtils.MAX_DATE_VALUE) DateTimeUtils.NANOS_PER_DAY else Long.MAX_VALUE)
                     if (n2 != n) {
                         if (n2 >= DateTimeUtils.NANOS_PER_DAY) {
                             n2 -= DateTimeUtils.NANOS_PER_DAY
@@ -133,7 +137,7 @@ class ValueTimestampTimeZone(
         }
     }
 
-    override val type: TypeInfo = TypeInfo.TYPE_TIMESTAMP_TZ
+    override var type: TypeInfo? = TypeInfo.TYPE_TIMESTAMP_TZ
 
     override fun getValueType(): Int = TIMESTAMP_TZ
 
@@ -155,7 +159,7 @@ class ValueTimestampTimeZone(
     fun getISOString(): String = toString(StringBuilder(MAXIMUM_PRECISION), true).toString()
 
     override fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder =
-            toString(builder.append("TIMESTAMP WITH TIME ZONE '"), false).append('\'')
+        toString(builder.append("TIMESTAMP WITH TIME ZONE '"), false).append('\'')
 
     override fun compareTypeSafe(o: Value, mode: CompareMode?, provider: CastDataProvider?): Int {
         val t = o as ValueTimestampTimeZone

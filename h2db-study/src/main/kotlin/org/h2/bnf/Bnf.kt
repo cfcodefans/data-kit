@@ -9,26 +9,26 @@ import java.io.InputStreamReader
 import java.io.Reader
 import java.sql.ResultSet
 import java.sql.SQLException
-import java.util.*
+import java.util.StringTokenizer
 
 /**
  * This class can read a file that is similar to BNF (Backus-Naur form).
  * It is made especially to support SQL grammar.
  */
 open class Bnf(
-        /**
-         * The rule map. The key is lowercase, and all spaces
-         * are replaces with underscore.
-         */
-        val ruleMap: MutableMap<String, RuleHead> = hashMapOf(),
-        var syntax: String? = null,
-        var currentToken: String? = null,
-        var tokens: Array<String>? = null,
-        var firstChar: Char? = null,
-        var index: Int = 0,
-        var lastRepeat: Rule? = null,
-        var statements: ArrayList<RuleHead>? = null,
-        var currentTopic: String? = null) {
+    /**
+     * The rule map. The key is lowercase, and all spaces
+     * are replaces with underscore.
+     */
+    val ruleMap: MutableMap<String, RuleHead> = hashMapOf(),
+    var syntax: String? = null,
+    var currentToken: String? = null,
+    var tokens: Array<String>? = null,
+    var firstChar: Char? = null,
+    var index: Int = 0,
+    var lastRepeat: Rule? = null,
+    var statements: ArrayList<RuleHead>? = null,
+    var currentTopic: String? = null) {
 
 
     companion object {
@@ -168,10 +168,10 @@ open class Bnf(
 
         val tokenizer: StringTokenizer = getTokenizer(syntax)!!
         return Sequence(tokenizer::asIterator)
-                .map { StringUtils.cache(it as String)!! }
-                .filterNot { s -> s.length == 1 && " \r\n".indexOf(s[0]) >= 0 }
-                .toList()
-                .toTypedArray()
+            .map { StringUtils.cache(it as String)!! }
+            .filterNot { s -> s.length == 1 && " \r\n".indexOf(s[0]) >= 0 }
+            .toList()
+            .toTypedArray()
     }
 
     private fun read() {
@@ -215,17 +215,12 @@ open class Bnf(
             r = RuleElement(currentToken!!, currentTopic!!)
         } else if (firstChar == '[') {
             read()
-            val r2 = parseOr()
-            r = RuleOptional(r2)
-            if (firstChar != ']') {
-                throw AssertionError("""expected ], got $currentToken syntax:$syntax""")
-            }
+            r = RuleOptional(parseOr())
+            if (firstChar != ']') throw AssertionError("""expected ], got $currentToken syntax:$syntax""")
         } else if (firstChar == '{') {
             read()
             r = parseOr()
-            if (firstChar != '}') {
-                throw AssertionError("""expected }, got $currentToken syntax:$syntax""")
-            }
+            if (firstChar != '}') throw AssertionError("""expected }, got $currentToken syntax:$syntax""")
         } else if ("@commaDots@" == currentToken) {
             r = RuleList(first = RuleElement(",", currentTopic!!), next = lastRepeat!!, or = false)
             r = RuleRepeat(r, true)

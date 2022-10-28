@@ -9,15 +9,15 @@ import org.h2.util.DateTimeUtils
  * Implementation of the TIME WITH TIME ZONE data type.
  */
 open class ValueTimeTimeZone(
-        /**
-         * Nanoseconds since midnight
-         */
-        val nanos: Long,
-        /**
-         * Time zone offset from UTC in seconds, range of -18 hours to +18 hours.
-         * This range is compatible with OffsetTime from JSR-310.
-         */
-        val timeZoneOffsetSeconds: Int) : Value() {
+    /**
+     * Nanoseconds since midnight
+     */
+    val nanos: Long,
+    /**
+     * Time zone offset from UTC in seconds, range of -18 hours to +18 hours.
+     * This range is compatible with OffsetTime from JSR-310.
+     */
+    val timeZoneOffsetSeconds: Int) : Value() {
 
     companion object {
         /**
@@ -42,7 +42,7 @@ open class ValueTimeTimeZone(
         fun fromNanos(nanos: Long, timeZoneOffsetSeconds: Int): ValueTimeTimeZone {
             if (nanos < 0L || nanos >= DateTimeUtils.NANOS_PER_DAY) {
                 throw DbException.get(ErrorCode.INVALID_DATETIME_CONSTANT_2, "TIME WITH TIME ZONE",
-                        DateTimeUtils.appendTime(StringBuilder(), nanos).toString())
+                    DateTimeUtils.appendTime(StringBuilder(), nanos).toString())
             }
             /*
          * Some current and historic time zones have offsets larger than 12
@@ -73,10 +73,12 @@ open class ValueTimeTimeZone(
                     val timeNanos = ts.timeNanos
                     fromNanos(timeNanos, provider.currentTimeZone().getTimeZoneOffsetLocal(ts.dateValue, timeNanos))
                 }
+
                 TIMESTAMP_TZ -> {
                     val ts = this as ValueTimestampTimeZone
                     fromNanos(ts.timeNanos, ts.timeZoneOffsetSeconds)
                 }
+
                 VARCHAR, VARCHAR_IGNORECASE, CHAR -> parse(getString()!!.trim { it <= ' ' })
                 else -> throw getDataConversionError(TIME_TZ)
             }
@@ -101,7 +103,7 @@ open class ValueTimeTimeZone(
         }
     }
 
-    override val type: TypeInfo = TypeInfo.TYPE_TIME_TZ
+    override var type: TypeInfo? = TypeInfo.TYPE_TIME_TZ
 
     override fun getValueType(): Int = TIME_TZ
 

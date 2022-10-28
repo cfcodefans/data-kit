@@ -3,7 +3,12 @@ package org.h2.expression
 import org.h2.engine.SessionLocal
 import org.h2.table.ColumnResolver
 import org.h2.table.TableFilter
-import org.h2.value.*
+import org.h2.value.ExtTypeInfoRow
+import org.h2.value.TypeInfo
+import org.h2.value.Typed
+import org.h2.value.Value
+import org.h2.value.ValueArray
+import org.h2.value.ValueRow
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 
 /**
@@ -25,14 +30,14 @@ open class ExpressionList(open val list: Array<Expression>,
     override fun getValue(session: SessionLocal?): Value? {
         val v = arrayOfNulls<Value>(list.size)
         for (i in list.indices) {
-            v[i] = list[i]!!.getValue(session)
+            v[i] = list[i].getValue(session)
         }
         return if (isArray) ValueArray[type?.extTypeInfo as TypeInfo?, v, session] else ValueRow[type, v]
     }
 
     override fun mapColumns(resolver: ColumnResolver?, level: Int, state: Int) {
         for (e in list) {
-            e!!.mapColumns(resolver, level, state)
+            e.mapColumns(resolver, level, state)
         }
     }
 

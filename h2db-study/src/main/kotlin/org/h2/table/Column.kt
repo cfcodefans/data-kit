@@ -265,13 +265,13 @@ open class Column(override var type: TypeInfo? = null,
      * @param forMeta whether this is for the metadata table
      * @return the SQL statement
      */
-    open fun getCreateSQL(forMeta: Boolean): String? {
+    open fun getCreateSQL(forMeta: Boolean): String {
         val builder = StringBuilder()
         if (name != null) ParserUtil.quoteIdentifier(builder, name, HasSQL.DEFAULT_SQL_FLAGS).append(' ')
         return getCreateSQL(builder, forMeta)
     }
 
-    private fun getCreateSQL(builder: StringBuilder, forMeta: Boolean): String? {
+    private fun getCreateSQL(builder: StringBuilder, forMeta: Boolean): String {
         if (domain != null) domain!!.getSQL(builder, HasSQL.DEFAULT_SQL_FLAGS)
         else type!!.getSQL(builder, HasSQL.DEFAULT_SQL_FLAGS)
 

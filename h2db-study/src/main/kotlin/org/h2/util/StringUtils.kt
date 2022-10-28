@@ -285,6 +285,7 @@ object StringUtils {
                 if (forSQL) buff.append('\'')
                 buff.append('\'')
             }
+
             '\\' -> buff.append("\\\\")
             else -> {
                 if (c >= ' ' && c < 0x80.toChar()) {
@@ -355,6 +356,7 @@ object StringUtils {
                     })
                     i += 4
                 }
+
                 else -> {
                     if (c1 >= '0' && c1 <= '9') {
                         buf.append(try {
@@ -385,7 +387,7 @@ object StringUtils {
     @JvmStatic
     fun quoteJavaString(s: String?): String {
         s ?: return "null"
-        val builder = java.lang.StringBuilder(s.length + 2).append('"')
+        val builder = StringBuilder(s.length + 2).append('"')
         javaEncode(s, builder, false)
         return builder.append('"').toString()
     }
@@ -399,7 +401,7 @@ object StringUtils {
     @JvmStatic
     fun quoteJavaIntArray(array: IntArray?): String {
         array ?: return "null"
-        return "new int[]{${StringUtils.join(array, ", ")}}" //TODO preformance
+        return "new int[]{${StringUtils.join(array, ", ")}}" //TODO performance
     }
 
     /**
@@ -473,12 +475,9 @@ object StringUtils {
         var begin = 0
         var end = s.length
 
-        if (leading) {
-            while (begin < end && s[begin] == space) begin++
-        }
-        if (trailing) {
-            while (end > begin && s[end - 1] == space) end--
-        }
+        if (leading) while (begin < end && s[begin] == space) begin++
+        if (trailing) while (end > begin && s[end - 1] == space) end--
+
         return s.substring(begin, end)
     }
 
@@ -562,7 +561,7 @@ object StringUtils {
      * @param positiveValue the number to append
      * @return the specified string builder
      */
-    fun java.lang.StringBuilder.appendTwoDigits(positiveValue: Int): java.lang.StringBuilder = apply {
+    fun StringBuilder.appendTwoDigits(positiveValue: Int): java.lang.StringBuilder = apply {
         if (positiveValue < 10) this.append('0')
         this.append(positiveValue)
     }
@@ -691,7 +690,7 @@ object StringUtils {
      * @param s the text
      * @return the double quoted text
      */
-    fun quoteIdentifier(s: String): String? {
+    fun quoteIdentifier(s: String): String {
         return quoteIdentifierOrLiteral(StringBuilder(s.length + 2), s, '"').toString()
     }
 }
