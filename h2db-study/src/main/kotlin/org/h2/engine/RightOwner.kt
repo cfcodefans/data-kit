@@ -57,9 +57,9 @@ abstract class RightOwner(database: Database,
         if (schema.owner === this) return true
 
         if (grantedRights?.let {
-                (it[null]?.let { right -> (right.rightMask and Right.ALTER_ANY_SCHEMA) == Right.ALTER_ANY_SCHEMA } == true)
-                        || (it[schema]?.let { right -> right.rightMask and rightMask == rightMask } == true)
-                        || (it[table]?.let { right -> right.rightMask and rightMask == rightMask } == true)
+                (it[null]?.let { right: Right -> (right.getRightMask() and Right.ALTER_ANY_SCHEMA) == Right.ALTER_ANY_SCHEMA } == true)
+                        || (it[schema]?.let { right -> right.getRightMask() and rightMask == rightMask } == true)
+                        || (it[table]?.let { right -> right.getRightMask() and rightMask == rightMask } == true)
             } == true) return true
 
         if (grantedRoles?.keys?.any { role -> role.isTableRightGrantedRecursive(table, rightMask) } == true)
@@ -82,7 +82,7 @@ abstract class RightOwner(database: Database,
         if (schema != null && schema.owner === this)
             return true
 
-        if (grantedRights?.get(null)?.let { right -> right.rightMask and Right.ALTER_ANY_SCHEMA == Right.ALTER_ANY_SCHEMA } == true)
+        if (grantedRights?.get(null)?.let { right -> right.getRightMask() and Right.ALTER_ANY_SCHEMA == Right.ALTER_ANY_SCHEMA } == true)
             return true
 
         if (grantedRoles?.keys?.any { role -> role.isSchemaRightGrantedRecursive(schema) } == true)
@@ -149,7 +149,7 @@ abstract class RightOwner(database: Database,
         if (grantedRoles == null) return
 
         grantedRoles!!.entries
-            .filter { en -> en.value.isTemporary || en.value.isValid.not() }
+            .filter { en -> en.value.temporary || en.value.isValid().not() }
             .map { it.key }
             .toList()
             .forEach { revokeRole(it) }
@@ -175,8 +175,7 @@ abstract class RightOwner(database: Database,
      * Check that this right owner does not own any schema. An exception is
      * thrown if it owns one or more schemas.
      *
-     * @throws DbException
-     * if this right owner owns a schema
+     * @throws DbException if this right owner owns a schema
      */
     fun checkOwnsNoSchemas() {
         for (s in database!!.allSchemas) {
