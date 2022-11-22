@@ -8,7 +8,7 @@ import org.h2.util.ParserUtil
 /**
  * Extended parameters of the ROW data type.
  */
-class ExtTypeInfoRow(private val fields: LinkedHashMap<String, TypeInfo>) : ExtTypeInfo() {
+class ExtTypeInfoRow(val fields: LinkedHashMap<String?, TypeInfo>) : ExtTypeInfo() {
 
     init {
         if (fields.size > Constants.MAX_COLUMNS) {
@@ -40,7 +40,7 @@ class ExtTypeInfoRow(private val fields: LinkedHashMap<String, TypeInfo>) : ExtT
      * Returns fields.
      * @return fields
      */
-    fun getFields(): Set<Map.Entry<String, TypeInfo>> = fields.entries
+    fun getFields(): Set<Map.Entry<String?, TypeInfo>> = fields.entries
 
     override fun getSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder {
         builder.append('(')

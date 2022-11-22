@@ -8,6 +8,7 @@ import org.h2.util.StringUtils
 import org.h2.util.Utils
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
+import java.io.Closeable
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
@@ -17,7 +18,7 @@ import java.net.Socket
  * The transfer class is used to send and receive Value objects.
  * It is used on both the client side, and on the server side.
  */
-class Transfer(private val session: Session, private var socket: Socket?) {
+class Transfer(private val session: Session?, private var socket: Socket?) : Closeable {
     companion object {
         private const val BUFFER_SIZE = 64 * 1024
         private const val LOB_MAGIC = 0x1234
@@ -134,8 +135,8 @@ class Transfer(private val session: Session, private var socket: Socket?) {
     @Throws(IOException::class)
     fun init() {
         if (socket == null) return
-        `in` = DataInputStream(BufferedInputStream(socket.getInputStream(), BUFFER_SIZE))
-        out = DataOutputStream(BufferedOutputStream(socket.getOutputStream(), BUFFER_SIZE))
+        `in` = DataInputStream(BufferedInputStream(socket!!.getInputStream(), BUFFER_SIZE))
+        out = DataOutputStream(BufferedOutputStream(socket!!.getOutputStream(), BUFFER_SIZE))
     }
 
     /**
@@ -389,7 +390,7 @@ class Transfer(private val session: Session, private var socket: Socket?) {
      * Close the transfer object and the socket.
      */
     @Synchronized
-    fun close() {
+    override fun close() {
         if (socket == null) return
         try {
             out?.flush()
@@ -409,7 +410,7 @@ class Transfer(private val session: Session, private var socket: Socket?) {
      * @throws IOException on failure
      */
     @Throws(IOException::class)
-    fun writeTypeInfo(type: TypeInfo?): Transfer = apply {
+    fun writeTypeInfo(type: TypeInfo): Transfer = apply {
         if (version >= Constants.TCP_PROTOCOL_VERSION_20) writeTypeInfo20(type) else writeTypeInfo19(type)
     }
 
@@ -426,18 +427,23 @@ class Transfer(private val session: Session, private var socket: Socket?) {
                 writeInt(type.scale)
                 writeBoolean(type.extTypeInfo != null)
             }
-            Value.REAL, Value.DOUBLE, Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_HOUR_TO_MINUTE -> writeBytePrecisionWithDefault(type.getDeclaredPrecision())
+
+            Value.REAL, Value.DOUBLE, Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_HOUR_TO_MINUTE -> writeBytePrecisionWithDefault(
+                type.getDeclaredPrecision())
+
             Value.TIME, Value.TIME_TZ, Value.TIMESTAMP, Value.TIMESTAMP_TZ -> writeByteScaleWithDefault(type.scale)
             Value.INTERVAL_SECOND, Value.INTERVAL_DAY_TO_SECOND, Value.INTERVAL_HOUR_TO_SECOND, Value.INTERVAL_MINUTE_TO_SECOND -> {
                 writeBytePrecisionWithDefault(type.getDeclaredPrecision())
                 writeByteScaleWithDefault(type.scale)
             }
+
             Value.ENUM -> writeTypeInfoEnum(type)
 //TODO            Value.GEOMETRY -> writeTypeInfoGeometry(type)
             Value.ARRAY -> {
                 writeInt(type.getDeclaredPrecision().toInt())
-                writeTypeInfo(type.extTypeInfo as TypeInfo?)
+                writeTypeInfo(type.extTypeInfo as TypeInfo)
             }
+
             Value.ROW -> writeTypeInfoRow(type)
             else -> throw DbException.getUnsupportedException("value type $valueType")
         }
@@ -493,14 +499,14 @@ class Transfer(private val session: Session, private var socket: Socket?) {
      * @throws IOException on failure
      */
     @Throws(IOException::class)
-    fun readTypeInfo(): TypeInfo? = if (version >= Constants.TCP_PROTOCOL_VERSION_20) {
+    fun readTypeInfo(): TypeInfo = if (version >= Constants.TCP_PROTOCOL_VERSION_20) {
         readTypeInfo20()
     } else {
         readTypeInfo19()
     }
 
     @Throws(IOException::class)
-    private fun readTypeInfo20(): TypeInfo? {
+    private fun readTypeInfo20(): TypeInfo {
         val valueType = TI_TO_VALUE[readInt() + 1]
         var precision = -1L
         var scale = -1
@@ -516,18 +522,23 @@ class Transfer(private val session: Session, private var socket: Socket?) {
                     ext = ExtTypeInfoNumeric.DECIMAL
                 }
             }
-            Value.REAL, Value.DOUBLE, Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_HOUR_TO_MINUTE -> precision = readByte().toLong()
+
+            Value.REAL, Value.DOUBLE, Value.INTERVAL_YEAR, Value.INTERVAL_MONTH, Value.INTERVAL_DAY, Value.INTERVAL_HOUR, Value.INTERVAL_MINUTE, Value.INTERVAL_YEAR_TO_MONTH, Value.INTERVAL_DAY_TO_HOUR, Value.INTERVAL_DAY_TO_MINUTE, Value.INTERVAL_HOUR_TO_MINUTE -> precision =
+                readByte().toLong()
+
             Value.TIME, Value.TIME_TZ, Value.TIMESTAMP, Value.TIMESTAMP_TZ -> scale = readByte().toInt()
             Value.INTERVAL_SECOND, Value.INTERVAL_DAY_TO_SECOND, Value.INTERVAL_HOUR_TO_SECOND, Value.INTERVAL_MINUTE_TO_SECOND -> {
                 precision = readByte().toLong()
                 scale = readByte().toInt()
             }
+
             Value.ENUM -> ext = readTypeInfoEnum()
 //TODO            Value.GEOMETRY -> ext = readTypeInfoGeometry()
             Value.ARRAY -> {
                 precision = readInt().toLong()
                 ext = readTypeInfo()
             }
+
             Value.ROW -> ext = readTypeInfoRow()
             else -> throw DbException.getUnsupportedException("value type $valueType")
         }
@@ -551,9 +562,9 @@ class Transfer(private val session: Session, private var socket: Socket?) {
         val l = readInt()
         if (l <= 0) return null
 
-        val fields = LinkedHashMap<String?, TypeInfo?>()
+        val fields = LinkedHashMap<String?, TypeInfo>()
         for (i in 0 until l) {
-            val name = readString()
+            val name: String? = readString()
             if (fields.putIfAbsent(name, readTypeInfo()) != null) {
                 throw DbException.get(ErrorCode.DUPLICATE_COLUMN_NAME_1, name!!)
             }
@@ -562,7 +573,7 @@ class Transfer(private val session: Session, private var socket: Socket?) {
     }
 
     @Throws(IOException::class)
-    private fun readTypeInfo19(): TypeInfo? {
+    private fun readTypeInfo19(): TypeInfo {
         return TypeInfo.getTypeInfo(TI_TO_VALUE[readInt() + 1], readLong(), readInt(), null)
     }
 }

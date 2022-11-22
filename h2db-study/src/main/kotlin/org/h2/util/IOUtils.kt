@@ -4,11 +4,14 @@ import org.h2.engine.Constants
 import org.h2.message.DbException
 import org.h2.mvstore.DataUtils
 import java.io.BufferedReader
+import java.io.BufferedWriter
 import java.io.EOFException
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStream
+import java.io.OutputStreamWriter
 import java.io.Reader
 import java.io.StringWriter
 import java.io.Writer
@@ -262,4 +265,24 @@ object IOUtils {
         // InputStreamReader may read some more bytes
         return `in`?.let { BufferedReader(InputStreamReader(it, StandardCharsets.UTF_8)) }
     }
+
+    /**
+     * Converts / and \ name separators in path to native separators.
+     *
+     * @param path path to convert
+     * @return path with converted separators
+     */
+    fun nameSeparatorsToNative(path: String): String = if (File.separatorChar == '/')
+        path.replace('\\', '/')
+    else
+        path.replace('/', '\\')
+
+    /**
+     * Create a buffered writer to write to an output stream using the UTF-8
+     * format. If the output stream is null, this method returns null.
+     *
+     * @param out the output stream or null
+     * @return the writer
+     */
+    fun getBufferedWriter(out: OutputStream?): Writer? = out?.let { BufferedWriter(OutputStreamWriter(out, StandardCharsets.UTF_8)) }
 }

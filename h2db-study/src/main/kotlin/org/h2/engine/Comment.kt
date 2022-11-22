@@ -16,7 +16,7 @@ class Comment(database: Database, id: Int, obj: DbObject) : DbObject(database, i
     var commentText: String? = null
 
 
-    override fun getCreateSQLForCopy(table: Table?, quotedName: String?): String? = throw DbException.getInternalError(toString())
+    override fun getCreateSQLForCopy(table: Table?, quotedName: String?): String = throw DbException.getInternalError(toString())
 
     override fun getCreateSQL(): String? = StringBuilder("COMMENT ON ")
         .append(getTypeName(objectType))

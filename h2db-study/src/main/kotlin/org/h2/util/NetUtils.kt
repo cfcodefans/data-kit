@@ -1,12 +1,18 @@
 package org.h2.util
 
+import org.h2.api.ErrorCode
 import org.h2.engine.SysProperties
+import org.h2.message.DbException
 import org.h2.security.CipherFactory
 import org.h2.util.Utils.uncheckedSleep
 import java.io.IOException
+import java.net.BindException
+import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.net.Socket
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import kotlin.experimental.and
 import kotlin.math.min
@@ -137,6 +143,7 @@ object NetUtils {
                     .append(address[2] and ff).append('.') //
                     .append(address[3] and ff).toString()
             }
+
             16 -> {
                 val a = ShortArray(8)
                 var maxStart = 0
@@ -174,10 +181,106 @@ object NetUtils {
                 }
                 if (addBrackets) builder.append(']')
             }
+
             else -> StringUtils.convertBytesToHex(builder, address)
         }
         return builder
     }
 
+    /**
+     * Create a server socket. The system property h2.bindAddress is used if
+     * set. If SSL is used and h2.enableAnonymousTLS is true, an attempt is
+     * made to modify the security property jdk.tls.legacyAlgorithms
+     * (in newer JVMs) to allow anonymous TLS.
+     *
+     *
+     * This system change is effectively permanent for the lifetime of the JVM.
+     * @see CipherFactory.removeAnonFromLegacyAlgorithms
+     * @param port the port to listen on
+     * @param ssl if SSL should be used
+     * @return the server socket
+     */
+    fun createServerSocket(port: Int, ssl: Boolean): ServerSocket = try {
+        createServerSocketTry(port, ssl)
+    } catch (e: java.lang.Exception) {
+        // try again
+        createServerSocketTry(port, ssl)
+    }
+
+    /**
+     * Get the bind address if the system property h2.bindAddress is set, or
+     * null if not.
+     *
+     * @return the bind address
+     */
+    @Throws(UnknownHostException::class)
+    private fun getBindAddress(): InetAddress? {
+        val host = SysProperties.BIND_ADDRESS
+        if (host.isNullOrEmpty()) return null
+
+        synchronized(NetUtils::class.java) {
+            if (cachedBindAddress == null) cachedBindAddress = InetAddress.getByName(host)
+        }
+        return cachedBindAddress
+    }
+
+    private fun createServerSocketTry(port: Int, ssl: Boolean): ServerSocket {
+        return try {
+            val bindAddress = getBindAddress()
+            if (ssl) return CipherFactory.createServerSocket(port, bindAddress)
+
+            if (bindAddress == null) {
+                ServerSocket(port)
+            } else {
+                ServerSocket(port, 0, bindAddress)
+            }
+        } catch (be: BindException) {
+            throw DbException.get(ErrorCode.EXCEPTION_OPENING_PORT_2, be, port.toString(), be.toString())
+        } catch (e: IOException) {
+            throw DbException.convertIOException(e, "port: $port ssl: $ssl")
+        }
+    }
+
+    /**
+     * Close a server socket and ignore any exceptions.
+     *
+     * @param socket the socket
+     * @return null
+     */
+    fun closeSilently(socket: ServerSocket?): ServerSocket? {
+        kotlin.runCatching { socket?.close() }
+        return null
+    }
+
+    /**
+     * Get the local host address as a string.
+     * For performance, the result is cached for one second.
+     *
+     * @return the local host address
+     */
+    @Synchronized
+    fun getLocalAddress(): String {
+        val now: Long = System.nanoTime()
+        if (cachedLocalAddress != null && now - cachedLocalAddressTime < CACHE_MILLIS * 1000000L) {
+            return cachedLocalAddress!!
+        }
+
+        cachedLocalAddress = (getBindAddress() ?: InetAddress.getLocalHost())
+            ?.let { bind ->
+                var address: String = bind.hostAddress
+                if (bind is Inet6Address) {
+                    if (address.indexOf('%') >= 0) {
+                        address = "localhost"
+                    } else if (address.indexOf(':') >= 0 && !address.startsWith("[")) {
+                        // adds'[' and ']' if required for
+                        // Inet6Address that contain a ':'.
+                        address = "[$address]"
+                    }
+                }
+                if (address == "127.0.0.1") "localhost" else address
+            }
+        cachedLocalAddressTime = now
+        return cachedLocalAddress!!
+    }
 
 }

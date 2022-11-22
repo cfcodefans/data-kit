@@ -22,7 +22,8 @@ import java.util.Arrays
 class User(database: Database,
            id: Int,
            userName: String,
-           val systemUser: Boolean) : RightOwner(database = database, id = id, name = userName, traceModuleId = Trace.USER) {
+           val systemUser: Boolean,
+           var admin: Boolean = false) : RightOwner(database = database, id = id, name = userName, traceModuleId = Trace.USER) {
 
     companion object {
         /**
@@ -51,7 +52,7 @@ class User(database: Database,
 
     var salt: ByteArray? = null
     var passwordHash: ByteArray? = null
-    var admin: Boolean = false
+
 
     /**
      * Set the salt and hash of the password for this user.

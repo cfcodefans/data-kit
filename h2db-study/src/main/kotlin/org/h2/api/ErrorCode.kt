@@ -216,6 +216,68 @@ object ErrorCode {
     const val NULL_NOT_ALLOWED = 23502
 
     /**
+     * The error with code `23503` is thrown when trying to delete
+     * or update a row when this would violate a referential constraint, because
+     * there is a child row that would become an orphan. Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT PRIMARY KEY, PARENT INT);
+     * INSERT INTO TEST VALUES(1, 1), (2, 1);
+     * ALTER TABLE TEST ADD CONSTRAINT TEST_ID_PARENT
+     * FOREIGN KEY(PARENT) REFERENCES TEST(ID) ON DELETE RESTRICT;
+     * DELETE FROM TEST WHERE ID = 1;
+    </pre> *
+     */
+    const val REFERENTIAL_INTEGRITY_VIOLATED_CHILD_EXISTS_1 = 23503
+
+    /**
+     * The error with code `23505` is thrown when trying to insert
+     * a row that would violate a unique index or primary key. Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT PRIMARY KEY);
+     * INSERT INTO TEST VALUES(1);
+     * INSERT INTO TEST VALUES(1);
+    </pre> *
+     */
+    const val DUPLICATE_KEY_1 = 23505
+
+    /**
+     * The error with code `23506` is thrown when trying to insert
+     * or update a row that would violate a referential constraint, because the
+     * referenced row does not exist. Example:
+     * <pre>
+     * CREATE TABLE PARENT(ID INT PRIMARY KEY);
+     * CREATE TABLE CHILD(P_ID INT REFERENCES PARENT(ID));
+     * INSERT INTO CHILD VALUES(1);
+    </pre> *
+     */
+    const val REFERENTIAL_INTEGRITY_VIOLATED_PARENT_MISSING_1 = 23506
+
+    /**
+     * The error with code `23507` is thrown when
+     * updating or deleting from a table with a foreign key constraint
+     * that should set the default value, but there is no default value defined.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT PRIMARY KEY, PARENT INT);
+     * INSERT INTO TEST VALUES(1, 1), (2, 1);
+     * ALTER TABLE TEST ADD CONSTRAINT TEST_ID_PARENT
+     * FOREIGN KEY(PARENT) REFERENCES TEST(ID) ON DELETE SET DEFAULT;
+     * DELETE FROM TEST WHERE ID = 1;
+    </pre> *
+     */
+    const val NO_DEFAULT_SET_1 = 23507
+
+    /**
+     * The error with code `23513` is thrown when
+     * a check constraint is violated. Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT CHECK (ID&gt;0));
+     * INSERT INTO TEST VALUES(0);
+    </pre> *
+     */
+    const val CHECK_CONSTRAINT_VIOLATED_1 = 23513
+
+    /**
      * The error with code `22033` is thrown when an
      * attempt is made to add or modify an ENUM-typed column so
      * that it would have duplicate values.
@@ -243,6 +305,28 @@ object ErrorCode {
      */
     const val DEADLOCK_1 = 40001
 
+    // 42: syntax error or access rule violation
+    /**
+     * The error with code `42000` is thrown when
+     * trying to execute an invalid SQL statement.
+     * Example:
+     * <pre>
+     * CREATE ALIAS REMAINDER FOR "IEEEremainder";
+    </pre> *
+     */
+    const val SYNTAX_ERROR_1 = 42000
+
+    /**
+     * The error with code `42001` is thrown when
+     * trying to execute an invalid SQL statement.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT);
+     * INSERT INTO TEST(1);
+    </pre> *
+     */
+    const val SYNTAX_ERROR_2 = 42001
+
     /**
      * The error with code <code>42101</code> is thrown when
      * trying to create a table or view if an object with the name already
@@ -256,13 +340,37 @@ object ErrorCode {
 
     /**
      * The error with the code <code>42102</code> is thrown when
-     * trying to query, modify or drop a table or view that does not exists
+     * trying to query, modify or drop a table or view that does not exist
      * in this schema and database. A common cause is that the wrong
      * database was opened.
      * Example:
      * <pre>SELECT * FROM ABC;</pre>
      */
     const val TABLE_OR_VIEW_NOT_FOUND_1: Int = 42102
+
+    /**
+     * The error with code `42103` is thrown when
+     * trying to query, modify or drop a table or view that does not exist
+     * in this schema and database but similar names were found. A common cause
+     * is that the names are written in different case.
+     * Example:
+     * <pre>
+     * SELECT * FROM ABC;
+    </pre> *
+     */
+    const val TABLE_OR_VIEW_NOT_FOUND_WITH_CANDIDATES_2 = 42103
+
+    /**
+     * The error with code `42104` is thrown when
+     * trying to query, modify or drop a table or view that does not exist
+     * in this schema and database but it is empty anyway. A common cause is
+     * that the wrong database was opened.
+     * Example:
+     * <pre>
+     * SELECT * FROM ABC;
+    </pre> *
+     */
+    const val TABLE_OR_VIEW_NOT_FOUND_DATABASE_EMPTY_1 = 42104
 
     /**
      * The error with code <code>42111</code> is thrown when
@@ -764,6 +872,48 @@ object ErrorCode {
     const val ERROR_EXECUTING_TRIGGER_3: Int = 90044
 
     /**
+     * The error with code `90045` is thrown when trying to create a
+     * constraint if an object with this name already exists. Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT NOT NULL);
+     * ALTER TABLE TEST ADD CONSTRAINT PK PRIMARY KEY(ID);
+     * ALTER TABLE TEST ADD CONSTRAINT PK PRIMARY KEY(ID);
+    </pre> *
+     */
+    const val CONSTRAINT_ALREADY_EXISTS_1 = 90045
+
+    /**
+     * The error with code `90046` is thrown when
+     * trying to open a connection to a database using an unsupported URL
+     * format. Please see the documentation on the supported URL format and
+     * examples. Example:
+     * <pre>
+     * jdbc:h2:;;
+     * </pre>
+     */
+    const val URL_FORMAT_ERROR_2 = 90046
+
+    /**
+     * The error with code `90047` is thrown when
+     * trying to connect to a TCP server with an incompatible client.
+     */
+    const val DRIVER_VERSION_ERROR_2 = 90047
+
+    /**
+     * The error with code `90048` is thrown when
+     * the file header of a database files (*.db) does not match the
+     * expected version, or if it is corrupted.
+     */
+    const val FILE_VERSION_ERROR_1 = 90048
+
+    /**
+     * The error with code `90049` is thrown when
+     * trying to open an encrypted database with the wrong file encryption
+     * password or algorithm.
+     */
+    const val FILE_ENCRYPTION_ERROR_1 = 90049
+
+    /**
      * The error with code `90050` is thrown when trying to open an
      * encrypted database, but not separating the file password from the user
      * password. The file password is specified in the password field, before
@@ -976,6 +1126,100 @@ object ErrorCode {
     const val ORDER_BY_NOT_IN_RESULT = 90068
 
     /**
+     * The error with code `90069` is thrown when
+     * trying to create a role if an object with this name already exists.
+     * Example:
+     * <pre>
+     * CREATE ROLE TEST_ROLE;
+     * CREATE ROLE TEST_ROLE;
+    </pre> *
+     */
+    const val ROLE_ALREADY_EXISTS_1 = 90069
+
+    /**
+     * The error with code `90070` is thrown when
+     * trying to drop or grant a role that does not exist.
+     * Example:
+     * <pre>
+     * DROP ROLE TEST_ROLE_2;
+    </pre> *
+     */
+    const val ROLE_NOT_FOUND_1 = 90070
+
+    /**
+     * The error with code `90071` is thrown when
+     * trying to grant or revoke if no role or user with that name exists.
+     * Example:
+     * <pre>
+     * GRANT SELECT ON TEST TO UNKNOWN;
+    </pre> *
+     */
+    const val USER_OR_ROLE_NOT_FOUND_1 = 90071
+
+    /**
+     * The error with code `90072` is thrown when
+     * trying to grant or revoke both roles and rights at the same time.
+     * Example:
+     * <pre>
+     * GRANT SELECT, TEST_ROLE ON TEST TO SA;
+    </pre> *
+     */
+    const val ROLES_AND_RIGHT_CANNOT_BE_MIXED = 90072
+
+    /**
+     * The error with code `90073` is thrown when trying to create
+     * an alias for a Java method, if two methods exists in this class that have
+     * this name and the same number of parameters.
+     * Example of wrong usage:
+     * <pre>
+     * CREATE ALIAS GET_LONG FOR
+     * "java.lang.Long.getLong";
+    </pre> *
+     * Correct:
+     * <pre>
+     * CREATE ALIAS GET_LONG FOR
+     * "java.lang.Long.getLong(java.lang.String, java.lang.Long)";
+    </pre> *
+     */
+    const val METHODS_MUST_HAVE_DIFFERENT_PARAMETER_COUNTS_2 = 90073
+
+    /**
+     * The error with code `90074` is thrown when
+     * trying to grant a role that has already been granted.
+     * Example:
+     * <pre>
+     * CREATE ROLE TEST_A;
+     * CREATE ROLE TEST_B;
+     * GRANT TEST_A TO TEST_B;
+     * GRANT TEST_B TO TEST_A;
+    </pre> *
+     */
+    const val ROLE_ALREADY_GRANTED_1 = 90074
+
+    /**
+     * The error with code `90075` is thrown when
+     * trying to alter a table and allow null for a column that is part of a
+     * primary key or hash index.
+     * Example:
+     * <pre>
+     * CREATE TABLE TEST(ID INT PRIMARY KEY);
+     * ALTER TABLE TEST ALTER COLUMN ID NULL;
+    </pre> *
+     */
+    const val COLUMN_IS_PART_OF_INDEX_1 = 90075
+
+    /**
+     * The error with code `90076` is thrown when
+     * trying to create a function alias for a system function or for a function
+     * that is already defined.
+     * Example:
+     * <pre>
+     * CREATE ALIAS SQRT FOR "java.lang.Math.sqrt"
+    </pre> *
+     */
+    const val FUNCTION_ALIAS_ALREADY_EXISTS_1 = 90076
+
+    /**
      * The error with code `90086` is thrown when
      * a class can not be loaded because it is not in the classpath
      * or because a related class is not in the classpath.
@@ -985,6 +1229,85 @@ object ErrorCode {
     </pre> *
      */
     const val CLASS_NOT_FOUND_1: Int = 90086
+
+    /**
+     * The error with code `90087` is thrown when
+     * a method with matching number of arguments was not found in the class.
+     * Example:
+     * <pre>
+     * CREATE ALIAS TO_BINARY FOR "java.lang.Long.toBinaryString(long)";
+     * CALL TO_BINARY(10, 2);
+    </pre> *
+     */
+    const val METHOD_NOT_FOUND_1 = 90087
+
+    /**
+     * The error with code `90088` is thrown when
+     * trying to switch to an unknown mode.
+     * Example:
+     * <pre>
+     * SET MODE UNKNOWN;
+    </pre> *
+     */
+    const val UNKNOWN_MODE_1 = 90088
+
+    /**
+     * The error with code `90089` is thrown when
+     * trying to change the collation while there was already data in
+     * the database. The collation of the database must be set when the
+     * database is empty.
+     * Example of wrong usage:
+     * <pre>
+     * CREATE TABLE TEST(NAME VARCHAR PRIMARY KEY);
+     * INSERT INTO TEST VALUES('Hello', 'World');
+     * SET COLLATION DE;
+     * Collation cannot be changed because there is a data table: PUBLIC.TEST
+    </pre> *
+     * Correct:
+     * <pre>
+     * SET COLLATION DE;
+     * CREATE TABLE TEST(NAME VARCHAR PRIMARY KEY);
+     * INSERT INTO TEST VALUES('Hello', 'World');
+    </pre> *
+     */
+    const val COLLATION_CHANGE_WITH_DATA_TABLE_1 = 90089
+
+    /**
+     * The error with code `90090` is thrown when
+     * trying to drop a schema that may not be dropped (the schema PUBLIC
+     * and the schema INFORMATION_SCHEMA).
+     * Example:
+     * <pre>
+     * DROP SCHEMA PUBLIC;
+    </pre> *
+     */
+    const val SCHEMA_CAN_NOT_BE_DROPPED_1 = 90090
+
+    /**
+     * The error with code `90091` is thrown when
+     * trying to drop the role PUBLIC.
+     * Example:
+     * <pre>
+     * DROP ROLE PUBLIC;
+    </pre> *
+     */
+    const val ROLE_CAN_NOT_BE_DROPPED_1 = 90091
+
+    /**
+     * The error with code `90093` is thrown when
+     * trying to connect to a clustered database that runs in standalone
+     * mode. This can happen if clustering is not enabled on the database,
+     * or if one of the clients disabled clustering because it can not see
+     * the other cluster node.
+     */
+    const val CLUSTER_ERROR_DATABASE_RUNS_ALONE = 90093
+
+    /**
+     * The error with code `90094` is thrown when
+     * trying to connect to a clustered database that runs together with a
+     * different cluster node setting than what is used when trying to connect.
+     */
+    const val CLUSTER_ERROR_DATABASE_RUNS_CLUSTERED_1 = 90094
 
     /**
      * The error with code <code>90095</code> is thrown when
@@ -1195,6 +1518,56 @@ object ErrorCode {
     const val ACCESS_DENIED_TO_CLASS_1: Int = 90134
 
     /**
+     * The error with code `90135` is thrown when
+     * trying to open a connection to a database that is currently open
+     * in exclusive mode. The exclusive mode is set using:
+     * <pre>
+     * SET EXCLUSIVE TRUE;
+    </pre> *
+     */
+    const val DATABASE_IS_IN_EXCLUSIVE_MODE = 90135
+
+    /**
+     * The error with code `90136` is thrown when
+     * trying to reference a window that does not exist.
+     * Example:
+     * <pre>
+     * SELECT LEAD(X) OVER W FROM TEST;
+    </pre> *
+     */
+    const val WINDOW_NOT_FOUND_1 = 90136
+
+    /**
+     * The error with code `90137` is thrown when
+     * trying to assign a value to something that is not a variable.
+     * <pre>
+     * SELECT AMOUNT, SET(@V, COALESCE(@V, 0)+AMOUNT) FROM TEST;
+    </pre> *
+     */
+    const val CAN_ONLY_ASSIGN_TO_VARIABLE_1 = 90137
+
+    /**
+     * The error with code `90138` is thrown when
+     *
+     * trying to open a persistent database using an incorrect database name.
+     * The name of a persistent database contains the path and file name prefix
+     * where the data is stored. The file name part of a database name must be
+     * at least two characters.
+     *
+     * Example of wrong usage:
+     * <pre>
+     * DriverManager.getConnection("jdbc:h2:~/t");
+     * DriverManager.getConnection("jdbc:h2:~/test/");
+    </pre> *
+     * Correct:
+     * <pre>
+     * DriverManager.getConnection("jdbc:h2:~/te");
+     * DriverManager.getConnection("jdbc:h2:~/test/te");
+    </pre> *
+     */
+    const val INVALID_DATABASE_NAME_1 = 90138
+
+    /**
      * The error with code `90141` is thrown when
      * The error with code `90154` is thrown when trying to assign a
      * trying to change the java object serializer while there was already data
@@ -1289,5 +1662,34 @@ object ErrorCode {
         FEATURE_NOT_SUPPORTED_1 -> "HYC00"
         LOCK_TIMEOUT_1 -> "HYT00"
         else -> errorCode.toString()
+    }
+
+    /**
+     * INTERNAL
+     * @param errorCode to check
+     * @return true if provided code is common, false otherwise
+     */
+    fun isCommon(errorCode: Int): Boolean {
+// this list is sorted alphabetically
+        return when (errorCode) {
+            DATA_CONVERSION_ERROR_1,
+            ErrorCode.DUPLICATE_KEY_1,
+            ErrorCode.FUNCTION_ALIAS_ALREADY_EXISTS_1,
+            LOCK_TIMEOUT_1, NULL_NOT_ALLOWED,
+            NO_DATA_AVAILABLE,
+            NUMERIC_VALUE_OUT_OF_RANGE_1,
+            OBJECT_CLOSED,
+            ErrorCode.REFERENTIAL_INTEGRITY_VIOLATED_CHILD_EXISTS_1,
+            ErrorCode.REFERENTIAL_INTEGRITY_VIOLATED_PARENT_MISSING_1,
+            ErrorCode.SYNTAX_ERROR_1,
+            ErrorCode.SYNTAX_ERROR_2,
+            TABLE_OR_VIEW_ALREADY_EXISTS_1,
+            TABLE_OR_VIEW_NOT_FOUND_1,
+            ErrorCode.TABLE_OR_VIEW_NOT_FOUND_WITH_CANDIDATES_2,
+            ErrorCode.TABLE_OR_VIEW_NOT_FOUND_DATABASE_EMPTY_1,
+            VALUE_TOO_LONG_2 -> true
+
+            else -> false
+        }
     }
 }

@@ -67,7 +67,7 @@ interface DataHandler {
      *
      * @return the cache or null
      */
-    fun getLobFileListCache(): SmallLRUCache<String?, Array<String>?>
+    fun getLobFileListCache(): SmallLRUCache<String, Array<String>>?
 
     /**
      * Get the lob storage mechanism to use.

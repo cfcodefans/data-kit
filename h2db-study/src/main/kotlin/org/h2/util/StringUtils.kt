@@ -693,4 +693,22 @@ object StringUtils {
     fun quoteIdentifier(s: String): String {
         return quoteIdentifierOrLiteral(StringBuilder(s.length + 2), s, '"').toString()
     }
+
+    /**
+     * Truncates the specified string to the specified length. This method,
+     * unlike {@link String#substring(int, int)}, doesn't break Unicode code
+     * points. If the specified length in characters breaks a valid pair of
+     * surrogates, the whole pair is not included into result.
+     *
+     * @param s the string to truncate
+     * @param maximumLength the maximum length in characters
+     * @return the specified string if it isn't longer than the specified
+     *         maximum length, and the truncated string otherwise
+     */
+    fun truncateString(s: String, maximumLength: Int): String {
+        if (s.length <= maximumLength) return s
+        return if (maximumLength <= 0) ""
+        else
+            s.substring(0, if (Character.isSurrogatePair(s[maximumLength - 1], s[maximumLength])) maximumLength - 1 else maximumLength)
+    }
 }

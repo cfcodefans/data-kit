@@ -15,6 +15,10 @@ class TempFileDeleter {
     val queue: ReferenceQueue<Any> = ReferenceQueue()
     val refMap: HashMap<PhantomReference<*>, Any> = HashMap()
 
+    companion object {
+        fun getInstance(): TempFileDeleter = TempFileDeleter()
+    }
+
     /**
      * Add a file or a closeable to the list of temporary objects to delete. the
      * file is deleted once the file object is garbage collected.
@@ -58,6 +62,7 @@ class TempFileDeleter {
                     FileUtils.tryDelete(fileName)
                 }
             }
+
             is AutoCloseable -> kotlin.runCatching {
                 trace("TempFileDeleter.deleteCloseable", "-", null)
                 res.close()

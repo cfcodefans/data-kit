@@ -2,15 +2,24 @@ package org.h2.store
 
 import org.h2.Driver
 import org.h2.api.ErrorCode
+import org.h2.engine.Constants
+import org.h2.engine.SessionRemote
 import org.h2.message.DbException
 import org.h2.message.Trace
 import org.h2.message.TraceSystem
 import org.h2.store.fs.FileUtils
 import org.h2.util.MathUtils
+import org.h2.util.NetUtils
 import org.h2.util.SortedProperties
 import org.h2.util.StringUtils
+import org.h2.value.Transfer
 import java.io.IOException
+import java.net.BindException
+import java.net.ConnectException
+import java.net.InetAddress
 import java.net.ServerSocket
+import java.net.Socket
+import java.net.UnknownHostException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Paths
@@ -71,6 +80,22 @@ open class FileLock(
         } catch (e: InterruptedException) {
             throw getExceptionFatal("Sleep interrupted", e)
         }
+
+
+        /**
+         * Get the file locking method type given a method name.
+         *
+         * @param method the method name
+         * @return the method type
+         * @throws DbException if the method name is unknown
+         */
+        fun getFileLockMethod(method: String?): FileLockMethod = when {
+            method == null || method.equals("FILE", ignoreCase = true) -> FileLockMethod.FILE
+            method.equals("NO", ignoreCase = true) -> FileLockMethod.NO
+            method.equals("SOCKET", ignoreCase = true) -> FileLockMethod.SOCKET
+            method.equals("FS", ignoreCase = true) -> FileLockMethod.FS
+            else -> throw DbException.get(ErrorCode.UNSUPPORTED_LOCK_METHOD_1, method)
+        }
     }
 
     /**
@@ -97,7 +122,7 @@ open class FileLock(
 
     private var method: String? = null
     private var properties: Properties? = null
-    private var uniqueId: String? = null
+    var uniqueId: String? = null
     private var watchdog: Thread? = null
 
     /**
@@ -111,6 +136,12 @@ open class FileLock(
         properties
     } catch (e: IOException) {
         throw getExceptionFatal("Could not save properties $fileName", e)
+    }
+
+    private fun nap(time: Long) = try {
+        Thread.sleep(time)
+    } catch (e: java.lang.Exception) {
+        trace!!.debug(e, "sleep")
     }
 
     /**
@@ -145,6 +176,17 @@ open class FileLock(
             // ignore
         }
         return e
+    }
+
+    /**
+     * Add or change a setting to the properties. This call does not save the
+     * file.
+     *
+     * @param key the key
+     * @param value the value
+     */
+    open fun setProperty(key: String?, value: String?) {
+        if (value == null) properties!!.remove(key) else properties!![key] = value
     }
 
     /**
@@ -230,20 +272,11 @@ open class FileLock(
             if (dist < -TIME_GRANULARITY) {
                 // lock file modified in the future -
                 // wait for a bit longer than usual
-                try {
-                    Thread.sleep(2 * sleep.toLong())
-                } catch (e: java.lang.Exception) {
-                    trace!!.debug(e, "sleep")
-                }
+                nap(2 * sleep.toLong())
                 return
-            } else if (dist > TIME_GRANULARITY) {
-                return
-            }
-            try {
-                Thread.sleep(SLEEP_GAP.toLong())
-            } catch (e: java.lang.Exception) {
-                trace!!.debug(e, "sleep")
-            }
+            } else if (dist > TIME_GRANULARITY) return
+
+            nap(SLEEP_GAP.toLong())
         }
         throw getExceptionFatal("Lock file recently modified", null)
     }
@@ -282,6 +315,126 @@ open class FileLock(
         Driver.setThreadContextClassLoader(watchdog!!)
         watchdog!!.isDaemon = true
         watchdog!!.priority = Thread.MAX_PRIORITY - 1
+        watchdog!!.start()
+    }
+
+    private fun checkServer() {
+        val prop = load()
+        val server = prop.getProperty("server") ?: return
+        var running = false
+        val id = prop.getProperty("id")
+        try {
+            NetUtils.createSocket(server, Constants.DEFAULT_TCP_PORT, false).use { socket ->
+                Transfer(null, socket).use { transfer ->
+                    transfer.init()
+                    transfer.writeInt(Constants.TCP_PROTOCOL_VERSION_MIN_SUPPORTED)
+                    transfer.writeInt(Constants.TCP_PROTOCOL_VERSION_MAX_SUPPORTED)
+                    transfer.writeString(null)
+                    transfer.writeString(null)
+                    transfer.writeString(id)
+                    transfer.writeInt(SessionRemote.SESSION_CHECK_KEY)
+                    transfer.flush()
+                    val state = transfer.readInt()
+                    if (state == SessionRemote.STATUS_OK) {
+                        running = true
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            return
+        }
+        if (running) throw DbException.get(ErrorCode.DATABASE_ALREADY_OPEN_1, "Server is running").addSQL("$server/$id")
+    }
+
+    /**
+     * Lock the file if possible. A file may only be locked once.
+     *
+     * @param fileLockMethod the file locking method to use
+     * @throws DbException if locking was not successful
+     */
+    @Synchronized
+    open fun lock(fileLockMethod: FileLockMethod) {
+        checkServer()
+        if (locked) throw DbException.getInternalError("already locked")
+        when (fileLockMethod) {
+            FileLockMethod.FILE -> lockFile()
+            FileLockMethod.SOCKET -> lockSocket()
+            FileLockMethod.FS, FileLockMethod.NO -> {}
+        }
+        locked = true
+    }
+
+    private fun lockSocket() {
+        method = SOCKET
+        properties = SortedProperties()
+        properties!!.setProperty("method", method.toString())
+
+        setUniqueId()
+        // if this returns 127.0.0.1,
+        // the computer is probably not networked
+        // if this returns 127.0.0.1,
+        // the computer is probably not networked
+        val ipAddress = NetUtils.getLocalAddress()
+        FileUtils.createDirectories(FileUtils.getParent(fileName!!))
+        if (!FileUtils.createFile(fileName!!)) {
+            waitUntilOld()
+            val read = FileLock.aggressiveLastModified(fileName!!)
+            val p2 = load()
+            val m2 = p2.getProperty("method", SOCKET)
+            if (m2 == FILE) {
+                lockFile()
+                return
+            } else if (m2 != SOCKET) {
+                throw getExceptionFatal("Unsupported lock method $m2", null)
+            }
+
+            val ip = p2.getProperty("ipAddress", ipAddress)
+            if (ipAddress != ip) {
+                throw getExceptionAlreadyInUse("Locked by another computer: $ip")!!
+            }
+
+            val port = p2.getProperty("port", "0")
+            val portId = port.toInt()
+            val address: InetAddress = try {
+                InetAddress.getByName(ip)
+            } catch (e: UnknownHostException) {
+                throw getExceptionFatal("Unknown host $ip", e)
+            }
+            for (i in 0..2) {
+                try {
+                    val s = Socket(address, portId)
+                    s.close()
+                    throw getExceptionAlreadyInUse("Locked by another process")!!
+                } catch (e: BindException) {
+                    throw getExceptionFatal("Bind Exception", null)
+                } catch (e: ConnectException) {
+                    trace!!.debug(e, "socket not connected to port $port")
+                } catch (e: IOException) {
+                    throw getExceptionFatal("IOException", null)
+                }
+            }
+
+            if (read != FileLock.aggressiveLastModified(fileName!!)) throw getExceptionFatal("Concurrent update", null)
+            FileUtils.delete(fileName!!)
+            if (!FileUtils.createFile(fileName!!)) throw getExceptionFatal("Another process was faster", null)
+        }
+
+        try {
+            // 0 to use any free port
+            serverSocket = NetUtils.createServerSocket(0, false)
+            properties!!.setProperty("ipAddress", ipAddress)
+            properties!!.setProperty("port", serverSocket!!.localPort.toString())
+        } catch (e: java.lang.Exception) {
+            trace!!.debug(e, "lock")
+            serverSocket = null
+            lockFile()
+            return
+        }
+
+        save()
+        locked = true
+        watchdog = Thread(this, "H2 File Lock Watchdog (Socket) $fileName")
+        watchdog!!.isDaemon = true
         watchdog!!.start()
     }
 }

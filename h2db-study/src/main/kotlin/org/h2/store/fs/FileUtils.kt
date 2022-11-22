@@ -2,6 +2,7 @@ package org.h2.store.fs
 
 import org.h2.store.fs.FilePath.Companion.get
 import java.io.EOFException
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -157,6 +158,71 @@ object FileUtils {
      */
     @JvmStatic
     fun getParent(fileName: String): String? = get(fileName).getParent()?.toString()
+
+    /**
+     * Check if the file name includes a path. This method is similar to Java 7
+     * `java.nio.file.Path.isAbsolute`.
+     *
+     * @param fileName the file name
+     * @return if the file name is absolute
+     */
+    fun isAbsolute(fileName: String): Boolean = (get(fileName).isAbsolute()
+            // Allows Windows to recognize "/path" as absolute.
+            // Makes the same configuration work on all platforms.
+            || fileName.startsWith(File.separator) // Just in case of non-normalized path on Windows
+            || fileName.startsWith("/"))
+
+    /**
+     * Rename a file if this is allowed. This method is similar to Java 7
+     * `java.nio.file.Files.move`.
+     *
+     * @param source the old fully qualified file name
+     * @param target the new fully qualified file name
+     */
+    fun move(source: String, target: String) = get(source).moveTo(get(target), false)
+
+    /**
+     * Rename a file if this is allowed, and try to atomically replace an
+     * existing file. This method is similar to Java 7
+     * `java.nio.file.Files.move`.
+     *
+     * @param source the old fully qualified file name
+     * @param target the new fully qualified file name
+     */
+    fun moveAtomicReplace(source: String, target: String) = get(source).moveTo(get(target), true)
+
+    /**
+     * Get the file or directory name (the last element of the path).
+     * This method is similar to Java 7 `java.nio.file.Path.getName`.
+     *
+     * @param path the directory and file name
+     * @return just the file name
+     */
+    fun getName(path: String?): String = get(path!!).name
+
+    /**
+     * List the files and directories in the given directory.
+     * This method is similar to Java 7
+     * `java.nio.file.Path.newDirectoryStream`.
+     *
+     * @param path the directory
+     * @return the list of fully qualified file names
+     */
+    fun newDirectoryStream(path: String?): List<String> = get(path!!)
+        .newDirectoryStream()
+        .map { filePath -> filePath.toString() }
+
+    /**
+     * Get the size of a file in bytes
+     * This method is similar to Java 7
+     * `java.nio.file.attribute.Attributes.
+     * readBasicFileAttributes(file).size()`
+     *
+     * @param fileName the file name
+     * @return the size in bytes
+     */
+    fun size(fileName: String?): Long = get(fileName!!).size()
+
 
     /**
      * Create an input stream to read from the file.

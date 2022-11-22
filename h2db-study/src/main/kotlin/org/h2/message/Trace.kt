@@ -110,11 +110,13 @@ class Trace(val traceWriter: TraceWriter,
             if (parameters.isEmpty()) return ""
 
             return parameters.filter { it.isValueSet() }
-                    .mapIndexed { i, p -> "$i: ${p.getParamValue()?.getTraceSQL()}" }
-                    .joinToString(prefix = "{", separator = ", ", postfix = "}")
+                .mapIndexed { i, p -> "$i: ${p.getParamValue()?.getTraceSQL()}" }
+                .joinToString(prefix = "{", separator = ", ", postfix = "}")
         }
 
     }
+
+    constructor(traceWriter: TraceWriter, moduleId: Int) : this(traceWriter, MODULE_NAMES[moduleId])
 
     var traceLevel: Int = TraceSystem.PARENT
     inline fun isEnabled(level: Int): Boolean {
