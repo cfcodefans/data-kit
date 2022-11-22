@@ -191,7 +191,7 @@ abstract class DbObject(var database: Database?,
      *
      * @param session the session
      */
-    abstract fun removeChildrenAndResources(session: SessionLocal?)
+    abstract fun removeChildrenAndResources(session: SessionLocal)
 
     /**
      * Check if renaming is allowed. Does nothing when allowed.

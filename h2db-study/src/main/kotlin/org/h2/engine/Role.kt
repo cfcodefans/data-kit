@@ -31,16 +31,14 @@ class Role(database: Database,
 
     override fun getChildren(): ArrayList<DbObject> = database!!.schemas.values.filter { schema -> schema.owner == this }.let { ArrayList(it) }
 
-    override fun removeChildrenAndResources(session: SessionLocal?) {
+    override fun removeChildrenAndResources(session: SessionLocal) {
         for (rightOwner in database!!.getAllUsersAndRoles()) {
-            rightOwner.getRightForRole(this)?.let { database!!.removeDatabaseObject(session, right) }
+            rightOwner.getRightForRole(this)?.let { right -> database!!.removeDatabaseObject(session, right) }
         }
         for (right in database!!.getAllRights()) {
-            if (right.getGrantee() === this) {
-                database.removeDatabaseObject(session, right)
-            }
+            if (right.getGrantee() === this) database!!.removeDatabaseObject(session, right)
         }
-        database.removeMeta(session, id)
+        database!!.removeMeta(session, id)
         invalidate()
     }
 }

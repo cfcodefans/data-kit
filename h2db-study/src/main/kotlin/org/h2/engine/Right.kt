@@ -75,7 +75,9 @@ class Right(db: Database, id: Int,
         }
     }
 
-    fun getRights(): String? {
+    fun getGrantee(): DbObject? = grantee
+
+    fun getRights(): String {
         val buff = StringBuilder()
         if (grantedRight == ALL) {
             buff.append("ALL")
@@ -118,7 +120,7 @@ class Right(db: Database, id: Int,
 
     override fun getType(): Int = DbObject.RIGHT
 
-    override fun removeChildrenAndResources(session: SessionLocal?) {
+    override fun removeChildrenAndResources(session: SessionLocal) {
         if (grantedRole != null) {
             grantee!!.revokeRole(grantedRole)
         } else {
