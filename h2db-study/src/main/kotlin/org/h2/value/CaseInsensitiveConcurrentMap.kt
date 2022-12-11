@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * @param <V> the value type
 </V> */
-open class CaseInsensitiveConcurrentMap<V> : ConcurrentHashMap<String, V?>() {
+open class CaseInsensitiveConcurrentMap<V> : ConcurrentHashMap<String, V>() {
     override operator fun get(key: String): V? {
         return super.get(StringUtils.toUpperEnglish((key as String)))
     }
@@ -17,7 +17,7 @@ open class CaseInsensitiveConcurrentMap<V> : ConcurrentHashMap<String, V?>() {
         return super.put(StringUtils.toUpperEnglish(key), value)
     }
 
-    override fun putIfAbsent(key: String, value: V?): V? {
+    override fun putIfAbsent(key: String, value: V): V? {
         return super.putIfAbsent(StringUtils.toUpperEnglish(key), value)
     }
 

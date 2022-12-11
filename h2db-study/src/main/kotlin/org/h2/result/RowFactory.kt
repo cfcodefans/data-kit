@@ -75,7 +75,7 @@ abstract class RowFactory {
      *
      * @return the created row
      */
-    abstract fun createRow(): SearchRow?
+    abstract fun createRow(): SearchRow
 
     abstract val dataType: RowDataType?
 

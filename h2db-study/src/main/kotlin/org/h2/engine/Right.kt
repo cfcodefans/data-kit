@@ -26,7 +26,7 @@ class Right(db: Database, id: Int,
             /**
              * The object. If the right is global, this is null.
              */
-            private var grantedObject: DbObject? = null) : DbObject(database = db, id = id, objectName = "RIGHT_$id", traceModuleId = Trace.USER) {
+            var grantedObject: DbObject? = null) : DbObject(database = db, id = id, objectName = "RIGHT_$id", traceModuleId = Trace.USER) {
     companion object {
         /**
          * The right bit mask that means: selecting from a table is allowed.

@@ -5,7 +5,9 @@ import org.h2.api.DatabaseEventListener
 import org.h2.api.ErrorCode
 import org.h2.api.JavaObjectSerializer
 import org.h2.api.TableEngine
+import org.h2.command.ddl.CreateTableData
 import org.h2.command.dml.SetTypes
+import org.h2.constraint.Constraint
 import org.h2.engine.Mode.ModeEnum
 import org.h2.index.Index
 import org.h2.message.DbException
@@ -18,6 +20,7 @@ import org.h2.result.RowFactory
 import org.h2.result.SearchRow
 import org.h2.schema.InformationSchema
 import org.h2.schema.Schema
+import org.h2.schema.SchemaObject
 import org.h2.security.auth.Authenticator
 import org.h2.store.DataHandler
 import org.h2.store.FileLock
@@ -25,8 +28,10 @@ import org.h2.store.FileLockMethod
 import org.h2.store.LobStorageInterface
 import org.h2.store.fs.FileUtils
 import org.h2.store.fs.encrypt.FileEncrypt
+import org.h2.table.Column
 import org.h2.table.Table
 import org.h2.table.TableLinkConnection
+import org.h2.table.TableType
 import org.h2.tools.Server
 import org.h2.util.JdbcUtils
 import org.h2.util.NetUtils
@@ -35,7 +40,9 @@ import org.h2.util.SourceCompiler
 import org.h2.util.StringUtils
 import org.h2.util.TempFileDeleter
 import org.h2.util.Utils
+import org.h2.value.CaseInsensitiveConcurrentMap
 import org.h2.value.CompareMode
+import org.h2.value.TypeInfo
 import org.h2.value.ValueInteger
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.sql.SQLException
@@ -111,6 +118,21 @@ class Database(
                 if (c < 'A' || c > 'Z') return false
             }
             return true
+        }
+
+        /**
+         * This method doesn't actually unlock the metadata table, all it does it
+         * reset the debugging flags.
+         *
+         * @param session the session
+         */
+        fun unlockMetaDebug(session: SessionLocal) {
+            if (ASSERT != true) return
+            if (META_LOCK_DEBUGGING!!.get() == session) {
+                META_LOCK_DEBUGGING!!.set(null)
+                META_LOCK_DEBUGGING_DB!!.set(null)
+                META_LOCK_DEBUGGING_STACK!!.set(null)
+            }
         }
     }
 
@@ -355,6 +377,12 @@ class Database(
             lobSession = createSession(systemUser!!)
 
             store!!.transactionStore.init(lobSession)
+            val settingKeys: MutableSet<String> = dbSettings!!.settings.keys
+            settingKeys.removeIf { name: String -> name.startsWith("PAGE_STORE_") }
+
+            val data: CreateTableData = createSysTableData()
+            starting = true
+            meta = mainSchema!!.createTable(data)
 
 
         } catch (e: Throwable) {
@@ -517,7 +545,7 @@ class Database(
     }
 
     /**
-     * Remove the given object from the meta data.
+     * Remove the given object from the metadata.
      *
      * @param session the session
      * @param id the id of the object to remove
@@ -525,7 +553,7 @@ class Database(
     fun removeMeta(session: SessionLocal, id: Int) {
         if (id <= 0 || starting) return
 
-        val r: SearchRow = meta.getRowFactory().createRow()
+        val r: SearchRow = meta!!.rowFactory.createRow()
         r.setValue(0, ValueInteger[id])
         val wasLocked: Boolean = lockMeta(session)
         try {
@@ -550,4 +578,140 @@ class Database(
         // so until then ids are accumulated within session
         session.scheduleDatabaseObjectIdForRelease(id)
     }
+
+    private fun checkMetaFree(session: SessionLocal, id: Int) {
+        val r: SearchRow = meta!!.rowFactory.createRow()
+        r.setValue(0, ValueInteger[id])
+        val cursor = metaIdIndex!!.find(session, r, r)
+        if (cursor.next()) throw DbException.getInternalError()
+    }
+
+    /**
+     * Unlock the metadata table.
+     *
+     * @param session the session
+     */
+    fun unlockMeta(session: SessionLocal) {
+        if (meta == null) return
+        Database.unlockMetaDebug(session)
+        meta!!.unlock(session)
+        session.unlock(meta)
+    }
+
+    /**
+     * Get the trace object for the given module id.
+     *
+     * @param moduleId the module id
+     * @return the trace object
+     */
+    fun getTrace(moduleId: Int): Trace = traceSystem!!.getTrace(moduleId)
+
+    private fun createSysTableData(): CreateTableData = CreateTableData().also { data ->
+        val cols = data.columns
+
+        cols.add(Column(name = "ID", type = TypeInfo.TYPE_INTEGER).apply { nullable = false })
+        cols.add(Column(name = "HEAD", type = TypeInfo.TYPE_INTEGER))
+        cols.add(Column(name = "TYPE", type = TypeInfo.TYPE_INTEGER))
+        cols.add(Column(name = "SQL", type = TypeInfo.TYPE_VARCHAR))
+
+        data.tableName = "SYS"
+        data.id = 0
+        data.temporary = false
+        data.persistData = persistent
+        data.persistIndexes = persistent
+        data.isHidden = true
+        data.session = systemSession
+    }
+
+    /**
+     * Create a new hash map. Depending on the configuration, the key is
+     * case-sensitive or case-insensitive.
+     *
+     * @param <V> the value type
+     * @return the hash map
+    </V> */
+    fun <V> newConcurrentStringMap(): ConcurrentHashMap<String, V> = if (dbSettings!!.caseInsensitiveIdentifiers)
+        CaseInsensitiveConcurrentMap<V>()
+    else
+        ConcurrentHashMap()
+
+    /**
+     * Remove an object from the system table.
+     *
+     * @param session the session
+     * @param obj the object to be removed
+     */
+    open fun removeSchemaObject(session: SessionLocal,
+                                obj: SchemaObject) {
+        val type: Int = obj.getType()
+        if (type == DbObject.TABLE_OR_VIEW) {
+            val table = obj as Table
+            if (table.temporary && !table.isGlobalTemporary()) {
+                session.removeLocalTempTable(table)
+                return
+            }
+        } else if (type == DbObject.INDEX) {
+            val index = obj as Index
+            val table = index.table
+            if (table.isTemporary && !table.isGlobalTemporary) {
+                session.removeLocalTempTableIndex(index)
+                return
+            }
+        } else if (type == DbObject.CONSTRAINT) {
+            val constraint = obj as Constraint
+            if (constraint.constraintType != Constraint.Type.DOMAIN) {
+                val table = constraint.table
+                if (table.isTemporary && !table.isGlobalTemporary) {
+                    session.removeLocalTempTableConstraint(constraint)
+                    return
+                }
+            }
+        }
+        checkWritingAllowed()
+        lockMeta(session)
+        synchronized(this) {
+            val comment = findComment(obj)
+            comment?.let { removeDatabaseObject(session, it) }
+            obj.schema.remove(obj)
+            val id: Int = obj.id
+            if (!starting) {
+                val t: Table = getDependentTable(obj, null)
+                if (t != null) {
+                    obj.schema.add(obj)
+                    throw DbException.get(ErrorCode.CANNOT_DROP_2, obj.getTraceSQL(), t.getTraceSQL())
+                }
+                obj.removeChildrenAndResources(session)
+            }
+            removeMeta(session, id)
+        }
+    }
+
+    /**
+     * Get the first table that depends on this object.
+     *
+     * @param obj the object to find
+     * @param except the table to exclude (or null)
+     * @return the first dependent table, or null
+     */
+    fun getDependentTable(obj: SchemaObject, except: Table): Table? {
+        when (obj.getType()) {
+            DbObject.COMMENT, DbObject.CONSTRAINT, DbObject.INDEX, DbObject.RIGHT, DbObject.TRIGGER, DbObject.USER -> return null
+            else -> {}
+        }
+        val set = java.util.HashSet<DbObject>()
+        for (schema in schemas.values) {
+            for (t in schema.getAllTablesAndViews(null)) {
+                if (except === t || TableType.VIEW == t.getTableType()) {
+                    continue
+                }
+                set.clear()
+                t.addDependencies(set)
+                if (set.contains(obj)) {
+                    return t
+                }
+            }
+        }
+        return null
+    }
+
 }
