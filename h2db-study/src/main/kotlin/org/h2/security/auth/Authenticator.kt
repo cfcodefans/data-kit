@@ -1,5 +1,8 @@
 package org.h2.security.auth
 
+import org.h2.engine.Database
+import org.h2.engine.User
+
 /**
  * Low level interface to implement full authentication process.
  */
@@ -9,10 +12,10 @@ interface Authenticator {
      *
      * @param authenticationInfo authentication info.
      * @param database target database instance.
-     * @return valid database user or null if user doesn't exists in the database
+     * @return valid database user or null if user doesn't exist in the database
      */
     @Throws(AuthenticationException::class)
-    fun authenticate(authenticationInfo: AuthenticationInfo, database: Any): Any //User
+    fun authenticate(authenticationInfo: AuthenticationInfo, database: Database): User?
 
     /**
      * Initialize the authenticator. This method is invoked by databases when

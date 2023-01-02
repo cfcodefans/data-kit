@@ -11,6 +11,7 @@ import org.h2.index.Index
 import org.h2.index.IndexType
 import org.h2.message.DbException
 import org.h2.message.Trace
+import org.h2.result.DefaultRow
 import org.h2.result.Row
 import org.h2.result.RowFactory
 import org.h2.result.SearchRow
@@ -74,9 +75,7 @@ abstract class Table(
      * @param memory the estimated memory usage in bytes
      * @return the created row
      */
-    open fun createRow(data: Array<Value?>, memory: Int): Row {
-        return rowFactory.createRow(data, memory)
-    }
+    open fun createRow(data: Array<Value?>, memory: Int): Row = rowFactory.createRow(data, memory)
 
     override fun rename(newName: String) {
         super.rename(newName)
@@ -747,6 +746,16 @@ abstract class Table(
      */
     open fun getMainIndexColumn(): Int = SearchRow.ROWID_INDEX
 
+    open fun getTemplateRow(): Row = createRow(arrayOfNulls(columns.size), DefaultRow.MEMORY_CALCULATE)
+
+    /**
+     * Check if the table is exclusively locked by this session.
+     *
+     * @param session the session
+     * @return true if it is
+     */
+    @Suppress("unused")
+    open fun isLockedExclusivelyBy(session: SessionLocal?): Boolean = false
 
     companion object {
         private fun remove(list: ArrayList<out DbObject>?, obj: DbObject?) {

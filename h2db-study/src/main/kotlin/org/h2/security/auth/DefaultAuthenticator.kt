@@ -2,6 +2,11 @@ package org.h2.security.auth
 
 import org.h2.api.CredentialsValidator
 import org.h2.api.UserToRolesMapper
+import org.h2.engine.Database
+import org.h2.engine.Right
+import org.h2.engine.Role
+import org.h2.engine.User
+import org.h2.engine.UserBuilder
 import org.h2.util.StringUtils
 
 /**
@@ -79,6 +84,66 @@ open class DefaultAuthenticator(private val skipDefaultInitialization: Boolean =
 
     fun setUserToRolesMappers(vararg userToRolesMappers: UserToRolesMapper): Unit {
         this.userToRolesMappers = userToRolesMappers.toList()
+    }
+
+    @Throws(AuthenticationException::class)
+    override fun authenticate(authenticationInfo: AuthenticationInfo, database: Database): User? {
+        val userName = authenticationInfo.getFullyQualifiedName()
+        var user: User? = database.findUser(userName)
+        if (user == null && !allowUserRegistration) throw AuthenticationException("User $userName not found in db")
+
+        val validator = realms[authenticationInfo.realm] ?: throw AuthenticationException("realm ${authenticationInfo.realm} not configured")
+        try {
+            if (!validator.validateCredentials(authenticationInfo)) return null
+        } catch (e: Exception) {
+            throw AuthenticationException(e)
+        }
+        if (user == null) {
+            synchronized(database.systemSession) {
+                user = UserBuilder.buildUser(authenticationInfo, database, persistUsers)
+                database.addDatabaseObject(database.systemSession, user)
+                database.systemSession.commit(false)
+            }
+        }
+        user!!.revokeTemporaryRightsOnRoles()
+        updateRoles(authenticationInfo, user!!, database)
+        return user!!
+    }
+
+    @Throws(AuthenticationException::class)
+    private fun updateRoles(authenticationInfo: AuthenticationInfo, user: User, database: Database): Boolean {
+        var updatedDb = false
+        val roles: MutableSet<String> = HashSet()
+        for (currentUserToRolesMapper in userToRolesMappers) {
+            val currentRoles = currentUserToRolesMapper.mapUserToRoles(authenticationInfo)
+            if (currentRoles != null && !currentRoles.isEmpty()) {
+                roles.addAll(currentRoles)
+            }
+        }
+        for (currentRoleName in roles) {
+            if (currentRoleName == null || currentRoleName.isEmpty()) {
+                continue
+            }
+            var currentRole: Role = database.findRole(currentRoleName)
+            if (currentRole == null && isCreateMissingRoles()) {
+                synchronized(database.systemSession) {
+                    currentRole = Role(database, database.allocateObjectId(), currentRoleName, false)
+                    database.addDatabaseObject(database.systemSession, currentRole)
+                    database.systemSession.commit(false)
+                    updatedDb = true
+                }
+            }
+            if (currentRole == null) {
+                continue
+            }
+            if (user.getRightForRole(currentRole) == null) {
+                // NON PERSISTENT
+                val currentRight = Right(database, -1, user, currentRole)
+                currentRight.setTemporary(true)
+                user.grantRole(currentRole, currentRight)
+            }
+        }
+        return updatedDb
     }
 
     override fun init(database: Any) {

@@ -1445,6 +1445,134 @@ object ErrorCode {
     const val ROW_NOT_FOUND_WHEN_DELETING_1 = 90112
 
     /**
+     * The error with code `90113` is thrown when
+     * the database URL contains unsupported settings.
+     * Example:
+     * <pre>
+     * jdbc:h2:~/test;UNKNOWN=TRUE
+    </pre> *
+     */
+    const val UNSUPPORTED_SETTING_1 = 90113
+
+    /**
+     * The error with code `90114` is thrown when
+     * trying to create a constant if a constant with this name already exists.
+     * Example:
+     * <pre>
+     * CREATE CONSTANT TEST VALUE 1;
+     * CREATE CONSTANT TEST VALUE 1;
+    </pre> *
+     */
+    const val CONSTANT_ALREADY_EXISTS_1 = 90114
+
+    /**
+     * The error with code `90115` is thrown when
+     * trying to drop a constant that does not exists.
+     * Example:
+     * <pre>
+     * DROP CONSTANT UNKNOWN;
+    </pre> *
+     */
+    const val CONSTANT_NOT_FOUND_1 = 90115
+
+    /**
+     * The error with code `90116` is thrown when
+     * trying use a literal in a SQL statement if literals are disabled.
+     * If literals are disabled, use PreparedStatement and parameters instead
+     * of literals in the SQL statement.
+     * Example:
+     * <pre>
+     * SET ALLOW_LITERALS NONE;
+     * CALL 1+1;
+    </pre> *
+     */
+    const val LITERALS_ARE_NOT_ALLOWED = 90116
+
+    /**
+     * The error with code `90117` is thrown when
+     * trying to connect to a TCP server from another machine, if remote
+     * connections are not allowed. To allow remote connections,
+     * start the TCP server using the option -tcpAllowOthers as in:
+     * <pre>
+     * java org.h2.tools.Server -tcp -tcpAllowOthers
+    </pre> *
+     * Or, when starting the server from an application, use:
+     * <pre>
+     * Server server = Server.createTcpServer("-tcpAllowOthers");
+     * server.start();
+    </pre> *
+     */
+    const val REMOTE_CONNECTION_NOT_ALLOWED = 90117
+
+    /**
+     * The error with code `90118` is thrown when
+     * trying to drop a table can not be dropped.
+     * Example:
+     * <pre>
+     * DROP TABLE INFORMATION_SCHEMA.SETTINGS;
+    </pre> *
+     */
+    const val CANNOT_DROP_TABLE_1 = 90118
+
+    /**
+     * The error with code `90119` is thrown when
+     * trying to create a domain if an object with this name already exists,
+     * or when trying to overload a built-in data type.
+     * Example:
+     * <pre>
+     * CREATE DOMAIN INTEGER AS VARCHAR;
+     * CREATE DOMAIN EMAIL AS VARCHAR CHECK LOCATE('@', VALUE) &gt; 0;
+     * CREATE DOMAIN EMAIL AS VARCHAR CHECK LOCATE('@', VALUE) &gt; 0;
+    </pre> *
+     */
+    const val DOMAIN_ALREADY_EXISTS_1 = 90119
+
+    /**
+     * Deprecated since 1.4.198. Use [.DOMAIN_ALREADY_EXISTS_1] instead.
+     */
+    @Deprecated("")
+    val USER_DATA_TYPE_ALREADY_EXISTS_1 = DOMAIN_ALREADY_EXISTS_1
+
+    /**
+     * The error with code `90120` is thrown when
+     * trying to drop a domain that doesn't exist.
+     * Example:
+     * <pre>
+     * DROP DOMAIN UNKNOWN;
+    </pre> *
+     */
+    const val DOMAIN_NOT_FOUND_1 = 90120
+
+    /**
+     * Deprecated since 1.4.198. Use [.DOMAIN_NOT_FOUND_1] instead.
+     */
+    @Deprecated("")
+    val USER_DATA_TYPE_NOT_FOUND_1 = DOMAIN_NOT_FOUND_1
+
+    /**
+     * The error with code `90121` is thrown when
+     * a database operation is started while the virtual machine exits
+     * (for example in a shutdown hook), or when the session is closed.
+     */
+    const val DATABASE_CALLED_AT_SHUTDOWN = 90121
+
+    /**
+     * The error with code `90122` is thrown when
+     * WITH TIES clause is used without ORDER BY clause.
+     */
+    const val WITH_TIES_WITHOUT_ORDER_BY = 90122
+
+    /**
+     * The error with code `90123` is thrown when
+     * trying mix regular parameters and indexed parameters in the same
+     * statement. Example:
+     * <pre>
+     * SELECT ?, ?1 FROM DUAL;
+    </pre> *
+     */
+    const val CANNOT_MIX_INDEXED_AND_UNINDEXED_PARAMS = 90123
+
+    /**
      * The error with code `90131` is thrown when using multi version
      * concurrency control, and trying to update the same row from within two
      * connections at the same time, or trying to insert two rows with the same

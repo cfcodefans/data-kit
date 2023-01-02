@@ -16,6 +16,7 @@ import org.h2.message.TraceSystem
 import org.h2.mode.DefaultNullOrdering
 import org.h2.mode.PgCatalogSchema
 import org.h2.mvstore.db.Store
+import org.h2.result.Row
 import org.h2.result.RowFactory
 import org.h2.result.SearchRow
 import org.h2.schema.InformationSchema
@@ -155,10 +156,11 @@ class Database(
     private var mainSchema: Schema? = null
     private var infoSchema: Schema? = null
     private var pgCatalogSchema: Schema? = null
-    private var nextSessionId = 0
-    private var nextTempTableId = 0
+    private var nextSessionId: Int = 0
+    private var nextTempTableId: Int = 0
     private var systemUser: User? = null
-    private var systemSession: SessionLocal? = null
+    lateinit var systemSession: SessionLocal
+
     private var lobSession: SessionLocal? = null
     private var meta: Table? = null
     private var metaIdIndex: Index? = null
@@ -226,8 +228,12 @@ class Database(
 
     private var pageSize: Int = 0
     private var defaultTableType: Int = Table.TYPE_CACHED
-    private var dbSettings: DbSettings? = null
-    private var store: Store? = null
+    var dbSettings: DbSettings? = null
+        set(value) = Unit
+
+    var store: Store? = null
+        set(value) = Unit
+
     private var allowBuiltinAliasOverride: Boolean = false
     private var backgroundException: AtomicReference<DbException> = AtomicReference<DbException>()
     private var javaObjectSerializer: JavaObjectSerializer? = null
@@ -245,7 +251,11 @@ class Database(
     private var rowFactory: RowFactory = RowFactory.getRowFactory()
     private var ignoreCatalogs: Boolean = false
 
-    private var authenticator: Authenticator? = null
+    var authenticator: Authenticator? = null
+        set(value):Unit {
+            value?.init(this)
+            field = value
+        }
 
     constructor(ci: ConnectionInfo,
                 cipher: String?) : this(cipher = cipher,
@@ -491,14 +501,14 @@ class Database(
         removeMeta(session, id)
     }
 
-    private fun getMap(type: Int): Map<String, DbObject> = when (type) {
+    private fun getMap(type: Int): MutableMap<String, DbObject> = when (type) {
         DbObject.USER, DbObject.ROLE -> usersAndRoles
         DbObject.SETTING -> settings
         DbObject.RIGHT -> rights
         DbObject.SCHEMA -> schemas
         DbObject.COMMENT -> comments
         else -> throw DbException.getInternalError("type=$type")
-    }
+    }.cast()
 
     /**
      * Get the comment for the given database object if one exists, or null if
@@ -714,4 +724,110 @@ class Database(
         return null
     }
 
+    /**
+     * Get the table engine class, loading it if needed.
+     *
+     * @param tableEngine the table engine name
+     * @return the class
+     */
+    fun getTableEngine(tableEngine: String?): TableEngine {
+        assert(Thread.holdsLock(this))
+        var engine = tableEngines[tableEngine]
+        if (engine != null) return engine
+
+        engine = try {
+            JdbcUtils.loadUserClass<Any>(tableEngine!!).getDeclaredConstructor().newInstance() as TableEngine
+        } catch (e: Exception) {
+            throw DbException.convert(e)
+        }
+        tableEngines[tableEngine] = engine!!
+        return engine
+    }
+
+    /**
+     * Get the user or role if it exists, or `null` if not.
+     *
+     * @param name the name of the user or role
+     * @return the user, the role, or `null`
+     */
+    fun findUserOrRole(name: String?): RightOwner? {
+        return usersAndRoles[StringUtils.toUpperEnglish(name!!)]
+    }
+
+    /**
+     * Get the user if it exists, or null if not.
+     *
+     * @param name the name of the user
+     * @return the user or null
+     */
+    fun findUser(name: String?): User? {
+        val rightOwner: RightOwner? = findUserOrRole(name)
+        return if (rightOwner is User) rightOwner else null
+    }
+
+    /**
+     * Add an object to the database.
+     *
+     * @param session the session
+     * @param obj the object to add
+     */
+    @Synchronized
+    fun addDatabaseObject(session: SessionLocal?, obj: DbObject) {
+        val id: Int = obj.id
+        if (id > 0 && !starting) checkWritingAllowed()
+
+        val map: MutableMap<String, DbObject> = getMap(obj.getType())
+        if (obj.getType() == DbObject.USER) {
+            val user = obj as User
+            if (user.admin && systemUser!!.objectName == SYSTEM_USER_NAME) {
+                systemUser!!.rename(user.objectName!!)
+            }
+        }
+
+        val name: String = obj.objectName!!
+        if (SysProperties.CHECK && map[name] != null) {
+            throw DbException.getInternalError("object already exists")
+        }
+        lockMeta(session!!)
+        addMeta(session, obj)
+        map[name] = obj
+    }
+
+    private fun addMeta(session: SessionLocal, obj: DbObject) {
+        assert(Thread.holdsLock(this))
+        val id: Int = obj.id
+        if (id <= 0 || obj.temporary) return
+        if (readOnly) return
+
+        val r: Row = meta!!.getTemplateRow()
+        MetaRecord.populateRowFromDBObject(obj, r)
+        assert(objectIds[id])
+        if (SysProperties.CHECK) verifyMetaLocked(session)
+
+        val cursor = metaIdIndex!!.find(session, r, r)
+        if (!cursor.next()) {
+            meta!!.addRow(session, r)
+        } else {
+            assert(starting)
+            val oldRow = cursor.get()
+            val rec = MetaRecord(oldRow)
+            assert(rec.id == obj.id)
+            assert(rec.objectType == obj.getType())
+            if (rec.sql != obj.getCreateSQLForMeta()) {
+                meta!!.updateRow(session, oldRow, r)
+            }
+        }
+    }
+
+    /**
+     * Verify the meta table is locked.
+     * @param session the session
+     */
+    fun verifyMetaLocked(session: SessionLocal?) {
+        if (lockMode != Constants.LOCK_MODE_OFF
+            && meta != null
+            && !meta!!.isLockedExclusivelyBy(session)) {
+            throw DbException.getInternalError()
+        }
+    }
 }
