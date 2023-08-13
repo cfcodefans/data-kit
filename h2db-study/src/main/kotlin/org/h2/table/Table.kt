@@ -11,11 +11,7 @@ import org.h2.index.Index
 import org.h2.index.IndexType
 import org.h2.message.DbException
 import org.h2.message.Trace
-import org.h2.result.DefaultRow
-import org.h2.result.Row
-import org.h2.result.RowFactory
-import org.h2.result.SearchRow
-import org.h2.result.SortOrder
+import org.h2.result.*
 import org.h2.schema.Schema
 import org.h2.schema.SchemaObject
 import org.h2.schema.Sequence
@@ -41,12 +37,21 @@ abstract class Table(
     name = name,
     traceModuleId = Trace.TABLE) {
 
+    /**
+     * Check whether the table (or view) contains no columns that prevent index
+     * conditions to be used. For example, a view that contains the ROWNUM()
+     * pseudo-column prevents this.
+     *
+     * @return true if the table contains no query-comparable column
+     */
+    open fun isQueryComparable(): Boolean = true
+
     val columnMap: HashMap<String, Column> = schema.database.newStringMap()
 
     /**
      * The compare mode used for this table.
      */
-    open var comparedMode: CompareMode = schema.database.compareMode
+    open var comparedMode: CompareMode = schema.database!!.compareMode
 
     var constraints: ArrayList<Constraint>? = null
 

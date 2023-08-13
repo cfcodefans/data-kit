@@ -34,21 +34,14 @@ import org.h2.table.Table
 import org.h2.table.TableLinkConnection
 import org.h2.table.TableType
 import org.h2.tools.Server
-import org.h2.util.JdbcUtils
-import org.h2.util.NetUtils
-import org.h2.util.SmallLRUCache
-import org.h2.util.SourceCompiler
-import org.h2.util.StringUtils
-import org.h2.util.TempFileDeleter
-import org.h2.util.Utils
+import org.h2.util.*
 import org.h2.value.CaseInsensitiveConcurrentMap
 import org.h2.value.CompareMode
 import org.h2.value.TypeInfo
 import org.h2.value.ValueInteger
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.sql.SQLException
-import java.util.BitSet
-import java.util.Collections
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -62,12 +55,12 @@ import java.util.concurrent.atomic.AtomicReference
  * @since 2004-04-15 22:49
  */
 class Database(
-    private var persistent: Boolean = false,
-    private var databaseName: String? = null,
-    private var databaseShortName: String? = null,
-    private var databaseURL: String? = null,
-    private var cipher: String? = null,
-    private var filePasswordHash: ByteArray? = null,
+        private var persistent: Boolean = false,
+        private var databaseName: String? = null,
+        private var databaseShortName: String? = null,
+        private var databaseURL: String? = null,
+        private var cipher: String? = null,
+        private var filePasswordHash: ByteArray? = null,
 ) : DataHandler, CastDataProvider {
     companion object {
         private const val initialPowerOffCount = 0
@@ -179,7 +172,7 @@ class Database(
      * Used to trigger the client side to reload some settings.
      */
     private var remoteSettingsId = AtomicLong()
-    private var compareMode: CompareMode? = CompareMode.getInstance(null, 0)
+    var compareMode: CompareMode = CompareMode.getInstance(null, 0)
     override fun getCompareMode(): CompareMode? = compareMode
 
     private var cluster = Constants.CLUSTERING_DISABLED
@@ -208,7 +201,7 @@ class Database(
     private var mode = Mode.getRegular()
     override fun getMode(): Mode = mode
 
-    private var defaultNullOrdering: DefaultNullOrdering = DefaultNullOrdering.LOW
+    var defaultNullOrdering: DefaultNullOrdering = DefaultNullOrdering.LOW
     private val maxOperationMemory: Int = Constants.DEFAULT_MAX_OPERATION_MEMORY
     private val lobFileListCache: SmallLRUCache<String, Array<String>>? = null
     override fun getLobFileListCache(): SmallLRUCache<String, Array<String>>? = lobFileListCache
@@ -248,7 +241,7 @@ class Database(
     private var queryStatistics: Boolean = false
     private var queryStatisticsMaxEntries = Constants.QUERY_STATISTICS_MAX_ENTRIES
     private var queryStatisticsData: QueryStatisticsData? = null
-    private var rowFactory: RowFactory = RowFactory.getRowFactory()
+    var rowFactory: RowFactory = RowFactory.getRowFactory()
     private var ignoreCatalogs: Boolean = false
 
     var authenticator: Authenticator? = null
@@ -259,7 +252,7 @@ class Database(
 
     constructor(ci: ConnectionInfo,
                 cipher: String?) : this(cipher = cipher,
-        filePasswordHash = ci.filePasswordHash) {
+            filePasswordHash = ci.filePasswordHash) {
 
         if (ASSERT!!) {
             META_LOCK_DEBUGGING!!.set(null)
@@ -366,10 +359,10 @@ class Database(
             systemUser = User(database = this, id = 0, userName = SYSTEM_USER_NAME, systemUser = true, admin = true)
 
             mainSchema = Schema(this,
-                Constants.MAIN_SCHEMA_ID,
-                sysIdentifier(Constants.SCHEMA_MAIN),
-                systemUser,
-                true)
+                    Constants.MAIN_SCHEMA_ID,
+                    sysIdentifier(Constants.SCHEMA_MAIN),
+                    systemUser,
+                    true)
 
             infoSchema = InformationSchema(this, systemUser)
 
@@ -403,10 +396,10 @@ class Database(
     private fun startServer(key: String) {
         try {
             server = Server.createTcpServer(
-                "-tcpPort", autoServerPort.toString(),
-                "-tcpAllowOthers",
-                "-tcpDaemon",
-                "-key", key, databaseName)
+                    "-tcpPort", autoServerPort.toString(),
+                    "-tcpAllowOthers",
+                    "-tcpDaemon",
+                    "-key", key, databaseName)
             server!!.start()
         } catch (e: SQLException) {
             throw DbException.convert(e)
@@ -449,10 +442,10 @@ class Database(
         }
         n = if (++i == l) "UNNAMED" else n.substring(i)
         return StringUtils.truncateString(
-            if (dbSettings!!.databaseToUpper) StringUtils.toUpperEnglish(n)
-            else if (dbSettings!!.databaseToLower) StringUtils.toLowerEnglish(n)
-            else n,
-            Constants.MAX_IDENTIFIER_LENGTH)
+                if (dbSettings!!.databaseToUpper) StringUtils.toUpperEnglish(n)
+                else if (dbSettings!!.databaseToLower) StringUtils.toLowerEnglish(n)
+                else n,
+                Constants.MAX_IDENTIFIER_LENGTH)
     }
 
     fun setEventListenerClass(className: String?) {
@@ -465,8 +458,8 @@ class Database(
             eventListener!!.init(cipher?.let { "$databaseURL;CIPHER=$it" } ?: databaseURL!!)
         } catch (e: Throwable) {
             throw DbException.get(
-                ErrorCode.ERROR_SETTING_DATABASE_EVENT_LISTENER_2, e,
-                className, e.toString())
+                    ErrorCode.ERROR_SETTING_DATABASE_EVENT_LISTENER_2, e,
+                    className, e.toString())
         }
     }
 
@@ -829,5 +822,26 @@ class Database(
             && !meta!!.isLockedExclusivelyBy(session)) {
             throw DbException.getInternalError()
         }
+    }
+
+    /**
+     * Update an object in the system table.
+     *
+     * @param session the session
+     * @param obj the database object
+     */
+    fun updateMeta(session: SessionLocal?, obj: DbObject) {
+        val id: Int = obj.id
+        if (id <= 0) return
+
+        if (!starting && !obj.temporary) {
+            val newRow: Row = meta!!.getTemplateRow()
+            MetaRecord.populateRowFromDBObject(obj, newRow)
+
+            metaIdIndex!!.getRow(session, id.toLong())
+                ?.let { oldRow -> meta!!.updateRow(session, oldRow, newRow) }
+        }
+        // for temporary objects
+        synchronized(objectIds) { objectIds.set(id) }
     }
 }

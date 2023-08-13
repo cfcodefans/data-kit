@@ -24,15 +24,7 @@ import org.h2.api.ErrorCode.UNKNOWN_DATA_TYPE_1
 import org.h2.api.ErrorCode.UNSUPPORTED_SETTING_COMBINATION
 import org.h2.api.ErrorCode.getState
 import org.h2.engine.Constants
-import org.h2.jdbc.JdbcException
-import org.h2.jdbc.JdbcSQLDataException
-import org.h2.jdbc.JdbcSQLException
-import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException
-import org.h2.jdbc.JdbcSQLInvalidAuthorizationSpecException
-import org.h2.jdbc.JdbcSQLNonTransientConnectionException
-import org.h2.jdbc.JdbcSQLNonTransientException
-import org.h2.jdbc.JdbcSQLSyntaxErrorException
-import org.h2.jdbc.JdbcSQLTransactionRollbackException
+import org.h2.jdbc.*
 import org.h2.util.SortedProperties
 import org.h2.util.StringUtils
 import org.h2.util.Utils
@@ -43,8 +35,7 @@ import java.nio.charset.StandardCharsets
 import java.sql.DriverManager
 import java.sql.SQLException
 import java.text.MessageFormat
-import java.util.Locale
-import java.util.Properties
+import java.util.*
 
 /**
  * This exception wraps a checked exception.
@@ -424,6 +415,8 @@ class DbException(msg: String?, e: SQLException) : RuntimeException(msg, e) {
             return get(ErrorCode.VALUE_TOO_LONG_2, columnOrType!!, builder.toString())
         }
     }
+
+    var source: Any? = null
 
     private constructor(e: SQLException) : this(e.message, e)
 

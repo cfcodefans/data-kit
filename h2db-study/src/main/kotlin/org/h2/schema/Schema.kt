@@ -36,9 +36,9 @@ open class Schema(database: Database,
                   schemaName: String,
                   var owner: RightOwner?,
                   val system: Boolean) : DbObject(database = database,
-    id = id,
-    objectName = schemaName,
-    traceModuleId = Trace.SCHEMA) {
+        id = id,
+        objectName = schemaName,
+        traceModuleId = Trace.SCHEMA) {
 
     val tablesAndViews: ConcurrentHashMap<String, Table> = database.newConcurrentStringMap()
     private val domains: ConcurrentHashMap<String, Domain> = database.newConcurrentStringMap()
@@ -175,7 +175,7 @@ open class Schema(database: Database,
         CONSTANT -> constants
         FUNCTION_ALIAS, AGGREGATE -> functionsAndAggregates
         else -> throw DbException.getInternalError("type=$type")
-    }.cast()
+    } as ConcurrentHashMap<String, SchemaObject>
 
     /**
      * Add an object to this schema.
@@ -212,6 +212,7 @@ open class Schema(database: Database,
                 if (!map.containsKey(name) && temporaryUniqueNames.add(name)) return name
             }
             val nameLength = nameBuilder.append('_').length
+
             var i = 0;while (true) {
             val name = nameBuilder.append(i).toString()
             if (!map.containsKey(name) && temporaryUniqueNames.add(name)) return name
@@ -230,8 +231,8 @@ open class Schema(database: Database,
      */
     open fun getUniqueConstraintName(session: SessionLocal, table: Table): String {
         return getUniqueName(obj = table,
-            map = if (table.temporary && !table.isGlobalTemporary()) session.localTempTableConstraints else constraints,
-            prefix = "CONSTRAINT_")
+                map = if (table.temporary && !table.isGlobalTemporary()) session.localTempTableConstraints else constraints,
+                prefix = "CONSTRAINT_")
     }
 
     /**
@@ -255,8 +256,8 @@ open class Schema(database: Database,
      */
     open fun getUniqueIndexName(session: SessionLocal, table: Table, prefix: String?): String {
         return getUniqueName(obj = table,
-            map = (if (table.temporary && !table.isGlobalTemporary()) session.localTempTableIndexes else indexes),
-            prefix = prefix!!)
+                map = (if (table.temporary && !table.isGlobalTemporary()) session.localTempTableIndexes else indexes),
+                prefix = prefix!!)
     }
 
     /**

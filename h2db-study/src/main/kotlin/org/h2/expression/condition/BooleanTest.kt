@@ -18,15 +18,14 @@ open class BooleanTest(val right: Boolean?,
                        left: Expression?, not: Boolean, whenOperand: Boolean)
     : SimplePredicate(left, not, whenOperand) {
 
-    override fun getUnenclosedSQL(builder: StringBuilder?, sqlFlags: Int): StringBuilder? {
-        return getWhenSQL(left!!.getSQL(builder!!, sqlFlags, AUTO_PARENTHESES), sqlFlags)
-    }
-
     override fun getWhenSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder? {
         return builder.append(if (not) " IS NOT " else " IS ").append(if (right == null) "UNKNOWN" else if (right) "TRUE" else "FALSE")
     }
 
     override fun getValue(session: SessionLocal?): Value? = ValueBoolean[getValue(left!!.getValue(session)!!)]
+    override fun getUnenclosedSQL(builder: StringBuilder, sqlFlags: Int): StringBuilder? {
+        return getWhenSQL(left!!.getSQL(builder!!, sqlFlags, AUTO_PARENTHESES), sqlFlags)
+    }
 
     override fun getWhenValue(session: SessionLocal, left: Value?): Boolean = if (!whenOperand) {
         super.getWhenValue(session, left)
@@ -55,7 +54,7 @@ open class BooleanTest(val right: Boolean?,
                 }
             } else {
                 filter.addIndexCondition(IndexCondition.get(Comparison.EQUAL_NULL_SAFE, c,
-                                                            if (right == null) TypedValueExpression.UNKNOWN else ValueExpression.getBoolean(right)))
+                        if (right == null) TypedValueExpression.UNKNOWN else ValueExpression.getBoolean(right)))
             }
         }
     }

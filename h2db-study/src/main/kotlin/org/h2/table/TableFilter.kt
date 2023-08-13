@@ -51,7 +51,7 @@ typealias TableFilterVisitor = (TableFilter) -> Unit
  * @param indexHints the index hints to be used by the query planner
  */
 open class TableFilter(private var session: SessionLocal,
-                       private val table: Table,
+                       val table: Table,
                        private var alias: String?,
                        rightsChecked: Boolean,
                        override val select: Select?,

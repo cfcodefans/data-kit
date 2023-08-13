@@ -154,7 +154,7 @@ abstract class DbObject(var database: Database?,
      * @param quotedName the quoted name
      * @return the SQL statement
      */
-    open fun getCreateSQLForCopy(table: Table?, quotedName: String?): String {
+    open fun getCreateSQLForCopy(table: Table, quotedName: String): String {
         throw DbException.getInternalError(toString())
     }
 

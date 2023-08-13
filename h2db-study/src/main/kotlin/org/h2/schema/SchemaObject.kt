@@ -13,12 +13,11 @@ import org.h2.engine.DbObject
  */
 abstract class SchemaObject(val schema: Schema,
                             id: Int,
-                            name: String,
-                            traceModuleId: Int
-) : DbObject(database = schema.database,
-    id = id,
-    objectName = name,
-    traceModuleId = traceModuleId) {
+                            name: String?,
+                            traceModuleId: Int) : DbObject(database = schema.database,
+        id = id,
+        objectName = name,
+        traceModuleId = traceModuleId) {
 
 
     override fun getSQL(sqlFlags: Int): String = getSQL(StringBuilder(), sqlFlags).toString()

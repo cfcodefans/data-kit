@@ -110,7 +110,7 @@ abstract class RowFactory {
     open fun createRowFactory(provider: CastDataProvider?,
                               compareMode: CompareMode?,
                               handler: DataHandler?,
-                              columns: Array<Typed?>?,
+                              columns: Array<Typed>?,
                               indexColumns: Array<IndexColumn>?,
                               storeKeys: Boolean): RowFactory? = this
 }
