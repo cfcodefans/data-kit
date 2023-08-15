@@ -21,7 +21,10 @@ add: mul
     | add ('+'|'-') mul ;
 
 mul: unary
-    | mul ('*'|'/') unary ;
+    | pow ('*'|'/') unary ;
+
+pow: unary
+    | pow ('^') unary ;
 
 relop: EQ | GT | LT | GEQ | LEQ ;
 
