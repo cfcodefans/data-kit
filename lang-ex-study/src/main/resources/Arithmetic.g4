@@ -1,4 +1,4 @@
-grammar arithmetic_v1;
+grammar Arithmetic;
 
 input : expr EOF;
 
