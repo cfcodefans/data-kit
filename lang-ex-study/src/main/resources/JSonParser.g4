@@ -6,15 +6,13 @@ input: expr EOF;
 // parser for arithmetic
 sign: PLUS|MINUS|OPPSITE;
 
-expr:
-    | arithmetic
+expr: arithmetic
     | string
     | expr PLUS expr
     | expr relop expr
     ;
 
-arithmetic:
-    | unary
+arithmetic: unary
     | arithmetic POW arithmetic
     | arithmetic (TIMES|DIV|MOD) arithmetic
     | arithmetic (PLUS|MINUS) arithmetic
