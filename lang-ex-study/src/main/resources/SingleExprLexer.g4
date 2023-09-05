@@ -13,7 +13,7 @@ Hashtag: '#';
 
 OpenBrace:  '{' {this.ProcessOpenBrace();} -> pushMode(DEFAULT_MODE);
 //TemplateCloseBrace: {this.IsInTempateStr()}? '}' -> popMode; //TODO
-CloseBrace: {this.IsInTempateStr()}? '}' {this.ProcessCloseBrace();} -> popMode;
+CloseBrace: {this.IsInTempateStr(_localctx)}? '}' {this.ProcessCloseBrace();} -> popMode;
 
 QuestionMark: '?';
 QuestionMarkDot: '?.';

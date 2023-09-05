@@ -23,7 +23,8 @@ relop: EQ | GT | LT | GEQ | LEQ ;
 
 primary: NUMBER
     | variable
-    | LPAREN arithmetic RPAREN;
+    | LPAREN arithmetic RPAREN
+    | funcationCall;
 
 unary: primary
     | sign unary;
@@ -38,3 +39,7 @@ templateStringAtom: embedded
     | TemplateStringAtom;
 
 embedded: EmbeddingStart expr EmbeddingEnd;
+
+functionName: VARIABLE;
+arguments: expr (COMMA expr)*;
+funcationCall: functionName LPAREN arguments? RPAREN;

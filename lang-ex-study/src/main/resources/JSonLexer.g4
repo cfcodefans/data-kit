@@ -26,6 +26,10 @@ LT: '<';
 GEQ: '>=';
 LEQ: '<=';
 
+//function call
+COMMA: ',';
+
+
 //String
 fragment HEX: [0-9a-fA-F] ;
 fragment UNICODE: 'u' HEX HEX HEX HEX ;
