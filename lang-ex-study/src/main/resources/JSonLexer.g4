@@ -20,6 +20,10 @@ VARIABLE : ('a' .. 'z' | 'A' .. 'Z' | '_') ('a' .. 'z' | 'A' .. 'Z' | '_' | '0' 
 LPAREN: '(';
 RPAREN: ')';
 
+LBRACK: '[';
+RBRACK: ']';
+CURLY_BRACKE_L: '{'-> pushMode(DEFAULT_MODE);
+
 EQ: '==';
 GT: '>';
 LT: '<';
@@ -28,7 +32,7 @@ LEQ: '<=';
 
 //function call
 COMMA: ',';
-
+COLON: ':';
 
 //String
 fragment HEX: [0-9a-fA-F] ;

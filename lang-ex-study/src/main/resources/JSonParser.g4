@@ -10,7 +10,18 @@ expr: arithmetic
     | string
     | expr PLUS expr
     | expr relop expr
+    | array
+    | object
     ;
+
+pair: VARIABLE COLON expr
+    | VARIABLE;
+
+object: CURLY_BRACKE_L pair (COMMA pair)* EmbeddingEnd
+    | CURLY_BRACKE_L EmbeddingEnd;
+
+array_elements: expr (COMMA expr)*;
+array: LBRACK array_elements? RBRACK;
 
 arithmetic: unary
     | arithmetic POW arithmetic
