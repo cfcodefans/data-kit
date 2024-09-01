@@ -15,7 +15,8 @@ Variable : ('a' .. 'z' | 'A' .. 'Z' | '_') ('a' .. 'z' | 'A' .. 'Z' | '_' | '0' 
 
 BackTick: '`' -> pushMode(Template);
 mode Template;
-TemplateStringAtom: ~[`] ;
+//TemplateStringAtom: ~[`] ;
+TemplateStringAtom: ~['`'|'$']+;
 BackTickEnd: '`' -> type(BackTick), popMode;
 
 EmbeddingStart: '${' -> pushMode(DEFAULT_MODE); //every token under the mode definition is only visible in the mode

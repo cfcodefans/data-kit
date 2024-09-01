@@ -1,0 +1,10 @@
+WS=1
+ONE_LINE=2
+ESC=3
+EmbeddingEnd=4
+Variable=5
+BackTick=6
+TemplateStringAtom=7
+EmbeddingStart=8
+'}'=4
+'${'=8
